@@ -1,0 +1,7 @@
+bin/
+build/
+lib/
+CMakeLists.txt\.*
+docs/*
+!docs/doxygen/Doxyfile
+!docs/doxygen/mainpage.dox
