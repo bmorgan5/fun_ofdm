@@ -4,7 +4,7 @@
 
 This project is an 802.11a OFDM PHY layer implementation written in C++ for use with Ettus USRPs. It contains both transmitter and receiver blocks and were tested with USRP N210s + XCVR 2450 daughterboards. These blocks are provided separately so that they can be used individually. They can also be easily combined into a single transceiver, but that is left up to the user because how they interact with each other should be controlled by the MAC layer which is outside the scope of this project. Note: A simple transceiver example is provided in the examples directory of the project.
 
-The [Official doxygen API can be found here!](http://www.ee.washington.edu/research/funlab/fun_ofdm/index.html)
+The [Official FUN OFDM API can be found here!](http://www.ee.washington.edu/research/funlab/fun_ofdm/index.html)
 
 # Getting Set Up #
 
@@ -20,7 +20,7 @@ Each USRP requires its own gigabit ethernet port.
 
 __3. Second Generation Intel i5/i7 processor (or equivalent) and 8 GB RAM__
 
-The transmitter is not very computationally complex. However, the receiver runs about 6 threads with about each one performing O(N) complex multiplications each. Therefore, to run the receiver (either by itself or as part of a transceiver) it is recommended that you have at least a 2nd generation Intel i5/i7 or equivalent and 
+The transmitter is not very computationally complex. However, the receiver runs about 6 threads with about each one performing O(N) complex multiplications each. Therefore, to run the receiver (either by itself or as part of a transceiver) it is recommended that you have at least a 2nd generation Intel i5/i7 or equivalent and at least 8 GB of RAM.
 
 
 ## Dependencies ##
@@ -117,7 +117,7 @@ sudo apt-get install libpthread-stubs0-dev
 The easiest way to compile the code is to download it come github (clone) and then use CMake & make.
 
 ~~~
-git clone git://github.com/bmorgan5/fun_ofdm
+git clone https://github.com/bmorgan5/fun_ofdm.git
 cd fun_ofdm
 mkdir build
 cd build
@@ -302,10 +302,10 @@ The main parameters used for the transmitter / receiver are as follows:
 * sample_rate - AD/DA sampling frequency (also corresponds to bandwidth) [default=5e6 (5 MHz)]
 * tx_gain     - Output amplifier gain (0-35 on USRP N210) [default=20]
 * rx_gain     - Input amplifier gain  (0-35 on USRP N210) [default=20]
-* tx_amp 		  - Scale factor for transmit samples. Used to give finer control over output power. [default=1]
+* tx_amp          - Scale factor for transmit samples. Used to give finer control over output power. [default=1]
 * device_addr - IP Address of USRP as a string. An empty string will automatically find an eligable USRP [default=""]
 
-* phy_rate 	  - The modulation and coding rate used when building the phy frames [default=1_2_BPSK (BPSK w/ Rate R=1/2 Convolutional Code)]
+* phy_rate    - The modulation and coding rate used when building the phy frames [default=1_2_BPSK (BPSK w/ Rate R=1/2 Convolutional Code)]
 
 ## Transmitter ##
 
@@ -394,9 +394,9 @@ The full code for this simple transcieiver can be found in the examples director
 + Are both the transmitter and receiver using the same center freq? sample rate?
 + Are compiler optimizations turned on (they are turned on by default in the top level CMakeLists.txt)
 + If you see 'D's printed to the screen that might indicate hardware problems
-	+ Could be your ethernet card - see the sysconf changes recommended by Ettus
-	+ Could be your processor is too slow/too busy
-	+ Could be not enough Ram available
+    + Could be your ethernet card - see the sysconf changes recommended by Ettus
+    + Could be your processor is too slow/too busy
+    + Could be not enough Ram available
 
 # Contact #
 
