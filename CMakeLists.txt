@@ -42,7 +42,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 # Compiler specific setup
 ########################################################################
 # C++ Compile Flags
-set(CMAKE_CXX_FLAGS "-lpthread -m64 -std=c++11 -mssse3 -msse4.1")
+set(CMAKE_CXX_FLAGS "-m64 -std=c++11 -mssse3 -msse4.1")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3") # Optimization!!
 
 ########################################################################

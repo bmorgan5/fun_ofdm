@@ -13,6 +13,7 @@
 using namespace fun;
 
 void test_tx(double freq, double sample_rate, double tx_gain, double amp, Rate phy_rate);
+bool set_realtime_priority();
 
 double freq = 5.72e9;
 double sample_rate = 5e6;
@@ -22,6 +23,8 @@ double amp = 0.5;
 Rate phy_rate = RATE_1_2_BPSK;
 
 int main(int argc, char * argv[]){
+
+    set_realtime_priority();
 
 	std::cout << "Testing transmit chain..." << std::endl;
     test_tx(freq, sample_rate, tx_gain, amp, phy_rate);
@@ -72,6 +75,27 @@ void test_tx(double freq, double sample_rate, double tx_gain, double amp, Rate p
         tx.send_packet(packets[i], phy_rate);
     }
 
+}
+
+/*!
+ * \brief Attempt to set real time priority for thread scheduling
+ * \return Whether or not real time priority was succesfully set.
+ */
+bool set_realtime_priority()
+{
+    // Get the current thread
+    pthread_t this_thread = pthread_self();
+
+    // Set priority to SCHED_FIFO
+    struct sched_param params;
+    params.sched_priority = sched_get_priority_max(SCHED_RR);
+    if (pthread_setschedparam(this_thread, SCHED_RR, &params) != 0)
+    {
+        std::cout << "Unable to set realtime priority. Did you forget to sudo?" << std::endl;
+        return false;
+    }
+
+    return true;
 }
 
 

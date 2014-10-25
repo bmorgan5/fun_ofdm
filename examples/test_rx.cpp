@@ -16,6 +16,7 @@ using namespace fun;
 void test_rx(double freq, double sample_rate, double rx_gain);
 void test_rx_pause(double freq, double rate, double rx_gain);
 void process_packets_callback(std::vector<std::vector<unsigned char> > packets);
+bool set_realtime_priority();
 
 double freq = 5.72e9;
 double sample_rate = 5e6;
@@ -53,6 +54,8 @@ int main(int argc, char * argv[]){
  */
 void test_rx(double freq, double sample_rate, double rx_gain)
 {
+
+    set_realtime_priority();
 
     // Instantiate a usrp
     printf("Instantiating the usrp.\n");
@@ -118,4 +121,24 @@ void process_packets_callback(std::vector<std::vector<unsigned char> > packets)
 
 }
 
+/*!
+ * \brief Attempt to set real time priority for thread scheduling
+ * \return Whether or not real time priority was succesfully set.
+ */
+bool set_realtime_priority()
+{
+    // Get the current thread
+    pthread_t this_thread = pthread_self();
+
+    // Set priority to SCHED_FIFO
+    struct sched_param params;
+    params.sched_priority = sched_get_priority_max(SCHED_RR);
+    if (pthread_setschedparam(this_thread, SCHED_RR, &params) != 0)
+    {
+        std::cout << "Unable to set realtime priority. Did you forget to sudo?" << std::endl;
+        return false;
+    }
+
+    return true;
+}
 
