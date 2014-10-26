@@ -22,7 +22,7 @@ namespace fun {
      *
      *  Usage: Create a transmitter object with the desired USRP parameters (center frequency,
      *  sample rate, transmitter gain, and amplitude). Then to send a packet simply call
-     *  the transmitter::send_packet() function passing it the desired packet to be transmitted
+     *  the transmitter::send_frame() function passing it the desired packet to be transmitted
      *  and the desired Physical Layer rate (PHY Rate) to transmit it.
      */
     class transmitter
@@ -70,7 +70,7 @@ namespace fun {
          *  This function uses the usrp::send_burst_sync() function which means that this function
          *  blocks until the packet is done transmitting.
          */
-        void send_packet(std::vector<unsigned char> payload, Rate phy_rate = RATE_1_2_BPSK);
+        void send_frame(std::vector<unsigned char> payload, Rate phy_rate = RATE_1_2_BPSK);
 
     private:
 

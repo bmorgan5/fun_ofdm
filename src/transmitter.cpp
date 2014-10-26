@@ -30,7 +30,7 @@ namespace fun {
     /*!
      *  Transmits a single frame, blocking until the frame is sent.
      */
-    void transmitter::send_packet(std::vector<unsigned char> payload, Rate phy_rate)
+    void transmitter::send_frame(std::vector<unsigned char> payload, Rate phy_rate)
     {
         std::vector<std::complex<double> > samples = m_frame_builder.build_frame(payload, phy_rate);
         m_usrp.send_burst_sync(samples);

@@ -72,7 +72,7 @@ void test_tx(double freq, double sample_rate, double tx_gain, double amp, Rate p
     for(int i = 0; i < num_packets; i++)
     {
         std::cout << "Sending packet " << i + 1 << " of " << num_packets << " at " << tx_phy_rate << std::endl;
-        tx.send_packet(packets[i], phy_rate);
+        tx.send_frame(packets[i], phy_rate);
     }
 
 }
