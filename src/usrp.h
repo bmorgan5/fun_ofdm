@@ -101,7 +101,7 @@ namespace fun
         boost::shared_ptr<uhd::usrp::multi_usrp> m_usrp; //!< multi_usrp (main USRP handle)
         boost::shared_ptr<uhd::device> m_device;         //!< device (receives async messages)
         uhd::rx_streamer::sptr m_rx_streamer;            //!< TX (output) streamer
-        uhd::tx_streamer::sptr m_tx_streamer;            //!<  RX (input) streamer
+        uhd::tx_streamer::sptr m_tx_streamer;            //!< RX (input) streamer
 
         sem_t m_tx_sem;                                  //!< Sempahore used to block for #send_burst_sync
     };

@@ -60,7 +60,7 @@ void test_rx(double freq, double sample_rate, double rx_gain)
     // Instantiate a usrp
     printf("Instantiating the usrp.\n");
 
-    receiver rx = receiver(&process_packets_callback, freq, sample_rate, rx_gain, "");
+    receiver rx(&process_packets_callback, freq, sample_rate, rx_gain, "");
 
     while(1);
 }
@@ -84,7 +84,7 @@ void test_rx_pause(double freq, double sample_rate, double rx_gain)
 
     // Instantiate a usrp
     printf("Instantiating the usrp.\n");
-    receiver rx = receiver(&process_packets_callback, freq, sample_rate, rx_gain, "");
+    receiver rx(&process_packets_callback, freq, sample_rate, rx_gain, "");
 
     while(1)
     {

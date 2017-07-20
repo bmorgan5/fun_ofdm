@@ -26,6 +26,10 @@
 
 namespace fun
 {
+    enum block_status {
+        RUNNING,
+        STOPPED
+    };
     /*!
      * \brief The block_base class.
      *
@@ -42,7 +46,7 @@ namespace fun
          * \param block_name the name of the block as a std::string
          */
         block_base(std::string block_name) :
-            name(block_name)
+            name(block_name), status(STOPPED)
         {
         }
 
@@ -53,10 +57,21 @@ namespace fun
          */
         virtual void work() = 0;
 
+        //TODO: Make a getter function...probably just called name()
         /*!
          * \brief the public name of the block
          */
         std::string name;
+
+    private:
+        /*!
+         * \brief mutex used to synchronize this worker thread
+         */
+        std::mutex mtx;
+
+        std::condition_variable cv;
+
+        block_status status;
     };
 
     /*!

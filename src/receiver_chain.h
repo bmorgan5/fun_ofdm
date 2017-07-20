@@ -11,7 +11,8 @@
 #define RECEIVER_CHAIN_H
 
 #include <thread>
-#include <semaphore.h>
+#include <mutex>
+#include <condition_variable>
 
 #include "fft_symbols.h"
 #include "channel_est.h"
@@ -24,8 +25,7 @@
 
 namespace fun
 {
-
-    /*! \brief The Receiver Chain class.
+   /*! \brief The Receiver Chain class.
      *
      *  Inputs raw complex doubles representing the base-band digitized time domain signal.
      *
@@ -40,11 +40,12 @@ namespace fun
     class receiver_chain
     {
     public:
-
         /*!
          * \brief Constructor for receiver_chain
          */
         receiver_chain();
+
+        virtual ~receiver_chain();
 
         /*!
          * \brief Processes the raw time domain samples.
@@ -56,6 +57,16 @@ namespace fun
         std::vector<std::vector<unsigned char> > process_samples(std::vector<std::complex<double> > samples);
 
     private:
+        /**********
+         * Status *
+         **********/
+
+        enum class status
+        {
+            READY,
+            RUNNING,
+            DONE
+        };
 
         /**********
          * Blocks *
@@ -76,24 +87,29 @@ namespace fun
          * \brief Adds block to the receiver call chain
          * \param block A pointer to the block so that its work function can be called
          */
-        void add_block(fun::block_base * block);
+        void add_block(block_base * block);
+
+        void wait_on_wake(size_t index);
+
+        void post_to_wake(size_t index);
+
+        void wait_on_done(size_t index);
+
+        void post_to_done(size_t index);
 
         /*!
          * \brief Runs the block by calling its work function
          * \param index the block's index for referencing the correct semaphores for that block.
          * \param block A pointer to the block used as a handle to access its work() function.
          */
-        void run_block(int index, fun::block_base * block);
-
+        void run_block(size_t index, block_base * block);
 
         std::vector<std::thread> m_threads; //!< Vector of threads - one for each block
 
-
-        std::vector<sem_t> m_wake_sems; //!< Vector of semaphores used to "wake up" each block
-
-
-        std::vector<sem_t> m_done_sems; //!< Vector of semaphores used to determine when the blocks are done
-    };
+        std::vector<std::mutex> m_wake_mtxs;
+        std::vector<std::condition_variable> m_wake_conditions;
+        std::vector<status> m_wake_flags;
+   };
 
 }
 

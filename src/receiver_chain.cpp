@@ -26,8 +26,18 @@ namespace fun
      *
      *  Adds each block to the receiver chain.
      */
+
+    //TODO: Figure out how to calculate this programmatically
+    const int num_blocks = 6;
     receiver_chain::receiver_chain()
     {
+
+        m_wake_mtxs = std::vector<std::mutex>(num_blocks);
+        m_wake_conditions = std::vector<std::condition_variable>(num_blocks);
+        m_wake_flags = std::vector<status>(num_blocks, status::DONE);
+        // TODO: Creating an object on the heap is pretty unnecessary here
+        // instead it should be created locally and then use c++ casting features
+        // to pass it to a function if needed
         m_frame_detector = new frame_detector();
         m_timing_sync = new timing_sync();
         m_fft_symbols = new fft_symbols();
@@ -35,11 +45,6 @@ namespace fun
         m_phase_tracker = new phase_tracker();
         m_frame_decoder = new frame_decoder();
 
-        // We use semaphore references, so we don't
-        // want them to move to a different memory location
-        // if the vectors get resized
-        m_wake_sems.reserve(100);
-        m_done_sems.reserve(100);
 
         // Add the blocks to the receiver chain
         add_block(m_frame_detector);
@@ -48,6 +53,25 @@ namespace fun
         add_block(m_channel_est);
         add_block(m_phase_tracker);
         add_block(m_frame_decoder);
+
+
+        // m_done_mtxs = std::vector<std::mutex>(m_threads.size());
+        // m_done_conditions = std::vector<std::condition_variable>(m_threads.size());
+        // m_done_flags = std::vector<bool>(m_threads.size(), false);
+    }
+
+    // TODO: Stop threads when destructing
+    receiver_chain::~receiver_chain()
+    {
+        for(int i = 0; i < num_blocks; ++i)
+        {
+            std::stringstream msg;
+            msg << "Joining thread " << i << std::endl;
+            std::cout << msg.str();
+
+            m_threads[i].join();
+        }
+        std::cout << "Done" << std::endl;
     }
 
     /*!
@@ -55,14 +79,91 @@ namespace fun
      * It then creates a new thread for the block to run in and adds that thread
      * to the thread vector for reference.
      */
-    void receiver_chain::add_block(fun::block_base * block)
+    void receiver_chain::add_block(block_base * block)
     {
-        m_wake_sems.push_back(sem_t());
-        m_done_sems.push_back(sem_t());
-        int index = m_wake_sems.size() - 1;
-        sem_init(&m_wake_sems[index], 0, 0);
-        sem_init(&m_done_sems[index], 0, 0);
+        // Initialize all the threads to be NOT awake
+        // m_wake_flags.push_back(false);
+        // m_wake_mtxs.emplace_back();
+        // m_wake_conditions.emplace_back();
+
+        // // Initialize all the threads to be done
+        // m_done_flags.push_back(true);
+        // m_done_mtxs.emplace_back();
+        // m_done_conditions.emplace_back();
+
+        size_t index = m_threads.size();
         m_threads.push_back(std::thread(&receiver_chain::run_block, this, index, block));
+    }
+
+    /*!
+     * TODO: Write me!
+     */
+    // TODO: maybe I should add a wait to this as well
+    // but if it blocks on wake_lock it shouldn't block long b/c the other lock is using a wait
+    // which releases the lock very quickly
+    void receiver_chain::post_to_wake(size_t index)
+    {
+        // This scope is important so that wake_lock goes out of scope and is destructed
+        // and unlocks (because of RAII) before the call to notify_all()
+        {
+            std::lock_guard<std::mutex> wake_lock(m_wake_mtxs[index]);
+
+            std::stringstream msg;
+            msg << "Waking thread " << index << std::endl;
+            std::cout << msg.str();
+
+            m_wake_flags[index] = status::READY;
+        }
+        m_wake_conditions[index].notify_all(); // This is important if someone in blocked on this thread
+    }
+
+    void receiver_chain::wait_on_wake(size_t index)
+    {
+        std::unique_lock<std::mutex> wake_lock(m_wake_mtxs[index]);
+        m_wake_conditions[index].wait(wake_lock, [=] {
+            std::stringstream msg;
+            msg << "Waiting on wake for thread " << index << std::endl;
+            std::cout << msg.str();
+
+            if(m_wake_flags[index] == status::READY)
+            {
+                // m_wake_flags[index] = status::RUNNING;
+                return true;
+            }
+            return false;
+        });
+    }
+
+    void receiver_chain::post_to_done(size_t index)
+    {
+        // This scope is important so that wake_lock goes out of scope and is destructed
+        // and unlocks (because of RAII) before the call to notify_all()
+        {
+            std::lock_guard<std::mutex> wake_lock(m_wake_mtxs[index]);
+
+            std::stringstream msg;
+            msg << "Done with thread " << index << std::endl;
+            std::cout << msg.str();
+
+            m_wake_flags[index] = status::DONE;
+        }
+        m_wake_conditions[index].notify_all(); // There should only be at most one thread blocked on this at a time
+    }
+
+    void receiver_chain::wait_on_done(size_t index)
+    {
+        std::unique_lock<std::mutex> wake_lock(m_wake_mtxs[index]);
+        m_wake_conditions[index].wait(wake_lock, [=] {
+            std::stringstream msg;
+            msg << "Waiting on done for thread " << index << std::endl;
+            std::cout << msg.str();
+            if(m_wake_flags[index] == status::DONE) {
+                return true;
+                // m_wake_flags[index] =
+            }
+            return false;
+            // return m__flags[index] == true;
+        });
     }
 
     /*!
@@ -75,11 +176,15 @@ namespace fun
      * it loops back around and waits for the block to be "woken up" again when the next set
      * of input data is ready.
      */
-    void receiver_chain::run_block(int index, fun::block_base * block)
+    void receiver_chain::run_block(size_t index, block_base * block)
     {
         while(1)
         {
-            sem_wait(&m_wake_sems[index]);
+            wait_on_wake(index);
+
+            std::stringstream msg;
+            msg << "run_block thread " << index << std::endl;
+            std::cout << msg.str();
 
             boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
             block->work();
@@ -90,11 +195,12 @@ namespace fun
                 //std::cout << "! - " <<  block->name << std::endl;
             }
 
-            sem_post(&m_done_sems[index]);
+            post_to_done(index);
         }
     }
 
     /*!
+     * TODO: Update me!
      * This function is the main scheduler for the receive chain. It takes in raw complex samples
      * from the usrp block and passes them first into the Frame Detector block's input buffer.
      * It then unlocks each of the threads by posting to each block's "wake" semaphore. It then
@@ -109,10 +215,11 @@ namespace fun
         m_frame_detector->input_buffer.swap(samples);
 
         // Unlock the threads
-        for(int x = 0; x < m_wake_sems.size(); x++) sem_post(&m_wake_sems[x]);
+        // This could possibly be done with a single notify_all
+        for(size_t x = 0; x < num_blocks; x++) post_to_wake(x);
 
         // Wait for the threads to finish
-        for(int x = 0; x < m_done_sems.size(); x++) sem_wait(&m_done_sems[x]);
+        for(size_t x = 0; x < num_blocks; x++) wait_on_done(x);
 
         // Update the buffers
         m_timing_sync->input_buffer.swap(m_frame_detector->output_buffer);
@@ -123,6 +230,7 @@ namespace fun
 
         // Return any completed packets
         return m_frame_decoder->output_buffer;
+        // return std::vector<std::vector<unsigned char>>();
     }
 
 }

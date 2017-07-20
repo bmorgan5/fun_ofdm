@@ -21,6 +21,7 @@ namespace fun
      *
      * These tags are used to mark specific locations in the received packet
      * such as the start of the short & long training sequences
+     * TODO: Make this an enum class
      */
     enum vector_tag
     {
