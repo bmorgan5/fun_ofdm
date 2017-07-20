@@ -23,7 +23,7 @@ The transmitter is not very computationally complex. However, the receiver runs 
 
 ## Dependencies ##
 
-### CMake (>= 2.8) ###
+### CMake (>= 3.9) ###
 
 This project uses the CMake build system to check for dependencies and auto-generate all the necessary Makefiles. For more information see the [CMake Website](http://www.cmake.org/).
 
@@ -59,17 +59,24 @@ You can also install a GUI tool call doxy-wizard through apt-get:
 sudo apt-get install doxygen-gui
 ~~~
 
+On MacOS a .dmg can be downloaded from the doxygen.org website by clicking on the downloads link.
+
+Note: After installing the .dmg, you will have to find the App in Finder and ctrl-click open it
+the first time otherwise MacOS won't let you open it for security reasons
+
 ### UHD ###
 
 Universal Hardware Driver (UHD) is the library, provided by Ettus, that is used to communicated with the USRPs. For installation instructions see:
 
-[UHD Installation instructions] (http://code.ettus.com/redmine/ettus/projects/uhd/wiki)
+[UHD Manual] (http://http://files.ettus.com/manual/)
 
 On a debian based system you can also install UHD throught apt-get such as:
 
 ~~~
 sudo apt-get install libuhd-dev
 ~~~
+
+Or you can follow the [build guide] (http://files.ettus.com/manual/page_build_guide.html) to build from source
 
 ### FFTW3 ###
 
@@ -78,10 +85,10 @@ FFTW version 3 is the library used for computing the Fast Fourier Transforms. Fo
 On a debian based system the easiest way to install FFTW3 is to use apt-get such as:
 
 ~~~
-sudo apt-get install libfftw3-3 
-
+sudo apt-get install libfftw3-3
+~~~
 or
-
+~~~
 sudo apt-get install libfftw3-dev
 ~~~
 
@@ -89,7 +96,7 @@ There are also instructions in their website (linked above) to install from sour
 
 ### Boost ###
 
-Boost is required for UHD. It is also used for the CRC and time functions. 
+Boost is required for UHD. It is also used for the CRC and time functions.
 
 On a debian based system the easiest way to install Boost is to use apt-get such as:
 
@@ -97,7 +104,18 @@ On a debian based system the easiest way to install Boost is to use apt-get such
 sudo apt-get install libboost-dev
 ~~~
 
-You can also find installation instructions on the [Boost Website](http://www.boost.org/).
+To install from source download download the latest source and build it locally such as:
+
+~~~
+tar xvf boost_1_x_y.tar.bzip2
+cd boost_1_x_y
+./bootstrap.sh
+./b2 -j4
+~~~
+
+This project assumes that boost is installed in /usr/local/ by default
+
+You can find more detailed installation instructions on the [Boost Website](http://www.boost.org/).
 
 ### pthread ###
 
@@ -136,7 +154,13 @@ sudo ldconfig
 
 ### Documentation (Optional) ###
 
-The project uses Doxygen to auto-generate html API documentation. To build the documentation locally go 
+The project uses Doxygen to auto-generate html API documentation. To build the documentation locally:
+
+~~~
+cd docs/doxygen/
+doxygen Doxyfile
+open html/index.html
+~~~
 
 # Testing #
 
@@ -149,9 +173,9 @@ The easiest way to test that everything built correctly is to run *sim* in the f
 > I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!
 >
 > ...
-> 
+>
 > ...
-> 
+>
 > I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!
 >
 > Received 100 packets
@@ -165,7 +189,7 @@ To test that the transmitter is working you can run *test_tx* in the fun_ofdm/bi
 > [path to download dir]/fun_ofdm/bin $ sudo ./test_tx
 >
 > linux; GNU C++ version 4.8.1; Boost_105300; UHD_003.007.001-72-g383061d8
-> 
+>
 > Testing transmit chain...
 >
 > -- Opening a USRP2/N-Series device...
@@ -183,11 +207,11 @@ To test that the transmitter is working you can run *test_tx* in the fun_ofdm/bi
 > Sending burst 4 of 20 at 1/2 BPSK
 >
 > Sending burst 5 of 20 at 1/2 BPSK
-> 
+>
 > ...
-> 
+>
 > ...
-> 
+>
 > Sending packet 995 of 1000 at 1/2 BPSK
 >
 > Sending packet 996 of 1000 at 1/2 BPSK
@@ -208,7 +232,7 @@ first run test_rx in the fun_ofdm/bin directory. If you are on a clear channel a
 > [path to download dir]/fun_ofdm/bin $ sudo ./test_rx
 >
 > linux; GNU C++ version 4.8.1; Boost_105300; UHD_003.007.001-72-g383061d8
-> 
+>
 > Testing receive chain...
 >
 > Instantiating the usrp.
@@ -267,11 +291,11 @@ Once you have the receiver up and running you can then run *test_tx* to transmit
 > Received 9 packets at 23:33:55.670681
 >
 > Received 10 packets at 23:33:55.673931
-> 
+>
 > ...
-> 
+>
 > ...
-> 
+>
 > Received 995 packets at 08:23:39.734422
 >
 > Received 996 packets at 08:23:39.744281
