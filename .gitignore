@@ -5,3 +5,5 @@ CMakeLists.txt\.*
 docs/*
 !docs/doxygen/Doxyfile
 !docs/doxygen/mainpage.dox
+
+.vscode
