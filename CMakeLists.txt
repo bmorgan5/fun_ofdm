@@ -46,8 +46,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 # Compiler specific setup
 ########################################################################
 # C++ Compile Flags
-set(CMAKE_CXX_FLAGS "-m64 -std=c++11 -mssse3 -msse4.1")
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3") # Optimization!!
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64 -std=c++11 -mssse3 -msse4.1 -O3 -DNDEBUG") # Optimization!!
 
 ########################################################################
 # Find build dependencies
@@ -69,7 +68,7 @@ set(Boost_ADDITIONAL_VERSIONS
     "1.60.0" "1.60" "1.61.0" "1.61" "1.62.0" "1.62" "1.63.0" "1.63" "1.64.0" "1.64"
     "1.65.0" "1.65" "1.66.0" "1.66" "1.67.0" "1.67" "1.68.0" "1.68" "1.69.0" "1.69"
 )
-find_package(Boost "1.64" COMPONENTS filesystem system) # Might need more components
+find_package(Boost "1.59" COMPONENTS filesystem system thread) # Might need more components
 
 if(NOT Boost_FOUND)
     message(FATAL_ERROR "Boost required to compile fun_ofdm")
@@ -79,6 +78,8 @@ endif()
 find_package(UHD)
 if(NOT UHD_FOUND)
     message(FATAL_ERROR "UHD required to compile fun_ofdm")
+else()
+    message("Found UHD in ${UHD_DIR} lib in ${UHD_LIBRARY_DIR}")
 endif()
 
 # Find fftw3
@@ -91,6 +92,9 @@ find_package(Threads)
 if(NOT Threads_FOUND)
     message(FATAL_ERROR "Threads required to compile fun_ofdm")
 endif()
+
+add_subdirectory(googletest)
+enable_testing()
 
 ########################################################################
 # Create uninstall target
@@ -109,10 +113,13 @@ add_custom_target(uninstall
 # TODO: Make this configurable in case things aren't installed here
 ########################################################################
 include_directories("/usr/local/include")
+include_directories("/opt/local/include")
+include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
 ########################################################################
 # Add subdirectories
 ########################################################################
 add_subdirectory(src)
 add_subdirectory(examples)
+add_subdirectory(tests)
 
