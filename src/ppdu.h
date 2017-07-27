@@ -72,6 +72,14 @@ namespace fun
             service = 0;
         }
 
+        //return true if the messages are equal, false otherwise
+        inline bool operator==(const plcp_header &b) const
+        {
+            return  b.rate == rate &&
+                    b.length == length &&
+                    b.num_symbols == num_symbols &&
+                    b.service == service;
+        }
     };
 
     /*!
@@ -145,7 +153,11 @@ namespace fun
         int get_num_symbols(){return header.num_symbols;} //!< Get the number of OFDM symbols in this PPDU
         std::vector<unsigned char> get_payload(){return payload;} //!< Get the payload of this PPDU.
 
-    private:
+        /*---- Testing stuff ----*/
+        plcp_header get_header() {return header;}
+
+
+    // private:
 
         plcp_header header; //!< This PPDU's header parameters
         std::vector<unsigned char> payload; //!< This PPDU's payload
@@ -155,7 +167,7 @@ namespace fun
          *  BPSK modulation and 1/2 rate convolutional code.
          * \return The modulated header symbol.
          */
-        std::vector<std::complex<double> > encoder_header();
+        std::vector<std::complex<double> > encode_header();
 
         /*!
          * \brief Encodes this PPDU's payload. The payload is encoded at the rate
