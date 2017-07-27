@@ -53,7 +53,8 @@ namespace fun
         int length = payload.size();
         int num_symbols = std::ceil(
                 double((16 /* service */ + 8 * (length + 4 /* CRC */) + 6 /* tail */)) /
-                double(rate_params.dbps));
+                double(rate_params.dbps)
+        );
 
         header = plcp_header(rate, length, num_symbols);
     }
@@ -64,9 +65,9 @@ namespace fun
      */
     std::vector<std::complex<double> > ppdu::encode()
     {
-        std::vector<std::complex<double> > header_samples = encoder_header();
-        std::vector<std::complex<double> > payload_samples = encode_data();
-        std::vector<std::complex<double> > ppdu_samples = std::vector<std::complex<double> >(header_samples.size() + payload_samples.size());
+        std::vector<std::complex<double>> header_samples = encode_header();
+        std::vector<std::complex<double>> payload_samples = encode_data();
+        std::vector<std::complex<double>> ppdu_samples = std::vector<std::complex<double> >(header_samples.size() + payload_samples.size());
         memcpy(&ppdu_samples[0], &header_samples[0], header_samples.size() * sizeof(std::complex<double>));
         memcpy(&ppdu_samples[48], payload_samples.data(), payload_samples.size() * sizeof(std::complex<double>));
         return ppdu_samples;
@@ -78,7 +79,7 @@ namespace fun
      * Codes the header using a 1/2 convolutional code. Interleaves the header. And finally
      * modulates the header using BPSK modulation.
      */
-    std::vector<std::complex<double> > ppdu::encoder_header()
+    std::vector<std::complex<double>> ppdu::encode_header()
     {
         // Build the header from the rate field and length
         RateParams rate_params = RateParams(header.rate);
@@ -103,13 +104,13 @@ namespace fun
         std::vector<unsigned char> interleaved = interleaver::interleave(header_symbols);
 
         // Modulate the header
-        std::vector<std::complex<double> > modulated = modulator::modulate(interleaved, RATE_1_2_BPSK);
+        std::vector<std::complex<double>> modulated = modulator::modulate(interleaved, RATE_1_2_BPSK);
 
         return modulated;
 
     }
 
-    std::vector<std::complex<double> > ppdu::encode_data()
+    std::vector<std::complex<double>> ppdu::encode_data()
     {
         // Get the RateParams
         RateParams rate_params = RateParams(header.rate);
@@ -159,13 +160,13 @@ namespace fun
         std::vector<unsigned char> data_interleaved = interleaver::interleave(data_punctured);
 
         // Modulated the data
-        std::vector<std::complex<double> > data_modulated = modulator::modulate(data_interleaved, header.rate);
+        std::vector<std::complex<double>> data_modulated = modulator::modulate(data_interleaved, header.rate);
 
         return data_modulated;
     }
 
     // Decode a PLCP header from 48 complex samples
-    bool ppdu::decode_header(std::vector<std::complex<double> > samples)
+    bool ppdu::decode_header(std::vector<std::complex<double>> samples)
     {
         assert(samples.size() == 48);
 
@@ -175,7 +176,7 @@ namespace fun
         // Deinterleave the header
         std::vector<unsigned char> deinterleaved = interleaver::deinterleave(demodulated);
 
-        // Convolutionally decode the header        
+        // Convolutionally decode the header
         std::vector<unsigned char> header_bytes(4);
         viterbi v;
         v.conv_decode(deinterleaved.data(), header_bytes.data(), 18 /* header is always 18 data bits */);
@@ -220,7 +221,7 @@ namespace fun
 
 
 
-    bool ppdu::decode_data(std::vector<std::complex<double> > samples)
+    bool ppdu::decode_data(std::vector<std::complex<double>> samples)
     {
         // Get the RateParams
         RateParams rate_params = RateParams(header.rate);
