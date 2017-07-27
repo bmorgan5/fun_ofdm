@@ -53,7 +53,7 @@ namespace fun
     std::vector<std::complex<double> > frame_builder::build_frame(std::vector<unsigned char> payload, Rate rate)
     {
         //Append header, scramble, code, interleave, & modulate
-        ppdu ppdu_frame(payload, rate);        
+        ppdu ppdu_frame(payload, rate);
         std::vector<std::complex<double> > samples = ppdu_frame.encode();
 
         // Map the subcarriers and insert pilots
