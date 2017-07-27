@@ -15,7 +15,7 @@
 #include <string>
 
 namespace fun
-{    
+{
 
     /*! \brief Valid rate field values */
     static std::vector<unsigned char> VALID_RATES = {0xD, 0xE, 0xF, 0x5, 0x6, 0x7, 0x9, 0xA, 0xB, 0x1, 0x3};
@@ -244,6 +244,7 @@ namespace fun
 
                 default:
                     assert(false);
+                    return RateParams(RATE_1_2_BPSK); // This should never happen and is just to quiet the compiler warning
                     break;
             }
         }
