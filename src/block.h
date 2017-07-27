@@ -21,14 +21,17 @@
 
 #define BUFFER_MAX 65536
 
+#include <condition_variable>
+#include <mutex>
 #include <vector>
 #include <string>
 
 namespace fun
 {
-    enum block_status {
-        RUNNING,
-        STOPPED
+    enum class STATUS
+    {
+        WAKE,
+        DONE
     };
     /*!
      * \brief The block_base class.
@@ -46,7 +49,8 @@ namespace fun
          * \param block_name the name of the block as a std::string
          */
         block_base(std::string block_name) :
-            name(block_name), status(STOPPED)
+            name(block_name),
+            m_status(STATUS::DONE)
         {
         }
 
@@ -57,6 +61,9 @@ namespace fun
          */
         virtual void work() = 0;
 
+        void set_status(enum STATUS status);
+        void wait_on_status(enum STATUS status);
+
         //TODO: Make a getter function...probably just called name()
         /*!
          * \brief the public name of the block
@@ -64,14 +71,15 @@ namespace fun
         std::string name;
 
     private:
+
         /*!
          * \brief mutex used to synchronize this worker thread
          */
-        std::mutex mtx;
+        std::mutex m_status_mtx;
 
-        std::condition_variable cv;
+        std::condition_variable m_status_cv;
 
-        block_status status;
+        STATUS m_status;
     };
 
     /*!

@@ -44,6 +44,7 @@ list(APPEND headers
 
 list(APPEND sources
 
+    block.cpp
     channel_est.cpp
     fft.cpp
     fft_symbols.cpp
