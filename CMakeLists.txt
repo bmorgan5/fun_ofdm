@@ -47,6 +47,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 # C++ Compile Flags
 set(CMAKE_CXX_FLAGS "-m64 -std=c++11 -mssse3 -msse4.1")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3") # Optimization!!
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
 
 ########################################################################
 # Find build dependencies
@@ -75,6 +76,8 @@ endif()
 find_package(UHD)
 if(NOT UHD_FOUND)
     message(FATAL_ERROR "UHD required to compile fun_ofdm")
+else()
+    message("Found UHD in ${UHD_DIR} lib in ${UHD_LIBRARY_DIR}")
 endif()
 
 # Find fftw3
@@ -88,6 +91,9 @@ if(NOT Threads_FOUND)
     message(FATAL_ERROR "Threads required to compile fun_ofdm")
 endif()
 
+add_subdirectory(googletest)
+enable_testing()
+
 ########################################################################
 # Create uninstall target
 ########################################################################
@@ -100,10 +106,15 @@ add_custom_target(uninstall
     ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake
 )
 
+########################################################################
+# Include local google test
+########################################################################
+include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
 ########################################################################
 # Add subdirectories
 ########################################################################
 add_subdirectory(src)
 add_subdirectory(examples)
+add_subdirectory(tests)
 
