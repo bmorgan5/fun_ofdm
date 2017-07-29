@@ -9,17 +9,21 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/program_options.hpp>
+#include <boost/thread/thread.hpp>
 #include "receiver.h"
 
 using namespace fun;
 
 void test_rx(double freq, double sample_rate, double rx_gain);
 void test_rx_pause(double freq, double rate, double rx_gain);
-void process_packets_callback(std::vector<std::vector<unsigned char> > packets);
+void process_packets_callback(std::vector<std::vector<unsigned char>> &packets);
 bool set_realtime_priority();
 
 double freq = 5.72e9;
-double sample_rate = 5e6;
+// double sample_rate = 5e6;
+// double sample_rate = 10e6;
+double sample_rate = 20e6;
+// double sample_rate = 25e6;
 //double tx_gain = 30;
 double rx_gain = 30;
 //double amp = 0.5;
@@ -55,14 +59,22 @@ int main(int argc, char * argv[]){
 void test_rx(double freq, double sample_rate, double rx_gain)
 {
 
-    set_realtime_priority();
+    // set_realtime_priority();
 
     // Instantiate a usrp
     printf("Instantiating the usrp.\n");
 
-    receiver rx(&process_packets_callback, freq, sample_rate, rx_gain, "");
+    // receiver rx(&process_packets_callback, freq, sample_rate, rx_gain, "");
+    receiver rx(&process_packets_callback, freq, sample_rate, rx_gain, "addr=192.168.10.2");
 
-    while(1);
+    // ---- New RX Chain ----
+    rx.start();
+
+    // ---- Old RX Chain -----
+    // // This is important because the receiver spins in it's own thread
+    // while(1) {
+    //     boost::this_thread::sleep(boost::posix_time::seconds(1));
+    // }
 }
 
 
@@ -109,7 +121,7 @@ void test_rx_pause(double freq, double sample_rate, double rx_gain)
  *  This function merely counts the number of received packets and prints the timestamps
  *  of when the packets were received.
  */
-void process_packets_callback(std::vector<std::vector<unsigned char> > packets)
+void process_packets_callback(std::vector<std::vector<unsigned char>> &packets)
 {
     rx_count += packets.size();
 

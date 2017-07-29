@@ -17,8 +17,9 @@ bool set_realtime_priority();
 
 double freq = 5.72e9;
 double sample_rate = 5e6;
+// double sample_rate = 1e6;
 double tx_gain = 30;
-//double rx_gain = 30;
+// double rx_gain = 30;
 double amp = 0.5;
 Rate phy_rate = RATE_1_2_BPSK;
 
@@ -49,7 +50,7 @@ void test_tx(double freq, double sample_rate, double tx_gain, double amp, Rate p
 {
     srand(time(NULL)); //Initialize random seed
 
-    transmitter tx = transmitter(freq, sample_rate, tx_gain, amp);
+    transmitter tx(freq, sample_rate, tx_gain, amp, "addr=192.168.20.2");
     std::string known_string("This known string is used to verify the correctness of the received data along with the IEEE CRC-32!");
 
     int num_packets = 1000;

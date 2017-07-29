@@ -16,6 +16,8 @@
 #include <uhd/stream.hpp>
 #include <semaphore.h>
 
+#include "block.h"
+
 namespace fun
 {
     /*!
@@ -57,7 +59,7 @@ namespace fun
      *  The usrp class is a wrapper class for the UHD API. It provides a simple interface for transmitting
      *  and receiving samples to/from the USRP.
      */
-    class usrp
+    class usrp : public block<std::complex<double>, std::complex<double>>
     {
     public:
 
@@ -92,16 +94,24 @@ namespace fun
          */
         void get_samples(int num_samples, std::vector<std::complex<double> > & buffer);
 
+        virtual void work();
+
+        void start_stream();
 
     private:
 
 
         usrp_params m_params; //!< Container for the parameters for this instance of the USRP class.
+        size_t m_num_samples;
 
         boost::shared_ptr<uhd::usrp::multi_usrp> m_usrp; //!< multi_usrp (main USRP handle)
         boost::shared_ptr<uhd::device> m_device;         //!< device (receives async messages)
         uhd::rx_streamer::sptr m_rx_streamer;            //!< TX (output) streamer
         uhd::tx_streamer::sptr m_tx_streamer;            //!< RX (input) streamer
+
+        uhd::stream_args_t m_stream_args;
+        uhd::stream_cmd_t m_stream_cmd;
+        uhd::rx_metadata_t m_rx_meta;
 
         sem_t m_tx_sem;                                  //!< Sempahore used to block for #send_burst_sync
     };

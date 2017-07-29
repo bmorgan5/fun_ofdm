@@ -14,18 +14,19 @@
 #include <mutex>
 #include <condition_variable>
 
+#include "block.h"
 #include "fft_symbols.h"
 #include "channel_est.h"
 #include "phase_tracker.h"
 #include "frame_decoder.h"
-#include "block.h"
 #include "tagged_vector.h"
 #include "frame_detector.h"
 #include "timing_sync.h"
 
 namespace fun
 {
-   /*! \brief The Receiver Chain class.
+
+    /*! \brief The Receiver Chain class.
      *
      *  Inputs raw complex doubles representing the base-band digitized time domain signal.
      *
@@ -37,7 +38,7 @@ namespace fun
      *  and shifts the data through the receive chain as it is processed eventually returning
      *  the correctly received payloads (MPDUs) which can then be passed to the upper layers.
      */
-    class receiver_chain
+    class receiver_chain : public block<std::complex<double>, std::vector<unsigned char>>
     {
     public:
         /*!
@@ -47,6 +48,8 @@ namespace fun
 
         virtual ~receiver_chain();
 
+        virtual void work();
+
         /*!
          * \brief Processes the raw time domain samples.
          * \param samples A vector of received time-domain samples from the usrp block to pass to
@@ -54,20 +57,9 @@ namespace fun
          * \return A vector of correctly received payloads where each payload is its own vector
          *  of unsigned chars.
          */
-        std::vector<std::vector<unsigned char> > process_samples(std::vector<std::complex<double> > samples);
+        std::vector<std::vector<unsigned char>> process_samples(std::vector<std::complex<double>> &samples);
 
     private:
-        /**********
-         * Status *
-         **********/
-
-        enum class status
-        {
-            READY,
-            RUNNING,
-            DONE
-        };
-
         /**********
          * Blocks *
          **********/
@@ -102,14 +94,19 @@ namespace fun
          * \param index the block's index for referencing the correct semaphores for that block.
          * \param block A pointer to the block used as a handle to access its work() function.
          */
-        void run_block(size_t index, block_base * block);
+        void run_block(block_base * block);
 
+        /*!
+         * \brief Halts all the blocks
+         */
+        void halt_blocks();
+
+        std::vector<block_base*> m_blocks;
         std::vector<std::thread> m_threads; //!< Vector of threads - one for each block
 
-        std::vector<std::mutex> m_wake_mtxs;
-        std::vector<std::condition_variable> m_wake_conditions;
-        std::vector<status> m_wake_flags;
-   };
+        std::mutex m_halt_mtx;
+        bool m_halt;
+      };
 
 }
 

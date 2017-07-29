@@ -1,6 +1,7 @@
 bin/
 build/
 lib/
+pcaps/
 CMakeLists.txt\.*
 docs/*
 !docs/doxygen/Doxyfile

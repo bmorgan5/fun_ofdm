@@ -18,6 +18,9 @@ namespace fun
      *    for the USRP.
      */
     usrp::usrp(usrp_params params) :
+        block("usrp"),
+        m_stream_cmd(uhd::stream_cmd_t::STREAM_MODE_START_CONTINUOUS),
+        m_stream_args("fc32", "sc16"),
         m_params(params)
     {
         // Instantiate the multi_usrp
@@ -40,16 +43,27 @@ namespace fun
         //m_usrp->set_rx_antenna("RX2");
 
         // Get the TX and RX stream handles
-        m_tx_streamer = m_usrp->get_tx_stream(uhd::stream_args_t("fc64"));
-        m_rx_streamer = m_usrp->get_rx_stream(uhd::stream_args_t("fc64"));
+        m_tx_streamer = m_usrp->get_tx_stream(m_stream_args);
+        m_rx_streamer = m_usrp->get_rx_stream(m_stream_args);
+
+        // m_num_samples = m_rx_streamer->get_max_num_samps();
+        m_num_samples = m_rx_streamer->get_max_num_samps() * 16;
+        // m_num_samples = 8192;
+        // m_num_samples = 4096;
+        // m_num_samples = 1024;
+
+        output_buffer.resize(m_num_samples);
 
         // Start the RX stream
-        uhd::stream_cmd_t stream_cmd(uhd::stream_cmd_t::STREAM_MODE_START_CONTINUOUS);
-        stream_cmd.stream_now = true;
-        m_usrp->issue_stream_cmd(stream_cmd);
+        // uhd::stream_cmd_t stream_cmd(uhd::stream_cmd_t::STREAM_MODE_START_CONTINUOUS);
+        m_stream_cmd.stream_now = true;
 
         sem_init(&m_tx_sem, 0, 0);
         sem_post(&m_tx_sem);
+    }
+
+    void usrp::start_stream() {
+        m_usrp->issue_stream_cmd(m_stream_cmd);
     }
 
     /*!
@@ -129,5 +143,43 @@ namespace fun
         m_rx_streamer->recv(&buffer[0], num_samples, rx_meta);
     }
 
+    size_t loop_count = 0;
+    void usrp::work()
+    {
+        std::stringstream msg;
+        // uhd::rx_metadata_t rx_meta;
+        // ssize_t num_rx = m_rx_streamer->recv(&output_buffer[0], m_num_samples, rx_meta);
+        ssize_t num_rx = m_rx_streamer->recv(&output_buffer[0], m_num_samples, m_rx_meta);
+        output_buffer.resize(num_rx);
+
+        msg << "Received " << num_rx << " samples";
+
+        switch (m_rx_meta.error_code)
+        {
+        case uhd::rx_metadata_t::ERROR_CODE_NONE:
+            break;
+        // ERROR_CODE_OVERFLOW can indicate overflow or sequence error
+        case uhd::rx_metadata_t::ERROR_CODE_OVERFLOW:
+            msg << "...overflow";
+            if(m_rx_meta.out_of_sequence)
+                msg << "...out of sequence";
+           break;
+        default:
+            msg << "...receiver error: " << m_rx_meta.strerror();
+            break;
+        }
+        if(m_rx_meta.more_fragments)
+            msg << "...more fragments";
+
+        if(m_rx_meta.start_of_burst)
+            msg << "...start of burst";
+
+        if(m_rx_meta.has_time_spec)
+            msg << "..." << m_rx_meta.time_spec.get_full_secs() << m_rx_meta.time_spec.get_frac_secs();
+
+        msg << std::endl;
+        // if(num_rx < m_num_samples)
+            // std::cout << msg.str();
+    }
 }
 

@@ -20,14 +20,26 @@
  */
 
 #define BUFFER_MAX 65536
+#define NUM_DEBUG_LOOPS 8192
 
 #include <condition_variable>
+#include <iostream>
 #include <mutex>
 #include <vector>
 #include <string>
+#include <pthread.h>
 
 namespace fun
 {
+    // void set_thread_priority_policy(int priority = 1, int policy = SCHED_RR) {
+    //     sched_param sp;
+    //     sp.sched_priority = priority;
+    //     int ret = pthread_setschedparam(pthread_self(), policy, &sp);
+    //     if (ret != 0) std::cout << "ERROR setting pthread sched param" << std::endl;
+    // }
+
+    int set_realtime(int period, int computation, int constraint);
+
     enum class STATUS
     {
         WAKE,
@@ -48,8 +60,9 @@ namespace fun
          * \brief block_base constructor
          * \param block_name the name of the block as a std::string
          */
-        block_base(std::string block_name) :
+        block_base(std::string block_name, float priority = 0.0) :
             name(block_name),
+            priority(priority),
             m_status(STATUS::DONE)
         {
         }
@@ -61,8 +74,10 @@ namespace fun
          */
         virtual void work() = 0;
 
-        void set_status(enum STATUS status);
-        void wait_on_status(enum STATUS status);
+        virtual void set_priority(float p);
+
+        virtual void set_status(enum STATUS status);
+        virtual void wait_on_status(enum STATUS status);
 
         //TODO: Make a getter function...probably just called name()
         /*!
@@ -70,7 +85,9 @@ namespace fun
          */
         std::string name;
 
-    private:
+        float priority; // Range is [0.0, 1.0] where 1.0 is highest priority and 0.0 is lowest
+
+      private:
 
         /*!
          * \brief mutex used to synchronize this worker thread
@@ -80,6 +97,7 @@ namespace fun
         std::condition_variable m_status_cv;
 
         STATUS m_status;
+
     };
 
     /*!

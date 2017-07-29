@@ -74,9 +74,9 @@ namespace fun {
 
     private:
 
-        usrp m_usrp; //!< The usrp object used to send the generated frames over the air
+        usrp * m_usrp; //!< The usrp object used to send the generated frames over the air
 
-        frame_builder m_frame_builder; //!< The frame builder object used to generate the frames
+        frame_builder * m_frame_builder; //!< The frame builder object used to generate the frames
 
     };
 
