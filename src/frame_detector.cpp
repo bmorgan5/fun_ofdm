@@ -9,6 +9,7 @@
 #include <iostream>
 
 #include "frame_detector.h"
+#include "preamble.h"
 
 namespace fun
 {

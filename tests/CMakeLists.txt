@@ -13,7 +13,11 @@ include_directories (${PROJECT_SOURCE_DIR}/src)
 # Example Sources
 ########################################################################
 list(APPEND test_srcs
-    test_frame_detector.cpp
+    test_utils.h
+    test_utils.cpp
+
+    test_preamble.cpp
+    test_receiver_chain.cpp
 )
 
 ########################################################################

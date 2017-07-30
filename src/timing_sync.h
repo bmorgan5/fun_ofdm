@@ -11,7 +11,6 @@
 
 #define LTS_CORR_THRESHOLD 0.9
 #define CARRYOVER_LENGTH 160
-#define LTS_LENGTH 64
 
 #include <complex>
 

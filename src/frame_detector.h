@@ -12,8 +12,6 @@
 #define PLATEAU_THRESHOLD 0.9
 #define STS_PLATEAU_LENGTH 16
 
-#define STS_LENGTH 16
-
 #include <complex>
 
 #include "block.h"

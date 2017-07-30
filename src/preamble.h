@@ -12,6 +12,10 @@
 
 namespace fun
 {
+
+    #define STS_LENGTH 32
+    #define LTS_LENGTH 64
+
     /*! \brief Full 802.11a Preamble in time domain.
      * The preamble consists of 320 samples.  The first 160 samples
      * are made up of 10 copies of the short training sequence which
