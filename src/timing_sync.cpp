@@ -72,7 +72,7 @@ namespace fun
             {
                 // Cross correlate against the LTS
                 std::vector<std::pair<double, int> > peaks;
-                for(int p = x; p < x + CARRYOVER_LENGTH - LTS_LENGTH; p++)
+                for(int p = x; p < x + CARRYOVER_LENGTH; p++)
                 {
                     std::complex<double> corr(0, 0);
                     double power = 0;
