@@ -170,7 +170,7 @@ TEST_P(fun_ofdm_test, simple_sim) {
     RateParams params(phy_rate);
     size_t repeat = 15;
 
-    t_ode_to_joy_payload.resize(t_ode_to_joy.size()*repeat); // 1500 bytes
+    t_ode_to_joy_payload.resize(t_ode_to_joy.size()*repeat); // ~1500 bytes
     for(size_t i = 0; i < repeat; i++) {
         t_ode_to_joy_payload.insert(t_ode_to_joy_payload.begin() + i*t_ode_to_joy.length(), t_ode_to_joy.begin(), t_ode_to_joy.end());
     }
@@ -212,7 +212,7 @@ TEST_P(fun_ofdm_test, simple_sim) {
         if(end > tx_samples.end()) end = tx_samples.end();
         std::vector<std::complex<double>> chunk(start, end);
         // std::vector<std::complex<double> > chunk(&samples_con[start], &samples_con[end]);
-
+        // std::cout << "Processing samples from " << i << " to " << i + chunk_size << std::endl;
         std::vector<std::vector<unsigned char>> rec_frames = receiver.process_samples(chunk);
         rx_count += rec_frames.size();
 
@@ -231,8 +231,8 @@ TEST_P(fun_ofdm_test, simple_sim) {
 
 }
 
-//TODO: This is segfaulting
-INSTANTIATE_TEST_CASE_P(DISABLED_modulations, fun_ofdm_test, ::testing::Values(
+// INSTANTIATE_TEST_CASE_P(DISABLED_modulations, fun_ofdm_test, ::testing::Values(
+INSTANTIATE_TEST_CASE_P(modulations, fun_ofdm_test, ::testing::Values(
         RATE_1_2_BPSK,
         RATE_2_3_BPSK,
         RATE_3_4_BPSK,

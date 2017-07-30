@@ -14,39 +14,90 @@ using namespace fun;
 
 typedef double SNR;
 
+#define TEST_SAMPLE_LEN 4096
+
 class test_preamble: public ::testing::TestWithParam<SNR> {
 public:
-    test_preamble() {}
+    test_preamble() :
+        t_samples(TEST_SAMPLE_LEN,std::complex<double>(0.0,0.0))
+    {
+        add_awgn(t_samples, 0.01);
+        // insert_preamble_at(1024); // Allow for some padding at the begging
+        // insert_preamble_at(1703);
+        // insert_preamble_at(2224);
+        insert_preamble_at(1000);
+        insert_preamble_at(2000);
+        insert_preamble_at(3000);
+   }
 
-// private:
+    std::vector<std::complex<double>> t_samples;
+    std::vector<int> t_preamble_starts;
+    std::vector<int> t_lts_start; // The pairs are the indicies of LTS1 and LTS2 respectively
     frame_detector t_frame_detector;
     timing_sync t_timing_sync;
+
+    private:
+        void insert_preamble_at(size_t index) {
+            ASSERT_LT(index, t_samples.size() - PREAMBLE_LEN) << "Not enough room in t_samples to insert a PREAMBLE";
+
+            t_preamble_starts.push_back(index);
+            int lts1 = index + (PREAMBLE_LEN/2) + (LTS_LENGTH/2); 
+            t_lts_start.push_back(lts1);
+            t_samples.insert(t_samples.begin() + index, &PREAMBLE_SAMPLES[0], &PREAMBLE_SAMPLES[PREAMBLE_LEN]);
+        }
+
 };
+
+TEST_P(test_preamble, sync_start)
+{
+    // TODO: Figure out if this works
+    // SNR snr = GetParam();
+    // add_awgn(t_samples, snr);
+
+
+    std::vector<tagged_sample> input(t_samples.size());
+    size_t p = 0; // Tracks t_preamble_starts
+    for(size_t i = 0; i < t_samples.size(); i++) {
+        input[i].sample = t_samples[i];
+        if(i == t_preamble_starts[p]) {
+            size_t start = i;
+            size_t end = i + PREAMBLE_LEN/2;
+            input[start].tag = STS_START;
+            input[end].tag = STS_END;
+            p++;
+        }
+    }
+
+    t_timing_sync.input_buffer = input;
+    t_timing_sync.work();
+    std::vector<tagged_sample> output(t_timing_sync.output_buffer);
+
+    std::vector<int> found_lts;
+    for(int i = 0; i < output.size(); i++) {
+        if(output[i].tag == LTS1) {
+            found_lts.push_back(i);
+        }
+    }
+
+    ASSERT_EQ(t_lts_start.size(), found_lts.size()) << "Failed to find the same number of LTS's that we inserted";
+    for(int i = 0; i < t_lts_start.size(); i++) {
+        int offset = CARRYOVER_LENGTH;
+        int known_lts_start = t_lts_start[i] + CARRYOVER_LENGTH; //Normalize because timing_sync adds carryover to the start
+        int found_lts_start = found_lts[i];
+        // The 16 sample window lets the start be set somewhere in the cyclic prefix
+        EXPECT_GE(found_lts_start, known_lts_start - 16) << "LTS1 was set too soon before the frame actually started";
+        EXPECT_LE(found_lts_start, known_lts_start) << "LTS1 was set after the frame actually started";
+    }
+
+}
 
 TEST_P(test_preamble, detect_start)
 {
-    SNR snr = GetParam();
-    const size_t PREAMBLE_SIZE = 320;
-    std::vector<size_t> preamble_starts;
-    size_t index = 0;
-    size_t size = 4096;
-    std::vector<std::complex<double>> samples(size, std::complex<double>(0,0));
-    index += 1024; //Add some padding to the beginning
-    preamble_starts.push_back(index);
-    samples.insert(samples.begin() + index, &PREAMBLE_SAMPLES[0], &PREAMBLE_SAMPLES[PREAMBLE_SIZE]);
-
-    index += 679;
-    preamble_starts.push_back(index);
-    samples.insert(samples.begin() + index, &PREAMBLE_SAMPLES[0], &PREAMBLE_SAMPLES[PREAMBLE_SIZE]);
-
-    index += 521;
-    preamble_starts.push_back(index);
-    samples.insert(samples.begin() + index, &PREAMBLE_SAMPLES[0], &PREAMBLE_SAMPLES[PREAMBLE_SIZE]);
-
     // Add some noise
-    add_awgn(samples, snr);
+    SNR snr = GetParam();
+    add_awgn(t_samples, snr);
 
-    t_frame_detector.input_buffer = samples;
+    t_frame_detector.input_buffer = t_samples;
     t_frame_detector.work();
     std::vector<tagged_sample> output(t_frame_detector.output_buffer);
 
@@ -54,11 +105,11 @@ TEST_P(test_preamble, detect_start)
     bool found_sts = false;
     for(int i = 0; i < output.size(); i++) {
         if(output[i].tag == STS_START) {
-            int preamble_start = preamble_starts[p_index];
-            int preamble_end = preamble_starts[p_index] + (PREAMBLE_SIZE/2) + (LTS_LENGTH/2);
+            int preamble_start = t_preamble_starts[p_index];
+            int preamble_end = t_preamble_starts[p_index] + (PREAMBLE_LEN/2) + (LTS_LENGTH/2);
 
             int dif = i - preamble_start;
-            std::cout << "Preamble start at " << preamble_start << " detected at " << i << " (" << dif << " samples later)" << std::endl;
+            // std::cout << "Preamble start at " << preamble_start << " detected at " << i << " (" << dif << " samples later)" << std::endl;
             // The STS_START needs to be tagged before the full LTS starts
 
             EXPECT_GE(i, preamble_start) << "Found STS_START before preamble started";
@@ -69,12 +120,12 @@ TEST_P(test_preamble, detect_start)
                 found_sts = true;
             }
         } else if(output[i].tag == STS_END) {
-            std::cout << "Preamble end at " << i << std::endl;
+            // std::cout << "Preamble end at " << i << std::endl;
             found_sts = false;
         }
     }
 
-    EXPECT_EQ(preamble_starts.size(), p_index) << "Failed to find all the preamble starts";
+    EXPECT_EQ(t_preamble_starts.size(), p_index) << "Failed to find all the preamble starts";
 }
 
 INSTANTIATE_TEST_CASE_P(preamble_snrs, test_preamble, ::testing::Values(

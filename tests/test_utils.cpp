@@ -15,11 +15,8 @@ double signal_power(std::vector<std::complex<double>> &signal) {
 }
 
 // 0 SNR means no noise
-void add_awgn(std::vector<std::complex<double>> &signal, double SNR) {
-    if(SNR == 0.0) return;
-
-    double sig_pwr = signal_power(signal);
-    double noise_std_dev = std::sqrt(sig_pwr) / SNR;
+void add_awgn(std::vector<std::complex<double>> &signal, double power) {
+    double noise_std_dev = std::sqrt(power);
     auto dist = std::bind(std::normal_distribution<double>{0.0, noise_std_dev}, std::default_random_engine{});
     for(size_t i = 0; i < signal.size(); i++) {
         signal[i] += std::complex<double>(dist(), dist());
