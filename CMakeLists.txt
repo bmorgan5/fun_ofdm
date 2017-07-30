@@ -6,33 +6,36 @@
 ########################################################################
 # Project setup
 ########################################################################
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.5)
 project(fun_ofdm)
 
 # Version Number: 1.0
 set(fun_ofdm_VERSION_MAJOR 1)
-set(fun_ofdm_VERSION_MINOR 0)
+set(fun_ofdm_VERSION_MINOR 1)
+set(fun_ofdm_VERSION_PATCH 0)
 
-#set(CMAKE_BUILD_TYPE "Debug")
- set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_BUILD_TYPE "Debug")
+# set(CMAKE_BUILD_TYPE "Release")
 
 #select the release build type by default to get optimization flags
 if(NOT CMAKE_BUILD_TYPE)
-   set(CMAKE_BUILD_TYPE "Release")
-   message(STATUS "Build type not specified: defaulting to release.")
+    message(WARNING "Build type not specified...defaulting to Release")
+    set(CMAKE_BUILD_TYPE "Release")
 endif()
+message(STATUS "Build type is " ${CMAKE_BUILD_TYPE})
+
 set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "")
 
 # Set binary output to fun_ofdm/build/bin & library output to fun_ofdm/build/lib
 if(CMAKE_BUILD_TYPE MATCHES Debug)
-	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin/)	
-	set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib/)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin/)
+    set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib/)
 endif()
 
 # Set binary output to fun_ofdm/bin & library output to fun_ofdm/lib
 if(CMAKE_BUILD_TYPE MATCHES Release)
-	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin/)
-	set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib/)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin/)
+    set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib/)
 endif()
 
 # Tell cmake to look in ./cmake/Modules to find instructions to find external modules
@@ -62,7 +65,7 @@ set(Boost_ADDITIONAL_VERSIONS
     "1.60.0" "1.60" "1.61.0" "1.61" "1.62.0" "1.62" "1.63.0" "1.63" "1.64.0" "1.64"
     "1.65.0" "1.65" "1.66.0" "1.66" "1.67.0" "1.67" "1.68.0" "1.68" "1.69.0" "1.69"
 )
-find_package(Boost "1.35" COMPONENTS filesystem system) # Might need more components
+find_package(Boost "1.58" COMPONENTS filesystem system) # Might need more components
 
 if(NOT Boost_FOUND)
     message(FATAL_ERROR "Boost required to compile fun_ofdm")
