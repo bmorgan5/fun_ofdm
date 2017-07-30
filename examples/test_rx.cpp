@@ -20,7 +20,8 @@ bool set_realtime_priority();
 
 double freq = 5.72e9;
 double sample_rate = 5e6;
-//double tx_gain = 30;
+// double sample_rate = 25e6;
+// double tx_gain = 30;
 double rx_gain = 30;
 //double amp = 0.5;
 //Rate phy_rate = RATE_1_2_BPSK;
@@ -60,7 +61,7 @@ void test_rx(double freq, double sample_rate, double rx_gain)
     // Instantiate a usrp
     printf("Instantiating the usrp.\n");
 
-    receiver rx = receiver(&process_packets_callback, freq, sample_rate, rx_gain, "");
+    receiver rx(&process_packets_callback, freq, sample_rate, rx_gain, "addr=192.168.10.2");
 
     while(1);
 }
@@ -84,7 +85,7 @@ void test_rx_pause(double freq, double sample_rate, double rx_gain)
 
     // Instantiate a usrp
     printf("Instantiating the usrp.\n");
-    receiver rx = receiver(&process_packets_callback, freq, sample_rate, rx_gain, "");
+    receiver rx(&process_packets_callback, freq, sample_rate, rx_gain, "");
 
     while(1)
     {

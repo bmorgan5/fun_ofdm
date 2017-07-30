@@ -15,6 +15,7 @@ namespace fun
 
     #define STS_LENGTH 32
     #define LTS_LENGTH 64
+    #define PREAMBLE_LEN 320
 
     /*! \brief Full 802.11a Preamble in time domain.
      * The preamble consists of 320 samples.  The first 160 samples
@@ -197,7 +198,7 @@ namespace fun
         std::complex<double>( -0.0785247857538  , -0.0134727232705  ),
         std::complex<double>(  0.00233959188499 , -0.132443716852   ),
 
-        //Long Training seque nce
+        //Long Training sequence
         std::complex<double>( -0.078            ,  0.0),
         std::complex<double>(  0.0122845904586  , -0.0975995535921  ),
         std::complex<double>(  0.0917165491224  , -0.105871659819   ),

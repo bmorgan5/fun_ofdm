@@ -11,6 +11,7 @@
 #define RECEIVER_CHAIN_H
 
 #include <thread>
+#include <mutex>
 #include <semaphore.h>
 
 #include "fft_symbols.h"
@@ -45,6 +46,8 @@ namespace fun
          * \brief Constructor for receiver_chain
          */
         receiver_chain();
+
+        virtual ~receiver_chain();
 
         /*!
          * \brief Processes the raw time domain samples.
@@ -93,6 +96,9 @@ namespace fun
 
 
         std::vector<sem_t> m_done_sems; //!< Vector of semaphores used to determine when the blocks are done
+
+        std::mutex m_halt_mtx;
+        bool m_halt;
     };
 
 }

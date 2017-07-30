@@ -26,7 +26,7 @@ namespace fun
      *
      *  Adds each block to the receiver chain.
      */
-    receiver_chain::receiver_chain()
+    receiver_chain::receiver_chain() : m_halt(false)
     {
         m_frame_detector = new frame_detector();
         m_timing_sync = new timing_sync();
@@ -50,6 +50,27 @@ namespace fun
         add_block(m_frame_decoder);
     }
 
+    receiver_chain::~receiver_chain() {
+        {
+            std::lock_guard<std::mutex> halt_lock(m_halt_mtx);
+            m_halt = true;
+        }
+
+        for(int x = 0; x < m_done_sems.size(); x++) {
+            // This is a bit of a hack because sem_wait does a subtraction,
+            // so if it was already done this will increment to 1 so sem_wait can decrement to 0
+            // and then pass through
+            sem_post(&m_done_sems[x]);
+            sem_wait(&m_done_sems[x]);
+        }
+
+        for(int x = 0; x < m_wake_sems.size(); x++) sem_post(&m_wake_sems[x]);
+
+        for(int x = 0; x < m_threads.size(); x++) {
+            m_threads[x].join();
+        }
+
+    }
     /*!
      * The #add_block function creates a wake & done semaphore for each block.
      * It then creates a new thread for the block to run in and adds that thread
@@ -80,6 +101,11 @@ namespace fun
         while(1)
         {
             sem_wait(&m_wake_sems[index]);
+
+            {
+                std::lock_guard<std::mutex> halt_lock(m_halt_mtx);
+                if(m_halt) return;
+            }
 
             boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
             block->work();
