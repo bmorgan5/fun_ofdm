@@ -50,6 +50,16 @@ namespace fun
         virtual ~receiver_chain();
 
         /*!
+         * \brief Launches the receiver chain threads
+         */
+        void run();
+
+        /*!
+         * \brief Halts the receiver chain threads
+         */
+        void halt();
+
+        /*!
          * \brief Processes the raw time domain samples.
          * \param samples A vector of received time-domain samples from the usrp block to pass to
          *  the receive chain for signal processing.
@@ -89,6 +99,7 @@ namespace fun
         void run_block(int index, fun::block_base * block);
 
 
+        // TODO: This needs to be a vector of std::thread* in order to destroy them
         std::vector<std::thread> m_threads; //!< Vector of threads - one for each block
 
 

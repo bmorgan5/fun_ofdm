@@ -26,7 +26,8 @@ namespace fun
      *
      *  Adds each block to the receiver chain.
      */
-    receiver_chain::receiver_chain() : m_halt(false)
+    receiver_chain::receiver_chain() :
+        m_halt(true) // Start off halted
     {
         m_frame_detector = new frame_detector();
         m_timing_sync = new timing_sync();
@@ -41,6 +42,24 @@ namespace fun
         m_wake_sems.reserve(100);
         m_done_sems.reserve(100);
 
+        // TODO: Do I really want to do this automatically 
+        run();
+    }
+
+    receiver_chain::~receiver_chain()
+    {
+        halt();
+    }
+
+    void receiver_chain::run()
+    {
+        // This context is important for RAII style
+        {
+            std::lock_guard<std::mutex> halt_lock(m_halt_mtx);
+            if(!m_halt) return; // Already running
+            m_halt = false;
+        }
+
         // Add the blocks to the receiver chain
         add_block(m_frame_detector);
         add_block(m_timing_sync);
@@ -50,7 +69,9 @@ namespace fun
         add_block(m_frame_decoder);
     }
 
-    receiver_chain::~receiver_chain() {
+    void receiver_chain::halt()
+    {
+        // This context is important for RAII style
         {
             std::lock_guard<std::mutex> halt_lock(m_halt_mtx);
             m_halt = true;
@@ -70,7 +91,12 @@ namespace fun
             m_threads[x].join();
         }
 
+        // TODO: 
+        m_threads.resize(0);
+        m_wake_sems.resize(0);
+        m_done_sems.resize(0);
     }
+
     /*!
      * The #add_block function creates a wake & done semaphore for each block.
      * It then creates a new thread for the block to run in and adds that thread
@@ -78,6 +104,7 @@ namespace fun
      */
     void receiver_chain::add_block(fun::block_base * block)
     {
+        // TODO: This needs to be refactored so that we don't push_back sem_t'severy call to run()
         m_wake_sems.push_back(sem_t());
         m_done_sems.push_back(sem_t());
         int index = m_wake_sems.size() - 1;
