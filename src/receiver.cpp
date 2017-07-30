@@ -24,11 +24,42 @@ namespace fun
     receiver::receiver(void (*callback)(std::vector<std::vector<unsigned char> > packets), usrp_params params) :
         m_usrp(params),
         m_samples(NUM_RX_SAMPLES),
-        m_callback(callback)
-        // m_rec_chain()
+        m_callback(callback),
+        m_halt(true)
     {
+        run();
+    }
+
+    receiver::~receiver()
+    {
+        halt();
+    }
+
+    void receiver::run()
+    {
+        // This context is important for RAII style
+        {
+            std::lock_guard<std::mutex> halt_lock(m_halt_mtx);
+            if(!m_halt) return; // Already running
+            m_halt = false;
+        }
         sem_init(&m_pause, 0, 1); //Initial value is 1 so that the receiver_chain_loop() will begin executing immediately
-        m_rec_thread = std::thread(&receiver::receiver_chain_loop, this); //Initialize the main receiver thread
+        m_rec_thread = new std::thread(&receiver::receiver_chain_loop, this); //Initialize the main receiver thread
+    }
+
+    void receiver::halt()
+    {
+        // This context is important for RAII style
+        {
+            std::lock_guard<std::mutex> halt_lock(m_halt_mtx);
+            m_halt = true;
+        }
+
+        // resume the receiver chain if it was paused so we can fully halt it
+        resume();
+
+        m_rec_thread->join();
+        delete m_rec_thread;
     }
 
     /*!
@@ -44,6 +75,11 @@ namespace fun
         while(1)
         {
             sem_wait(&m_pause); // Block if the receiver is paused
+            // This context is important for RAII style
+            {
+                std::lock_guard<std::mutex> halt_lock(m_halt_mtx);
+                if(m_halt) return;
+            }
 
             m_usrp.get_samples(NUM_RX_SAMPLES, m_samples);
 
@@ -71,6 +107,8 @@ namespace fun
      *  due to a previous call to the receiver::pause() function, thus allowing the main receiver loop to begin
      *  executing again.
      */
+    // TODO: This should check the state of the m_pause semaphore and not post if we are already 'resumed'
+    //       Otherwise two calls to resume would require two calls to pause to make it actually pause
     void receiver::resume()
     {
         sem_post(&m_pause);

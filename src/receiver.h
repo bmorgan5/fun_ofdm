@@ -8,8 +8,10 @@
 #ifndef RECEIVER_H
 #define RECEIVER_H
 
+#include <mutex>
 #include <semaphore.h>
 #include <vector>
+
 #include "receiver_chain.h"
 #include "usrp.h"
 
@@ -73,6 +75,21 @@ namespace fun
         receiver(void(*callback)(std::vector<std::vector<unsigned char> > packets), usrp_params params = usrp_params());
 
         /*!
+         * \brief Destructor that halts the receiver thread
+         */
+        virtual ~receiver();
+
+        /*!
+         * \brief Launches the receiver thread
+         */
+        void run();
+
+        /*!
+         * \brief Halts the receiver thread
+         */
+        void halt();
+
+        /*!
          * \brief Pauses the receiver thread.
          */
         void pause();
@@ -94,11 +111,13 @@ namespace fun
 
         std::vector<std::complex<double> > m_samples; //!< Vector to hold the raw samples received from the USRP and passed into the receiver_chain
 
-        std::thread m_rec_thread; //!< The thread that the receiver chain runs in
+        std::thread* m_rec_thread; //!< The thread that the receiver chain runs in
 
         sem_t m_pause; //!< Semaphore used to pause the receiver thread
 
+        std::mutex m_halt_mtx;
 
+        bool m_halt;
 
 
     };
