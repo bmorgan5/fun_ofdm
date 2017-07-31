@@ -7,13 +7,17 @@
 
 #include "receiver.h"
 
+#include <uhd/utils/thread_priority.hpp>
+
+#include <functional>
+
 namespace fun
 {
 
     /*!
      * This constructor shows exactly what parameters need to be set for the receiver.
      */
-    receiver::receiver(void (*callback)(std::vector<std::vector<unsigned char> > packets), double freq, double samp_rate, double rx_gain, std::string device_addr) :
+    receiver::receiver(std::function<void(std::vector<std::vector<unsigned char>>)> callback, double freq, double samp_rate, double rx_gain, std::string device_addr) :
         receiver(callback, usrp_params(freq, samp_rate, 20, rx_gain, 1.0, device_addr))
     {
     }
@@ -21,8 +25,9 @@ namespace fun
     /*!
      * This constructor is for those who feel more comfortable using the usrp_params struct.
      */
-    receiver::receiver(void (*callback)(std::vector<std::vector<unsigned char> > packets), usrp_params params) :
-        m_usrp(params),
+    receiver::receiver(std::function<void(std::vector<std::vector<unsigned char>>)> callback, usrp_params params) :
+        // m_usrp(params),
+        m_params(params),
         m_samples(NUM_RX_SAMPLES),
         m_callback(callback),
         m_halt(true)
@@ -43,6 +48,10 @@ namespace fun
             if(!m_halt) return; // Already running
             m_halt = false;
         }
+
+        m_usrp = new usrp(m_params);
+        m_rec_chain = new receiver_chain();
+
         sem_init(&m_pause, 0, 1); //Initial value is 1 so that the receiver_chain_loop() will begin executing immediately
         m_rec_thread = new std::thread(&receiver::receiver_chain_loop, this); //Initialize the main receiver thread
     }
@@ -52,14 +61,17 @@ namespace fun
         // This context is important for RAII style
         {
             std::lock_guard<std::mutex> halt_lock(m_halt_mtx);
+            if(m_halt) return; // Don't do anything if we are already halted
             m_halt = true;
         }
 
         // resume the receiver chain if it was paused so we can fully halt it
         resume();
-
         m_rec_thread->join();
         delete m_rec_thread;
+
+        delete m_rec_chain; // This will halt the receiver chain
+        delete m_usrp;
     }
 
     /*!
@@ -72,6 +84,13 @@ namespace fun
      */
     void receiver::receiver_chain_loop()
     {
+        try {
+            uhd::set_thread_priority();
+        } catch(const std::exception &e) {
+            std::cout << "Fatal error..halting receiver: Unable to set thread priority...did you forget sudo?";
+            halt();
+        }
+
         while(1)
         {
             sem_wait(&m_pause); // Block if the receiver is paused
@@ -81,10 +100,10 @@ namespace fun
                 if(m_halt) return;
             }
 
-            m_usrp.get_samples(NUM_RX_SAMPLES, m_samples);
+            m_usrp->get_samples(NUM_RX_SAMPLES, m_samples);
 
             std::vector<std::vector<unsigned char> > packets =
-                    m_rec_chain.process_samples(m_samples);
+                    m_rec_chain->process_samples(m_samples);
 
             m_callback(packets);
 

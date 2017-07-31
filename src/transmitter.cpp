@@ -13,8 +13,7 @@ namespace fun {
      *  This constructor shows exactly what parameters need to be set for the transmitter
      */
     transmitter::transmitter(double freq, double samp_rate, double tx_gain, double tx_amp, std::string device_addr) :
-        m_usrp(usrp_params(freq, samp_rate, tx_gain, 20, tx_amp, device_addr)),
-        m_frame_builder()
+        transmitter(usrp_params(freq, samp_rate, tx_gain, 20, tx_amp, device_addr))
     {
     }
 
@@ -22,8 +21,7 @@ namespace fun {
      * This construct is for those who feel more comfortable using the usrp_params struct
      */
     transmitter::transmitter(usrp_params params) :
-        m_usrp(params),
-        m_frame_builder()
+        m_usrp(params)
     {
     }
 

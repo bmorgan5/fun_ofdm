@@ -274,7 +274,7 @@ namespace fun
         // Verify the CRC
         if(given_crc != calculated_crc)
         {
-            std::cerr << "Invalid CRC (length " << header.length << ")" << std::endl;
+            // std::cerr << "Invalid CRC (length " << header.length << ")" << std::endl;
             // Indicate failure
             return false;
         }

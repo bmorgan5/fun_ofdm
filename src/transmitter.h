@@ -60,7 +60,7 @@ namespace fun {
          *  - device ip address -> "" (empty string will default to letting the UHD api
          *    automatically find an available USRP)
          */
-        transmitter(usrp_params params = usrp_params());
+        transmitter(usrp_params params);
 
         /*!
          * \brief Send a single PHY frame at the given PHY Rate

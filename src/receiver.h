@@ -8,6 +8,7 @@
 #ifndef RECEIVER_H
 #define RECEIVER_H
 
+#include <functional>
 #include <mutex>
 #include <semaphore.h>
 #include <vector>
@@ -24,8 +25,9 @@ namespace fun
      * \brief The receiver class is the public interface for the fun_ofdm receiver.
      *  This is the easiest way to start receiving 802.11a OFDM frames out of the box.
      *
-     *  Usage: To receive packets simply create a receiver object and pass it a callback
-     *  function that takes a std::vector<std::vector<unsigned char> > as an input parameter.
+     *  Usage: To receive packets simply create a receiver object, pass it a callback
+     *  function that takes a std::vector<std::vector<unsigned char> > as an input parameter,
+     *  and call the run() function.
      *  The receiver object then automatically creates a separate thread that pulls samples
      *  from the USRP and processes them with the receive chain. The received packets (if any)
      *  are then passed into the callback function where the user is able to process them further.
@@ -57,7 +59,7 @@ namespace fun
          *    + tx_gain -> 20 even though it is irrelevant for the receiver
          *    + amp -> 1.0 even though it is irrelevant for the receiver
          */
-        receiver(void(*callback)(std::vector<std::vector<unsigned char> > packets), double freq = 5.72e9, double samp_rate = 5e6, double rx_gain = 20, std::string device_addr = "");
+        receiver(std::function<void(std::vector<std::vector<unsigned char>>)> callback, double freq = 5.72e9, double samp_rate = 5e6, double rx_gain = 20, std::string device_addr = "");
 
         /*!
          * \brief Constructor for the receiver that uses the usrp_params struct
@@ -72,7 +74,7 @@ namespace fun
          *  - device ip address -> "" (empty string will default to letting the UHD api
          *    automatically find an available USRP)
          */
-        receiver(void(*callback)(std::vector<std::vector<unsigned char> > packets), usrp_params params = usrp_params());
+        receiver(std::function<void(std::vector<std::vector<unsigned char>>)> callback, usrp_params params);
 
         /*!
          * \brief Destructor that halts the receiver thread
@@ -103,11 +105,13 @@ namespace fun
 
         void receiver_chain_loop(); //!< Infinite while loop where samples are received from USRP and processed by the receiver_chain
 
-        void (*m_callback)(std::vector<std::vector<unsigned char> > packets); //!< Callback function pointer
+        std::function<void(std::vector<std::vector<unsigned char>>)> m_callback; //!< Callback function pointer
 
-        usrp m_usrp; //!< The usrp object used to receiver frames over the air
+        usrp_params m_params;
 
-        receiver_chain m_rec_chain; //!< The receiver chain object used to detect & decode incoming frames
+        usrp* m_usrp; //!< The usrp object used to receiver frames over the air
+
+        receiver_chain* m_rec_chain; //!< The receiver chain object used to detect & decode incoming frames
 
         std::vector<std::complex<double> > m_samples; //!< Vector to hold the raw samples received from the USRP and passed into the receiver_chain
 

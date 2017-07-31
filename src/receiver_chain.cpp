@@ -9,7 +9,9 @@
 
 #include <iostream>
 #include <functional>
+
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <uhd/utils/thread_priority.hpp>
 
 #include "receiver_chain.h"
 
@@ -74,6 +76,7 @@ namespace fun
         // This context is important for RAII style
         {
             std::lock_guard<std::mutex> halt_lock(m_halt_mtx);
+            if(m_halt) return;
             m_halt = true;
         }
 
@@ -125,6 +128,13 @@ namespace fun
      */
     void receiver_chain::run_block(int index, fun::block_base * block)
     {
+        try {
+            uhd::set_thread_priority();
+        } catch(const std::exception &e) {
+            std::cout << "Fatal error..halting receiver: Unable to set thread priority...did you forget sudo?";
+            halt();
+        }
+
         while(1)
         {
             sem_wait(&m_wake_sems[index]);
