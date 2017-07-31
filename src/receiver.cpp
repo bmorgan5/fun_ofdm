@@ -26,7 +26,6 @@ namespace fun
      * This constructor is for those who feel more comfortable using the usrp_params struct.
      */
     receiver::receiver(std::function<void(std::vector<std::vector<unsigned char>>)> callback, usrp_params params) :
-        // m_usrp(params),
         m_params(params),
         m_samples(NUM_RX_SAMPLES),
         m_callback(callback),

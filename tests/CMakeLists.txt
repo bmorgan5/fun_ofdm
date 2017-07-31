@@ -18,6 +18,7 @@ list(APPEND test_srcs
 
     test_preamble.cpp
     test_receiver_chain.cpp
+    test_over_the_air.cpp
 )
 
 ########################################################################
