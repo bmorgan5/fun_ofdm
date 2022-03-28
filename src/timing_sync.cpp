@@ -106,7 +106,7 @@ namespace fun
                             input[lts_offset+24+64].tag = LTS2; // First sample in the LTS
 
                             std::complex<double> auto_corr_acc(0.0, 0.0);
-                            for(int k = LTS1; k < LTS1; k++)
+                            for(int k = lts_offset + 24; k < lts_offset + 24 + LTS_LENGTH; k++)
                             {
                                 auto_corr_acc += input[k].sample * std::conj(input[k+LTS_LENGTH].sample);
                             }
