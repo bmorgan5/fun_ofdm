@@ -21,9 +21,34 @@ __3. Second Generation Intel i5/i7 processor (or equivalent) and 8 GB RAM__
 The transmitter is not very computationally complex. However, the receiver runs about 6 threads with about each one performing O(N) complex multiplications each. Therefore, to run the receiver (either by itself or as part of a transceiver) it is recommended that you have at least a 2nd generation Intel i5/i7 or equivalent and at least 8 GB of RAM.
 
 
-## Dependencies ##
+## Dev Container ##
 
-### CMake (>= 3.9) ###
+The easiest way to get a working build environment is the included dev container, which has every dependency (plus Claude Code) preinstalled.
+
+You'll need Docker and VS Code with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension. Open the repo in VS Code and run "Dev Containers: Reopen in Container". CMake is configured automatically, so to build:
+
+~~~
+cd build
+make
+~~~
+
+Without VS Code, use the [Dev Containers CLI](https://github.com/devcontainers/cli) (requires Node 18+):
+
+~~~
+npm install -g @devcontainers/cli
+devcontainer up --workspace-folder .
+devcontainer exec --workspace-folder . bash
+~~~
+
+Note: the container is x86-64 because the code uses SSE intrinsics.
+
+## Manual Install ##
+
+To build natively instead, install the dependencies below and then follow the build steps.
+
+### Dependencies ###
+
+#### CMake (>= 3.9) ####
 
 This project uses the CMake build system to check for dependencies and auto-generate all the necessary Makefiles. For more information see the [CMake Website](http://www.cmake.org/).
 
@@ -33,7 +58,7 @@ On a debian based system you can also install CMake throught apt-get such as:
 sudo apt-get install cmake
 ~~~
 
-### Make ###
+#### Make ####
 
 Make is required for the CMake build system. More information can be found at [GNU Make homepage](http://www.gnu.org/software/make/).
 
@@ -43,7 +68,7 @@ On a debian based system you can also install make throught apt-get such as:
 sudo apt-get install make
 ~~~
 
-### Doxygen (optional) ###
+#### Doxygen (optional) ####
 
 Doxygen is used to auto-generate html documentation. If you want to build a local copy of the API you will need to have Doxygen installed. More information can be found at the [Doxygen website](http://www.doxygen.org)
 
@@ -64,7 +89,7 @@ On MacOS a .dmg can be downloaded from the doxygen.org website by clicking on th
 Note: After installing the .dmg, you will have to find the App in Finder and ctrl-click open it
 the first time otherwise MacOS won't let you open it for security reasons
 
-### UHD ###
+#### UHD ####
 
 Universal Hardware Driver (UHD) is the library, provided by Ettus, that is used to communicated with the USRPs. For installation instructions see:
 
@@ -78,7 +103,7 @@ sudo apt-get install libuhd-dev
 
 Or you can follow the [build guide] (http://files.ettus.com/manual/page_build_guide.html) to build from source
 
-### FFTW3 ###
+#### FFTW3 ####
 
 FFTW version 3 is the library used for computing the Fast Fourier Transforms. For more information see the [FFTW project home page] (http://www.fftw.org/index.html).
 
@@ -94,7 +119,7 @@ sudo apt-get install libfftw3-dev
 
 There are also instructions in their website (linked above) to install from source.
 
-### Boost ###
+#### Boost ####
 
 Boost is required for UHD. It is also used for the CRC and time functions.
 
@@ -117,7 +142,7 @@ This project assumes that boost is installed in /usr/local/ by default
 
 You can find more detailed installation instructions on the [Boost Website](http://www.boost.org/).
 
-### pthread ###
+#### pthread ####
 
 Posix threads (pthread) is the library used for handling all of the threading in the receiver chain. You should already
 have the pthread library as it comes with the linux kernel but if you can also get/update it with apt-get such as:
@@ -126,9 +151,9 @@ have the pthread library as it comes with the linux kernel but if you can also g
 sudo apt-get install libpthread-stubs0-dev
 ~~~
 
-## Build ##
+### Build ###
 
-### Compile ###
+#### Compile ####
 
 The easiest way to compile the code is to download it come github (clone) and then use CMake & make.
 
@@ -141,7 +166,7 @@ cmake ..
 make
 ~~~
 
-### Install (Optional) ###
+#### Install (Optional) ####
 
 If you want to install the project and use it as a library you can use the install target after you have compiled everything:
 
@@ -152,7 +177,7 @@ sudo ldconfig
 
 *Note: Don't forget the 'ldconfig' command, otherwise gcc won't be able to find your newly installed fun_ofdm library.
 
-### Documentation (Optional) ###
+#### Documentation (Optional) ####
 
 The project uses Doxygen to auto-generate html API documentation. To build the documentation locally:
 
