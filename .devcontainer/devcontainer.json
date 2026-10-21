@@ -1,0 +1,33 @@
+{
+    "name": "fun_ofdm",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "options": ["--platform=linux/amd64"]
+    },
+    "runArgs": ["--platform=linux/amd64"],
+
+    "mounts": [
+        // Claude Code state (login, settings, sessions), kept across rebuilds
+        "source=fun_ofdm-claude-config,target=/home/ubuntu/.claude,type=volume",
+        // GitHub CLI login, kept across rebuilds
+        "source=fun_ofdm-gh-config,target=/home/ubuntu/.config/gh,type=volume"
+    ],
+    "containerEnv": {
+        "CLAUDE_CONFIG_DIR": "/home/ubuntu/.claude"
+    },
+
+    "remoteUser": "ubuntu",
+
+    // git authenticates to GitHub through the GitHub CLI; point out a missing login
+    "postStartCommand": "gh auth status --hostname github.com >/dev/null 2>&1 || echo \"Not logged in to GitHub, so git push/pull won't work. Run 'gh auth login' to log in.\"",
+
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "anthropic.claude-code",
+                "ms-vscode.cmake-tools",
+                "ms-vscode.cpptools"
+            ]
+        }
+    }
+}
