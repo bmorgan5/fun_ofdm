@@ -10,7 +10,10 @@
         // Claude Code state (login, settings, sessions), kept across rebuilds
         "source=fun_ofdm-claude-config,target=/home/ubuntu/.claude,type=volume",
         // GitHub CLI login, kept across rebuilds
-        "source=fun_ofdm-gh-config,target=/home/ubuntu/.config/gh,type=volume"
+        "source=fun_ofdm-gh-config,target=/home/ubuntu/.config/gh,type=volume",
+        // Bazel output base and caches, kept across rebuilds so builds don't
+        // start cold and the bazel-* symlinks keep working
+        "source=fun_ofdm-bazel-cache,target=/home/ubuntu/.cache/bazel,type=volume"
     ],
     "containerEnv": {
         "CLAUDE_CONFIG_DIR": "/home/ubuntu/.claude"
@@ -25,7 +28,7 @@
         "vscode": {
             "extensions": [
                 "anthropic.claude-code",
-                "ms-vscode.cmake-tools",
+                "BazelBuild.vscode-bazel",
                 "ms-vscode.cpptools"
             ]
         }
