@@ -1,0 +1,101 @@
+module(
+    name = "fun_ofdm",
+    version = "1.1.0",
+)
+
+bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "rules_cc", version = "0.2.26")
+bazel_dep(name = "rules_doxygen", version = "2.7.0")
+bazel_dep(name = "rules_pkg", version = "1.3.0")
+bazel_dep(name = "toolchains_llvm", version = "1.12.0")
+
+# Sysroots, built from Ubuntu 26.04 packages. Every target architecture gets
+# one, including the host's, so all builds are cross compiles against a known
+# set of files.
+#
+# The packages come from a dated snapshot of the Ubuntu archive, so the
+# sysroots only change when UBUNTU_SNAPSHOT does. Move it forward to pick up
+# package updates.
+UBUNTU_SNAPSHOT = "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z"
+
+# Later suites take precedence.
+UBUNTU_SUITES = [
+    "resolute",
+    "resolute-security",
+    "resolute-updates",
+]
+
+UBUNTU_COMPONENTS = [
+    "main",
+    "universe",
+]
+
+SYSROOT_PACKAGES = [
+    "libboost-dev",
+    "libc6-dev",
+    "libstdc++-15-dev",
+    "libfftw3-dev",
+    "libuhd-dev",
+]
+
+# Dependencies of libuhd-dev that nothing here compiles or links against.
+SYSROOT_EXCLUDE_PACKAGES = [
+    "libboost-python*",
+    "libpython*",
+    "python*",
+]
+
+sysroot = use_extension("//bazel/sysroot:extensions.bzl", "sysroot")
+sysroot.deb(
+    name = "sysroot_linux_x86_64",
+    arch = "amd64",
+    build_file = "//bazel/sysroot:sysroot.BUILD.bazel",
+    components = UBUNTU_COMPONENTS,
+    exclude_packages = SYSROOT_EXCLUDE_PACKAGES,
+    mirror = UBUNTU_SNAPSHOT,
+    packages = SYSROOT_PACKAGES,
+    suites = UBUNTU_SUITES,
+)
+
+# TODO(arm64): Enable once the code builds for arm64.
+# sysroot.deb(
+#     name = "sysroot_linux_aarch64",
+#     arch = "arm64",
+#     build_file = "//bazel/sysroot:sysroot.BUILD.bazel",
+#     components = UBUNTU_COMPONENTS,
+#     exclude_packages = SYSROOT_EXCLUDE_PACKAGES,
+#     mirror = UBUNTU_SNAPSHOT,
+#     packages = SYSROOT_PACKAGES,
+#     suites = UBUNTU_SUITES,
+# )
+use_repo(
+    sysroot,
+    "sysroot_linux_x86_64",
+    # "sysroot_linux_aarch64",
+)
+
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+llvm.toolchain(
+    cxx_standard = {"": "c++17"},
+    extra_opt_compile_flags = {"": ["-O3"]},
+    llvm_version = "23.1.4",
+    # Dynamically link to libstdc++ from the sysroot so that we are using the
+    # same std C++ lib as libuhd, which we also dynamically link to.
+    stdlib = {"": "dynamic-stdc++"},
+)
+llvm.sysroot(
+    label = "@sysroot_linux_x86_64//sysroot",
+    targets = ["linux-x86_64"],
+)
+
+# TODO(arm64): Enable once the code builds for arm64.
+# llvm.sysroot(
+#     label = "@sysroot_linux_aarch64//sysroot",
+#     targets = ["linux-aarch64"],
+# )
+use_repo(llvm, "llvm_toolchain")
+
+register_toolchains("@llvm_toolchain//:all")
+
+doxygen = use_extension("@rules_doxygen//:extensions.bzl", "doxygen_extension")
+use_repo(doxygen, "doxygen")

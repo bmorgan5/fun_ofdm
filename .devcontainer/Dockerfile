@@ -3,19 +3,23 @@ FROM ubuntu:26.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
+# Development tools.
+RUN apt update && apt install -y --no-install-recommends \
         ca-certificates \
-        cmake \
         curl \
-        doxygen \
         git \
         libarchive-tools \
-        libboost-all-dev \
-        libfftw3-dev \
-        libuhd-dev \
-        pkg-config \
+        python3 \
+        sudo \
         vim \
+    && rm -rf /var/lib/apt/lists/*
+
+# Runtime libraries for running the binaries built here. Builds link against
+# the sysroot (see MODULE.bazel), but libuhd is linked dynamically, so the
+# binaries load it from the system at run time. Keep the version in step with
+# the libuhd in the sysroot.
+RUN apt update && apt install -y --no-install-recommends \
+        libuhd4.9.0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Use bsdtar as `tar`. GNU tar on this release extracts with the openat2
@@ -28,9 +32,9 @@ RUN ln -s /usr/bin/bsdtar /usr/local/bin/tar
 # GitHub CLI, from GitHub's apt repo (Ubuntu's package lags behind)
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
         -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
-    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
         > /etc/apt/sources.list.d/github-cli.list \
-    && apt-get update && apt-get install -y --no-install-recommends gh \
+    && apt update && apt install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
 # Authenticate git to GitHub through the GitHub CLI, using HTTPS even when a
@@ -43,10 +47,42 @@ COPY git-editor /usr/local/bin/git-editor
 RUN chmod 755 /usr/local/bin/git-editor
 ENV GIT_EDITOR=git-editor
 
+# Bazel, through bazelisk, which runs the version in .bazelversion.
+ARG BAZELISK_VERSION=1.30.0
+ARG BAZELISK_SHA256_AMD64=a248ae2b2b62b5baebb748f6fba7203bff1a27e5d01b55399a8406744cb539e8
+ARG BAZELISK_SHA256_ARM64=b2bcc040c213b44586b121bda6d983c35df121b917c3a7a66fb16f2fa0df1a4f
+RUN arch=$(dpkg --print-architecture) \
+    && case $arch in \
+        amd64) sha256=$BAZELISK_SHA256_AMD64 ;; \
+        arm64) sha256=$BAZELISK_SHA256_ARM64 ;; \
+    esac \
+    && curl -fsSL -o /usr/local/bin/bazel \
+        "https://github.com/bazelbuild/bazelisk/releases/download/v${BAZELISK_VERSION}/bazelisk-linux-${arch}" \
+    && echo "${sha256}  /usr/local/bin/bazel" | sha256sum --check --strict \
+    && chmod 755 /usr/local/bin/bazel
+
+# buildifier, which formats and lints Bazel files (used by the VS Code Bazel
+# extension, which looks for it on PATH).
+ARG BUILDIFIER_VERSION=10.1.0
+ARG BUILDIFIER_SHA256_AMD64=31b6a8aa1e5c746696788f428729701770ad91925873d8256cb885c60e12c77e
+ARG BUILDIFIER_SHA256_ARM64=38d2ed845f560b4a16ddee41de906508a95f8dc85b04e0851b0a71e3a70d3890
+RUN arch=$(dpkg --print-architecture) \
+    && case $arch in \
+        amd64) sha256=$BUILDIFIER_SHA256_AMD64 ;; \
+        arm64) sha256=$BUILDIFIER_SHA256_ARM64 ;; \
+    esac \
+    && curl -fsSL -o /usr/local/bin/buildifier \
+        "https://github.com/bazelbuild/buildtools/releases/download/v${BUILDIFIER_VERSION}/buildifier-linux-${arch}" \
+    && echo "${sha256}  /usr/local/bin/buildifier" | sha256sum --check --strict \
+    && chmod 755 /usr/local/bin/buildifier
+
 # Run as the base image's built-in non-root "ubuntu" user. On Linux hosts
-# VS Code remaps its UID/GID to match the host user.
-RUN mkdir -p /home/ubuntu/.claude /home/ubuntu/.config/gh \
-    && chown -R ubuntu:ubuntu /home/ubuntu/.claude /home/ubuntu/.config
+# VS Code remaps its UID/GID to match the host user. The user gets
+# passwordless sudo, for installing packages in a running container.
+RUN echo "ubuntu ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ubuntu \
+    && chmod 0440 /etc/sudoers.d/ubuntu \
+    && mkdir -p /home/ubuntu/.claude /home/ubuntu/.config/gh /home/ubuntu/.cache/bazel \
+    && chown -R ubuntu:ubuntu /home/ubuntu/.claude /home/ubuntu/.config /home/ubuntu/.cache
 USER ubuntu
 
 # Claude Code CLI (native installer, installs to ~/.local/bin). The installer

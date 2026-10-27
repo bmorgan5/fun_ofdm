@@ -1,0 +1,4 @@
+exports_files([
+    "fixup.sh",
+    "sysroot.BUILD.bazel",
+])
