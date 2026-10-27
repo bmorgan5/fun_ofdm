@@ -1,0 +1,28 @@
+load("@rules_pkg//pkg:install.bzl", "pkg_install")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files")
+
+exports_files(["README.md"])
+
+pkg_files(
+    name = "binaries",
+    srcs = [
+        "//examples:receiver",
+        "//examples:sim",
+        "//examples:transceiver",
+        "//examples:transmitter",
+    ],
+    attributes = pkg_attributes(mode = "0755"),
+    prefix = "bin",
+)
+
+# Copies the binaries to out/<platform>/ in the workspace, so each target
+# platform gets its own directory: `bazel run //:install`.
+pkg_install(
+    name = "install",
+    srcs = [":binaries"],
+    destdir = select({
+        "@platforms//cpu:x86_64": "out/linux_x86_64",
+        # TODO(arm64): Enable once the code builds for arm64.
+        # "@platforms//cpu:aarch64": "out/linux_aarch64",
+    }),
+)

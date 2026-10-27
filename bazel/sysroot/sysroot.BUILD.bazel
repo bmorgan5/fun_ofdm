@@ -1,0 +1,24 @@
+# BUILD file for the sysroots made by //bazel/sysroot:extensions.bzl.
+#
+# Libraries installed in the sysroot. Their headers are found through
+# --sysroot, so only the libraries to link need declaring. Header-only
+# libraries, like most of boost, need no target at all.
+
+load("@rules_cc//cc:cc_import.bzl", "cc_import")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load(":multiarch.bzl", "MULTIARCH")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_import(
+    name = "fftw3",
+    static_library = "//sysroot:usr/lib/{}/libfftw3.a".format(MULTIARCH),
+)
+
+# Linked dynamically, against the libuhd installed on the target. The linker
+# finds it in the sysroot; unlike cc_import, this doesn't add a RUNPATH into
+# Bazel's output tree to the binaries.
+cc_library(
+    name = "uhd",
+    linkopts = ["-luhd"],
+)

@@ -1,0 +1,48 @@
+load("@doxygen//:doxygen.bzl", "doxygen")
+load("@rules_pkg//pkg:install.bzl", "pkg_install")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_files")
+
+# API documentation, in bazel-bin/docs/html/. Build it with `bazel build //docs`,
+# or build it and copy it to out/docs/ with `bazel run //docs:install`.
+doxygen(
+    name = "docs",
+    srcs = ["//:README.md"],
+    always_detailed_sec = True,
+    extract_all = True,
+    extract_local_methods = True,
+    extract_package = True,
+    extract_private = True,
+    extract_static = True,
+    generate_html = True,
+    generate_latex = False,
+    inline_sources = True,
+    project_brief = "802.11a Physical Layer for USRP",
+    project_name = "fun_ofdm",
+    project_number = "1.1.0",
+    referenced_by_relation = True,
+    references_relation = True,
+    source_browser = True,
+    # Not built by `bazel build //...`.
+    tags = ["manual"],
+    use_mdfile_as_mainpage = "README.md",
+    # Documents the sources of these targets and their dependencies.
+    deps = [
+        "//examples:receiver",
+        "//examples:sim",
+        "//examples:transceiver",
+        "//examples:transmitter",
+    ],
+)
+
+pkg_files(
+    name = "files",
+    srcs = [":docs"],
+    tags = ["manual"],
+)
+
+pkg_install(
+    name = "install",
+    srcs = [":files"],
+    tags = ["manual"],
+    destdir = "out/docs",
+)

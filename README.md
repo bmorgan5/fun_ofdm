@@ -25,12 +25,7 @@ The transmitter is not very computationally complex. However, the receiver runs 
 
 The easiest way to get a working build environment is the included dev container, which has every dependency (plus Claude Code) preinstalled.
 
-You'll need Docker and VS Code with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension. Open the repo in VS Code and run "Dev Containers: Reopen in Container". CMake is configured automatically, so to build:
-
-~~~
-cd build
-make
-~~~
+You'll need Docker and VS Code with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension. Open the repo in VS Code and run "Dev Containers: Reopen in Container".
 
 Without VS Code, use the [Dev Containers CLI](https://github.com/devcontainers/cli) (requires Node 18+):
 
@@ -44,157 +39,66 @@ Note: the container is x86-64 because the code uses SSE intrinsics.
 
 ## Manual Install ##
 
-To build natively instead, install the dependencies below and then follow the build steps.
-
-### Dependencies ###
-
-#### CMake (>= 3.9) ####
-
-This project uses the CMake build system to check for dependencies and auto-generate all the necessary Makefiles. For more information see the [CMake Website](http://www.cmake.org/).
-
-On a debian based system you can also install CMake throught apt-get such as:
+The build only needs [bazelisk](https://github.com/bazelbuild/bazelisk) installed as `bazel`; Bazel downloads the compiler and the libraries to build against (see below). Running the binaries needs Ubuntu 26.04 with UHD installed:
 
 ~~~
-sudo apt-get install cmake
+sudo apt-get install libuhd4.9.0
 ~~~
 
-#### Make ####
+## Build ##
 
-Make is required for the CMake build system. More information can be found at [GNU Make homepage](http://www.gnu.org/software/make/).
-
-On a debian based system you can also install make throught apt-get such as:
+The project builds with [Bazel](https://bazel.build), using clang from [toolchains_llvm](https://github.com/bazel-contrib/toolchains_llvm):
 
 ~~~
-sudo apt-get install make
+bazel build //...
 ~~~
 
-#### Doxygen (optional) ####
-
-Doxygen is used to auto-generate html documentation. If you want to build a local copy of the API you will need to have Doxygen installed. More information can be found at the [Doxygen website](http://www.doxygen.org)
-
-On a debian based system you can also install doxygen throught apt-get such as:
+The binaries end up in `bazel-bin/examples/` (`sim`, `transmitter`, `receiver` and `transceiver`). Builds are optimized (`-c opt`) by default; pass `-c dbg` for a debug build. To build and run a binary in one step:
 
 ~~~
-sudo apt-get install doxygen
+bazel run //examples:sim
 ~~~
 
-You can also install a GUI tool call doxy-wizard through apt-get:
+The binaries link everything statically except glibc, libstdc++ (and its libgcc_s) and libuhd, so they run on any Ubuntu 26.04 machine with `libuhd` installed.
+
+`bazel-bin` is a symlink into Bazel's cache inside the container, so to get the binaries out (e.g. onto the host, to copy to a target), install them into the workspace:
 
 ~~~
-sudo apt-get install doxygen-gui
+bazel run //:install
 ~~~
 
-On MacOS a .dmg can be downloaded from the doxygen.org website by clicking on the downloads link.
+This copies them to `out/<platform>/bin/` (`out/linux_x86_64/bin/` by default), so builds for different architectures don't overwrite each other.
 
-Note: After installing the .dmg, you will have to find the App in Finder and ctrl-click open it
-the first time otherwise MacOS won't let you open it for security reasons
+### Sysroots and cross compiling ###
 
-#### UHD ####
+Every build is a cross compile against a sysroot for the target platform, even for the host's architecture, so the compiler never sees the host's `/usr`. The sysroots are made of Ubuntu 26.04 packages (`SYSROOT_PACKAGES` in `MODULE.bazel`, and their dependencies), which Bazel downloads from a dated snapshot of the Ubuntu archive (`UBUNTU_SNAPSHOT`) and unpacks itself, without installing anything. The resolved package list, with each package's checksum, is recorded in `MODULE.bazel.lock`, so every checkout builds against the same files. To pick up package updates, move `UBUNTU_SNAPSHOT` forward; the next build resolves the packages again and updates the lockfile.
 
-Universal Hardware Driver (UHD) is the library, provided by Ettus, that is used to communicated with the USRPs. For installation instructions see:
+Only x86-64 (`--config=linux_x86_64`, the default) is enabled for now. arm64 support is stubbed out under `TODO(arm64)` comments in `MODULE.bazel`, `.bazelrc` and `third_party/BUILD.bazel`, and needs the SSE code to be ported first.
 
-[UHD Manual] (http://http://files.ettus.com/manual/)
+### Documentation (Optional) ###
 
-On a debian based system you can also install UHD throught apt-get such as:
-
-~~~
-sudo apt-get install libuhd-dev
-~~~
-
-Or you can follow the [build guide] (http://files.ettus.com/manual/page_build_guide.html) to build from source
-
-#### FFTW3 ####
-
-FFTW version 3 is the library used for computing the Fast Fourier Transforms. For more information see the [FFTW project home page] (http://www.fftw.org/index.html).
-
-On a debian based system the easiest way to install FFTW3 is to use apt-get such as:
+The project uses Doxygen to generate HTML API documentation, with this README as the main page. Bazel downloads Doxygen itself, so there's nothing to install:
 
 ~~~
-sudo apt-get install libfftw3-3
-~~~
-or
-~~~
-sudo apt-get install libfftw3-dev
+bazel build //docs
 ~~~
 
-There are also instructions in their website (linked above) to install from source.
-
-#### Boost ####
-
-Boost is required for UHD. It is also used for the CRC and time functions.
-
-On a debian based system the easiest way to install Boost is to use apt-get such as:
+The documentation ends up in `bazel-bin/docs/html/`, which is inside the container. To view it on the host, build it and copy it into the workspace instead:
 
 ~~~
-sudo apt-get install libboost-dev
+bazel run //docs:install
 ~~~
 
-To install from source download download the latest source and build it locally such as:
-
-~~~
-tar xvf boost_1_x_y.tar.bzip2
-cd boost_1_x_y
-./bootstrap.sh
-./b2 -j4
-~~~
-
-This project assumes that boost is installed in /usr/local/ by default
-
-You can find more detailed installation instructions on the [Boost Website](http://www.boost.org/).
-
-#### pthread ####
-
-Posix threads (pthread) is the library used for handling all of the threading in the receiver chain. You should already
-have the pthread library as it comes with the linux kernel but if you can also get/update it with apt-get such as:
-
-~~~
-sudo apt-get install libpthread-stubs0-dev
-~~~
-
-### Build ###
-
-#### Compile ####
-
-The easiest way to compile the code is to download it come github (clone) and then use CMake & make.
-
-~~~
-git clone https://github.com/bmorgan5/fun_ofdm.git
-cd fun_ofdm
-mkdir build
-cd build
-cmake ..
-make
-~~~
-
-#### Install (Optional) ####
-
-If you want to install the project and use it as a library you can use the install target after you have compiled everything:
-
-~~~
-sudo make install
-sudo ldconfig
-~~~
-
-*Note: Don't forget the 'ldconfig' command, otherwise gcc won't be able to find your newly installed fun_ofdm library.
-
-#### Documentation (Optional) ####
-
-The project uses Doxygen to auto-generate html API documentation. To build the documentation locally:
-
-~~~
-cd docs/doxygen/
-doxygen Doxyfile
-open html/index.html
-~~~
+Then open `out/docs/html/index.html`. The docs aren't built by `bazel build //...`.
 
 # Testing #
 
 ## Simulation ##
 
-The easiest way to test that everything built correctly is to run *sim* in the fun_ofdm/bin directory as this does not require any USRPs to be connected. The source code for this example can be found in fun_ofdm/examples/test_sim.cpp. If everything compiled correctly you should see an output that looks something like:
+The easiest way to test that everything built correctly is to run *sim* (`bazel run //examples:sim`) as this does not require any USRPs to be connected. The source code for this example can be found in fun_ofdm/examples/test_sim.cpp. If everything compiled correctly you should see an output that looks something like:
 
 
-> [path to fun_ofdm]/fun_ofdm/bin $ sudo ./sim
+> [path to fun_ofdm]/fun_ofdm $ sudo bazel-bin/examples/sim
 > I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!
 >
 > ...
@@ -209,9 +113,9 @@ The easiest way to test that everything built correctly is to run *sim* in the f
 
 ## Test Tx ##
 
-To test that the transmitter is working you can run *test_tx* in the fun_ofdm/bin directory. This test requires a USRP so be sure to have one plugged connected properly. (To test if your computer can see the USRP you can use 'uhd_find_devices'). The source code for this can be found in fun_ofdm/examples/test_tx. If everything goes as expected you should see soemthing like:
+To test that the transmitter is working you can run *transmitter* in the fun_ofdm/bazel-bin/examples directory. This test requires a USRP so be sure to have one plugged connected properly. (To test if your computer can see the USRP you can use 'uhd_find_devices'). The source code for this can be found in fun_ofdm/examples/test_tx. If everything goes as expected you should see soemthing like:
 
-> [path to download dir]/fun_ofdm/bin $ sudo ./test_tx
+> [path to download dir]/fun_ofdm $ sudo bazel-bin/examples/transmitter
 >
 > linux; GNU C++ version 4.8.1; Boost_105300; UHD_003.007.001-72-g383061d8
 >
@@ -252,9 +156,9 @@ To test that the transmitter is working you can run *test_tx* in the fun_ofdm/bi
 ## Test Rx ##
 
 Testing the receiver is a bit more complicated. This test requires at least one USRP for the receiver, but you will probably want to have a second USRP so that you can transmit packets for the receiver to receive as well. To do this,
-first run test_rx in the fun_ofdm/bin directory. If you are on a clear channel and don't have anything transmitting you will probably see something like this:
+first run *receiver* in the fun_ofdm/bazel-bin/examples directory. If you are on a clear channel and don't have anything transmitting you will probably see something like this:
 
-> [path to download dir]/fun_ofdm/bin $ sudo ./test_rx
+> [path to download dir]/fun_ofdm $ sudo bazel-bin/examples/receiver
 >
 > linux; GNU C++ version 4.8.1; Boost_105300; UHD_003.007.001-72-g383061d8
 >
@@ -281,7 +185,7 @@ Don't worry about the 'Invalid CRC (length 709)' as this just indicates a false 
 
 Once you have the receiver up and running you can then run *test_tx* to transmit some packets for the receiver to receive. If everything works as expected you should see something like this:
 
-> [path to download dir]/fun_ofdm/bin $ sudo ./test_rx
+> [path to download dir]/fun_ofdm $ sudo bazel-bin/examples/receiver
 >
 > linux; GNU C++ version 4.8.1; Boost_105300; UHD_003.007.001-72-g383061d8
 >
@@ -437,9 +341,8 @@ The full code for this simple transcieiver can be found in the examples director
 + Can you see your USRP with 'uhd_find_device'?
 + Did you run the examples using as root (i.e. 'sudo')?
 + Have you tried different gain / tx_amp settings?
-+ Did you run 'ldconfig' after 'sudo make install'?
 + Are both the transmitter and receiver using the same center freq? sample rate?
-+ Are compiler optimizations turned on (they are turned on by default in the top level CMakeLists.txt)
++ Are compiler optimizations turned on (they are by default; see .bazelrc)?
 + If you see 'D's printed to the screen that might indicate hardware problems
 	+ Could be your ethernet card - see the sysconf changes recommended by Ettus
 	+ Could be your processor is too slow/too busy

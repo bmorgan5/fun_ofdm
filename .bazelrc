@@ -1,0 +1,15 @@
+# Never fall back to Bazel's autodetected host compiler; C++ builds use the
+# LLVM toolchain registered in MODULE.bazel.
+common --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
+
+# fun_ofdm is a real-time DSP application; build optimized by default.
+build --compilation_mode=opt
+
+# Target platforms. Every build targets an explicit platform (and sysroot),
+# even the host's.
+build --config=linux_x86_64
+build:linux_x86_64 --platforms=//platforms:linux_x86_64
+# TODO(arm64): Enable once the code builds for arm64.
+# build:linux_aarch64 --platforms=//platforms:linux_aarch64
+
+try-import %workspace%/user.bazelrc
