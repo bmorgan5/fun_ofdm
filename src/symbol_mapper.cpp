@@ -63,11 +63,9 @@ namespace fun
     /*!
      *  -Initializations
      *  + #m_data_subcarrier_count -> 48 data subcarriers
-     *  + #m_pilot_count -> 4 pilot subcarriers
      */
     symbol_mapper::symbol_mapper() :
-        m_data_subcarrier_count(48),
-        m_pilot_count(4)
+        m_data_subcarrier_count(48)
     {
     }
 
@@ -82,7 +80,6 @@ namespace fun
     {
         assert(data_samples.size() % m_data_subcarrier_count == 0);
 
-        std::complex<double> pilot_value = std::complex<double>(1, 0);
         std::complex<double> null_value = std::complex<double>(0, 0);
 
         std::vector<std::complex<double> > samples(data_samples.size() * m_active_map.size() / m_data_subcarrier_count);

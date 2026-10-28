@@ -54,7 +54,6 @@ namespace fun
             sr = (sr << 1) | bit;
             for(int k = 0; k < RATE; k++)
             {
-              int m = sr & polys[k];
               int par = parity(sr & polys[k]);
               symbols[index++] = par;
             }
@@ -80,7 +79,6 @@ namespace fun
     /* Create a new instance of a Viterbi decoder */
     struct v * viterbi::viterbi_alloc(int len) {
       struct v *vp;
-      static int Init = 0;
 
         int state, i;
         int polys[RATE] = POLYS;
@@ -89,7 +87,6 @@ namespace fun
             Branchtab[i*NUMSTATES/2+state] = (polys[i] < 0) ^ parity((2*state) & abs(polys[i])) ? 255 : 0;
           }
         }
-        Init++;
 
       if (posix_memalign((void**)&vp, 16,sizeof(struct v)))
         return NULL;
