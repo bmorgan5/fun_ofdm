@@ -26,8 +26,8 @@ namespace fun
     {
         double freq;                //!< Center Frequency
         double rate;                //!< Sample Rate
-        double tx_gain;             //!< Transmit Gain (0-35 for USRP N210)
-        double rx_gain;             //!< Receive Gain  (0-35 for USRP N210)
+        double tx_gain;             //!< Transmit Gain in dB (the valid range depends on the device)
+        double rx_gain;             //!< Receive Gain in dB (the valid range depends on the device)
         double tx_amp;              //!< Transmit Amplitude - scales all tx samples before sending to USRP
         std::string device_addr;    //!< IP Address of USRP as a string - i.e. "192.168.10.2" or "" to find automatically
 

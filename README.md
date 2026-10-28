@@ -247,14 +247,30 @@ This project was developed as a library for furthering wireless communications r
 
 The full API is available on the funlab website: [fun_ofdm API](http://www.ee.washington.edu/research/funlab/fun_ofdm/index.html).
 
+## Command Line ##
+
+`fun-ofdm <tx|rx|sim> [options]` runs one mode; `fun-ofdm <mode> --help` lists its options. `tx` and `rx` take:
+
+* `--freq GHZ` or `--channel N` - Center frequency, or an 802.11 channel number (1-14 or 32-177) to convert to one [default: 5.72 GHz]
+* `--bandwidth MHZ` - Channel bandwidth, which is also the sample rate; 802.11a uses 5, 10 or 20 MHz [default: 5]
+* `--gain DB` - Transmit gain for `tx`, receive gain for `rx`; the valid range depends on the device [default: 30]
+* `--device ARGS` - UHD device address, e.g. `addr=192.168.10.2` [default: find one automatically]
+* `--no-realtime` - Don't request real time thread priority (which needs root)
+
+`tx` also takes `--tx-amp` (transmit sample scale factor, 0-1) [default: 0.5], and `tx` and `sim` take `--phy-rate`, one of `bpsk-1/2`, `bpsk-2/3`, `bpsk-3/4`, `qpsk-1/2`, `qpsk-2/3`, `qpsk-3/4`, `qam16-1/2`, `qam16-2/3`, `qam16-3/4`, `qam64-2/3` or `qam64-3/4` [default: `bpsk-1/2` for `tx`, `qam16-3/4` for `sim`]. For example:
+
+~~~
+sudo fun-ofdm tx --channel 36 --bandwidth 20 --gain 25 --phy-rate qam16-1/2
+~~~
+
 ## Parameters ##
 
-The main parameters used for the transmitter / receiver are as follows:
+The main parameters used by the transmitter / receiver classes (`usrp_params`) are as follows:
 
 * freq        - Center frequence [default=5.72e9 (5.72 GHz)]
 * sample_rate - AD/DA sampling frequency (also corresponds to bandwidth) [default=5e6 (5 MHz)]
-* tx_gain     - Output amplifier gain (0-35 on USRP N210) [default=20]
-* rx_gain     - Input amplifier gain  (0-35 on USRP N210) [default=20]
+* tx_gain     - Output amplifier gain in dB; the valid range depends on the device [default=20]
+* rx_gain     - Input amplifier gain in dB; the valid range depends on the device [default=20]
 * tx_amp 		  - Scale factor for transmit samples. Used to give finer control over output power. [default=1]
 * device_addr - IP Address of USRP as a string. An empty string will automatically find an eligable USRP [default=""]
 

@@ -11,10 +11,12 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <exception>
 #include <iostream>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <CLI/CLI.hpp>
 #include "frame_builder.h"
+#include "options.h"
 #include "realtime.h"
 #include "receiver.h"
 #include "receiver_chain.h"
@@ -31,21 +33,17 @@ using namespace fun;
  *  known string. This string is used to verify that the packet was in fact received
  *  along with the IEEE CRC-32 check.
  */
-static int run_tx()
+static int run_tx(const tx_options & opts)
 {
-    double freq = 5.72e9;
-    double sample_rate = 5e6;
-    double tx_gain = 30;
-    double amp = 0.5;
-    Rate phy_rate = RATE_1_2_BPSK;
+    Rate phy_rate = opts.phy_rate;
 
-    set_realtime_priority();
+    if(!opts.radio.no_realtime) set_realtime_priority();
 
     std::cout << "Testing transmit chain..." << std::endl;
 
     srand(time(NULL)); //Initialize random seed
 
-    transmitter tx = transmitter(freq, sample_rate, tx_gain, amp);
+    transmitter tx = transmitter(to_usrp_params(opts));
     std::string known_string("This known string is used to verify the correctness of the received data along with the IEEE CRC-32!");
 
     int num_packets = 1000;
@@ -104,20 +102,16 @@ static void process_packets_callback(std::vector<std::vector<unsigned char> > pa
  *  forever until the user kills the program externally (preferably by using something like
  *  Ctrl+c or the kill command in the shell).
  */
-static int run_rx()
+static int run_rx(const rx_options & opts)
 {
-    double freq = 5.72e9;
-    double sample_rate = 5e6;
-    double rx_gain = 30;
-
     std::cout << "Testing receive chain..." << std::endl;
 
-    set_realtime_priority();
+    if(!opts.radio.no_realtime) set_realtime_priority();
 
     // Instantiate a usrp
     printf("Instantiating the usrp.\n");
 
-    receiver rx = receiver(&process_packets_callback, freq, sample_rate, rx_gain, "");
+    receiver rx = receiver(&process_packets_callback, to_usrp_params(opts));
 
     while(1) sleep(1);
 }
@@ -129,9 +123,9 @@ static int run_rx()
  *  This function builds some packets using the frame builder and sends them through
  *  the receiver chain.  This function does NOT use the transmitter and receiver classes.
  */
-static int run_sim()
+static int run_sim(const sim_options & opts)
 {
-    Rate phy_rate = RATE_3_4_QAM16;
+    Rate phy_rate = opts.phy_rate;
 
     std::cout << "Running Simulation..." << std::endl;
 
@@ -200,16 +194,32 @@ static int run_sim()
 int main(int argc, char * argv[])
 {
     CLI::App app("802.11a OFDM PHY for Ettus USRPs", "fun-ofdm");
+    app.set_version_flag("--version", "2.0.0"); // Keep in step with MODULE.bazel
     app.require_subcommand(1);
 
+    tx_options tx_opts;
     CLI::App * tx = app.add_subcommand("tx", "Transmit test frames");
+    add_options(tx, tx_opts);
+
+    rx_options rx_opts;
     CLI::App * rx = app.add_subcommand("rx", "Receive frames");
+    add_options(rx, rx_opts);
+
+    sim_options sim_opts;
     CLI::App * sim = app.add_subcommand("sim", "Run frames through the receiver chain in software (no USRP)");
+    add_options(sim, sim_opts);
 
     CLI11_PARSE(app, argc, argv);
 
-    if(tx->parsed()) return run_tx();
-    if(rx->parsed()) return run_rx();
-    if(sim->parsed()) return run_sim();
+    try
+    {
+        if(tx->parsed()) return run_tx(tx_opts);
+        if(rx->parsed()) return run_rx(rx_opts);
+        if(sim->parsed()) return run_sim(sim_opts);
+    }
+    catch(const std::exception & e)
+    {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
     return 1;
 }
