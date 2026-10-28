@@ -27,10 +27,7 @@ doxygen(
     use_mdfile_as_mainpage = "README.md",
     # Documents the sources of these targets and their dependencies.
     deps = [
-        "//examples:receiver",
-        "//examples:sim",
-        "//examples:transceiver",
-        "//examples:transmitter",
+        "//src:fun-ofdm",
     ],
 )
 
