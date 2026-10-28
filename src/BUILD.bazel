@@ -1,9 +1,11 @@
-load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 
-cc_library(
-    name = "fun_ofdm",
-    srcs = glob(["*.cpp"]),
-    hdrs = glob(["*.h"]),
+cc_binary(
+    name = "fun-ofdm",
+    srcs = glob([
+        "*.cpp",
+        "*.h",
+    ]),
     copts = select({
         "@platforms//cpu:x86_64": [
             "-mssse3",
@@ -11,9 +13,12 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
-    strip_include_prefix = "/src",
-    visibility = ["//visibility:public"],
+    visibility = [
+        "//:__pkg__",
+        "//docs:__pkg__",
+    ],
     deps = [
+        "@cli11",
         "//third_party:fftw3",
         "//third_party:uhd",
     ],
