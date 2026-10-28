@@ -3,20 +3,24 @@ load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files")
 
 exports_files(["README.md"])
 
+# Shorthand for `bazel build fun-ofdm` / `bazel run fun-ofdm -- sim` from the
+# workspace root.
+alias(
+    name = "fun-ofdm",
+    actual = "//src:fun-ofdm",
+)
+
 pkg_files(
     name = "binaries",
     srcs = [
-        "//examples:receiver",
-        "//examples:sim",
-        "//examples:transceiver",
-        "//examples:transmitter",
+        ":fun-ofdm",
     ],
     attributes = pkg_attributes(mode = "0755"),
     prefix = "bin",
 )
 
 # Copies the binaries to out/<platform>/ in the workspace, so each target
-# platform gets its own directory: `bazel run //:install`.
+# platform gets its own directory: `bazel run install`.
 pkg_install(
     name = "install",
     srcs = [":binaries"],

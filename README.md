@@ -1,6 +1,6 @@
 # FUN OFDM #
 
-This project is an 802.11a OFDM PHY layer implementation written in C++ for use with Ettus USRPs. It contains both transmitter and receiver blocks and were tested with USRP N210s + XCVR 2450 daughterboards. These blocks are provided separately so that they can be used individually. They can also be easily combined into a single transceiver, but that is left up to the user because how they interact with each other should be controlled by the MAC layer which is outside the scope of this project. Note: A simple transceiver example is provided in the examples directory of the project.
+This project is an 802.11a OFDM PHY layer implementation written in C++ for use with Ettus USRPs. It contains both transmitter and receiver blocks and were tested with USRP N210s + XCVR 2450 daughterboards. These blocks are provided separately so that they can be used individually. They can also be easily combined into a single transceiver, but that is left up to the user because how they interact with each other should be controlled by the MAC layer which is outside the scope of this project.
 
 The [Official FUN OFDM API can be found here!](http://www.ee.washington.edu/research/funlab/fun_ofdm/index.html)
 
@@ -50,24 +50,26 @@ sudo apt-get install libuhd4.9.0
 The project builds with [Bazel](https://bazel.build), using clang from [toolchains_llvm](https://github.com/bazel-contrib/toolchains_llvm):
 
 ~~~
-bazel build //...
+bazel build fun-ofdm
 ~~~
 
-The binaries end up in `bazel-bin/examples/` (`sim`, `transmitter`, `receiver` and `transceiver`). Builds are optimized (`-c opt`) by default; pass `-c dbg` for a debug build. To build and run a binary in one step:
+The build produces a single binary, `bazel-bin/src/fun-ofdm`, which runs the transmitter (`fun-ofdm tx`), the receiver (`fun-ofdm rx`) or a software simulation (`fun-ofdm sim`). Builds are optimized (`-c opt`) by default; pass `-c dbg` for a debug build. To build and run it in one step:
 
 ~~~
-bazel run //examples:sim
+bazel run fun-ofdm -- sim
 ~~~
 
-The binaries link everything statically except glibc, libstdc++ (and its libgcc_s) and libuhd, so they run on any Ubuntu 26.04 machine with `libuhd` installed.
+These short target names work from the workspace root; from anywhere else, use `//:fun-ofdm` (and `//:install` below).
 
-`bazel-bin` is a symlink into Bazel's cache inside the container, so to get the binaries out (e.g. onto the host, to copy to a target), install them into the workspace:
+The binary links everything statically except glibc, libstdc++ (and its libgcc_s) and libuhd, so it runs on any Ubuntu 26.04 machine with `libuhd` installed.
+
+`bazel-bin` is a symlink into Bazel's cache inside the container, so to get the binary out (e.g. onto the host, to copy to a target), install it into the workspace:
 
 ~~~
-bazel run //:install
+bazel run install
 ~~~
 
-This copies them to `out/<platform>/bin/` (`out/linux_x86_64/bin/` by default), so builds for different architectures don't overwrite each other.
+This copies it to `out/<platform>/bin/` (`out/linux_x86_64/bin/` by default), so builds for different architectures don't overwrite each other.
 
 ### Sysroots and cross compiling ###
 
@@ -95,10 +97,10 @@ Then open `out/docs/html/index.html`. The docs aren't built by `bazel build //..
 
 ## Simulation ##
 
-The easiest way to test that everything built correctly is to run *sim* (`bazel run //examples:sim`) as this does not require any USRPs to be connected. The source code for this example can be found in fun_ofdm/examples/test_sim.cpp. If everything compiled correctly you should see an output that looks something like:
+The easiest way to test that everything built correctly is to run *fun-ofdm sim* (`bazel run fun-ofdm -- sim`) as this does not require any USRPs to be connected. The source code for this mode is `run_sim()` in src/main.cpp. If everything compiled correctly you should see an output that looks something like:
 
 
-> [path to fun_ofdm]/fun_ofdm $ sudo bazel-bin/examples/sim
+> [path to fun_ofdm]/fun_ofdm $ sudo bazel-bin/src/fun-ofdm sim
 > I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!
 >
 > ...
@@ -113,9 +115,9 @@ The easiest way to test that everything built correctly is to run *sim* (`bazel 
 
 ## Test Tx ##
 
-To test that the transmitter is working you can run *transmitter* in the fun_ofdm/bazel-bin/examples directory. This test requires a USRP so be sure to have one plugged connected properly. (To test if your computer can see the USRP you can use 'uhd_find_devices'). The source code for this can be found in fun_ofdm/examples/test_tx. If everything goes as expected you should see soemthing like:
+To test that the transmitter is working you can run *fun-ofdm tx*. This test requires a USRP so be sure to have one plugged connected properly. (To test if your computer can see the USRP you can use 'uhd_find_devices'). The source code for this is `run_tx()` in src/main.cpp. If everything goes as expected you should see soemthing like:
 
-> [path to download dir]/fun_ofdm $ sudo bazel-bin/examples/transmitter
+> [path to download dir]/fun_ofdm $ sudo bazel-bin/src/fun-ofdm tx
 >
 > linux; GNU C++ version 4.8.1; Boost_105300; UHD_003.007.001-72-g383061d8
 >
@@ -156,9 +158,9 @@ To test that the transmitter is working you can run *transmitter* in the fun_ofd
 ## Test Rx ##
 
 Testing the receiver is a bit more complicated. This test requires at least one USRP for the receiver, but you will probably want to have a second USRP so that you can transmit packets for the receiver to receive as well. To do this,
-first run *receiver* in the fun_ofdm/bazel-bin/examples directory. If you are on a clear channel and don't have anything transmitting you will probably see something like this:
+first run *fun-ofdm rx*. If you are on a clear channel and don't have anything transmitting you will probably see something like this:
 
-> [path to download dir]/fun_ofdm $ sudo bazel-bin/examples/receiver
+> [path to download dir]/fun_ofdm $ sudo bazel-bin/src/fun-ofdm rx
 >
 > linux; GNU C++ version 4.8.1; Boost_105300; UHD_003.007.001-72-g383061d8
 >
@@ -183,9 +185,9 @@ first run *receiver* in the fun_ofdm/bazel-bin/examples directory. If you are on
 
 Don't worry about the 'Invalid CRC (length 709)' as this just indicates a false alarm that was successfully detected and dropped when the CRC failed in the frame decoder block.
 
-Once you have the receiver up and running you can then run *test_tx* to transmit some packets for the receiver to receive. If everything works as expected you should see something like this:
+Once you have the receiver up and running you can then run *fun-ofdm tx* to transmit some packets for the receiver to receive. If everything works as expected you should see something like this:
 
-> [path to download dir]/fun_ofdm $ sudo bazel-bin/examples/receiver
+> [path to download dir]/fun_ofdm $ sudo bazel-bin/src/fun-ofdm rx
 >
 > linux; GNU C++ version 4.8.1; Boost_105300; UHD_003.007.001-72-g383061d8
 >
@@ -333,13 +335,11 @@ void callback(std::vector<std::vector<unsigned char> > payloads)
 
 This example only needs one USRP to be connected since the transmitter and receiver as the code is never trying to transmit and receive at the same time.
 
-The full code for this simple transcieiver can be found in the examples directory titled simple_transciver.cpp. *Note: this file assumes that the fun_ofdm library has been installed to the system instead of being build locally.
-
 
 # Troubleshooting #
 
 + Can you see your USRP with 'uhd_find_device'?
-+ Did you run the examples using as root (i.e. 'sudo')?
++ Did you run fun-ofdm as root (i.e. 'sudo')?
 + Have you tried different gain / tx_amp settings?
 + Are both the transmitter and receiver using the same center freq? sample rate?
 + Are compiler optimizations turned on (they are by default; see .bazelrc)?
