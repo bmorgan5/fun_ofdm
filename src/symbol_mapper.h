@@ -61,8 +61,6 @@ namespace fun
 
         int m_data_subcarrier_count; //!< Number of data subcarriers.
 
-        int m_pilot_count; //!< Number of pilot subcarriers.
-
     };
 }
 

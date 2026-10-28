@@ -11,6 +11,7 @@
 #define RATES_H
 
 #include <assert.h>
+#include <cstdlib>
 #include <vector>
 #include <string>
 
@@ -244,7 +245,7 @@ namespace fun
 
                 default:
                     assert(false);
-                    break;
+                    std::abort();
             }
         }
     };
