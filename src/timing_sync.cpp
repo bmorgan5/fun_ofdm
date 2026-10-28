@@ -19,14 +19,14 @@ namespace fun
 {
     /*!
      * - Initializations:
-     *   + #m_phase_acc -> 0.0
      *   + #m_phase_offset -> 0.0
+     *   + #m_phase_acc -> 0.0
      *   + #m_carryover -> 160 blank tagged samples
      */
     timing_sync::timing_sync() :
         block("timing_sync"),
-        m_phase_acc(0),
         m_phase_offset(0),
+        m_phase_acc(0),
         m_carryover(CARRYOVER_LENGTH, tagged_sample())
     {}
 

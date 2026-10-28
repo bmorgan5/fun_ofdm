@@ -22,10 +22,10 @@ namespace fun
      * This constructor is for those who feel more comfortable using the usrp_params struct.
      */
     receiver::receiver(void (*callback)(std::vector<std::vector<unsigned char> > packets), usrp_params params) :
-        m_usrp(params),
-        m_samples(NUM_RX_SAMPLES),
         m_callback(callback),
-        m_rec_chain()
+        m_usrp(params),
+        m_rec_chain(),
+        m_samples(NUM_RX_SAMPLES)
     {
         sem_init(&m_pause, 0, 1); //Initial value is 1 so that the receiver_chain_loop() will begin executing immediately
         m_rec_thread = std::thread(&receiver::receiver_chain_loop, this); //Initialize the main receiver thread

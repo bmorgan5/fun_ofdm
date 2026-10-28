@@ -14,19 +14,19 @@ namespace fun
 {
     /*!
      * - Initializations:
-     *   + #m_power_acc      -> #STS_LENGTH (16 samples)
      *   + #m_corr_acc       -> #STS_LENGTH (16 samples)
-     *   + #m_carryover      -> #STS_LENGTH (16 samples)
+     *   + #m_power_acc      -> #STS_LENGTH (16 samples)
      *   + #m_plateau_length -> 0
      *   + #m_plateau_flag   -> false
+     *   + #m_carryover      -> #STS_LENGTH (16 samples)
      */
     frame_detector::frame_detector() :
         block("frame_detector"),
-        m_power_acc(STS_LENGTH),
         m_corr_acc(STS_LENGTH),
-        m_carryover(STS_LENGTH, 0),
+        m_power_acc(STS_LENGTH),
         m_plateau_length(0),
-        m_plateau_flag(false)
+        m_plateau_flag(false),
+        m_carryover(STS_LENGTH, 0)
     {
     }
 
