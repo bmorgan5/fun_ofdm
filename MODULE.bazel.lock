@@ -232,7 +232,7 @@
     "//bazel/sysroot:extensions.bzl%sysroot": {
       "general": {
         "bzlTransitiveDigest": "JlV/yu8xJhTgH7YcizU2yBZNNGfHSwDLFngzm5f8LYM=",
-        "usagesDigest": "7lYVUQFGxvyvvenoSWhdLXf4UhnEIU8Xyq5RNb6IlkU=",
+        "usagesDigest": "H3Vv9bJfz78Fwu2SUPiM6MZkKkik23LJOENgUoscg2Y=",
         "recordedInputs": [],
         "generatedRepoSpecs": {
           "sysroot_linux_x86_64": {
@@ -317,7 +317,7 @@
     "@@rules_doxygen+//:extensions.bzl%doxygen_extension": {
       "general": {
         "bzlTransitiveDigest": "kq2/VMe4nj6q3bsQeT9aBjxATnSNlkkIJ8iudm2G9PQ=",
-        "usagesDigest": "BvKxk/xV84EdMb7AN9ZNPh+QVGuBlygGrdS4zgqZ0LM=",
+        "usagesDigest": "pfFiFTW7Y4mIDmMLmKboU/0MhbRaJATHtG0xtWUWu4c=",
         "recordedInputs": [
           "REPO_MAPPING:rules_doxygen+,rules_doxygen rules_doxygen+"
         ],
