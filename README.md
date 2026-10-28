@@ -289,7 +289,7 @@ transmitter tx = transmitter(params);
 std::string s = "Hello World";
 std::vector<unsigned char> data = std::vector<unsigned char>(12);
 memcpy(&data[0], &s[0], 12);
-tx.send_packet(data);
+tx.send_frame(data);
 
 ...
 
@@ -297,7 +297,7 @@ tx.send_packet(data);
 
 ## Receiver ##
 
-Similarly, building the receiver and receiving packets is just as. The following code snippet builds a receiver object with the default USRP parameters and passes a function pointer to the callback function aptly named 'callback'.
+Similarly, building the receiver and receiving packets is just as easy. The following code snippet builds a receiver object with the default USRP parameters and passes a function pointer to the callback function aptly named 'callback'. Calling run() then receives packets on the calling thread, passing them to the callback, until a stop is requested on the std::stop_token passed to it (from another thread, for example).
 
 ~~~
 ...
@@ -305,52 +305,11 @@ Similarly, building the receiver and receiving packets is just as. The following
 usrp_params params = usrp_params();
 receiver rx = receiver(&callback, params);
 
-while(1) sleep(1); //Let the main thread spin while the receive threads receives packets
+std::stop_source stop;
+rx.run(stop.get_token()); // Returns after stop.request_stop() is called
 
 ...
 ~~~
-
-## Simple Transciever ##
-
-Putting the above two examples together we can make a very simple transceiver using the default USRP parameters that receives for 4 seconds then transmits a single packet and repeats. *Note: the callback function is only called if the receiver actually successfully receives a packet. In this case the contents of the packet are simply printed to standard out (i.e. the terminal). If the receiver doesn't receive anything then essentially nothing happens.
-
-~~~
-int main()
-{
-
-    usrp_params params = usrp_params();
-    transmitter tx = transmitter(params);
-    receiver rx = receiver(&callback, params);
-
-    std::string s = "Hello World";
-    std::vector<unsigned char> data = std::vector<unsigned char>(12);
-    memcpy(&data[0], &s[0], 12);
-    tx.send_packet(data);
-
-    while(1)
-    {
-        sleep(4);
-        rx.pause();
-        tx.send_packet(data);
-        cout << "Sending \"Hello World\" " << std::endl;
-        rx.resume();
-    }
-
-    return 0;
-}
-
-void callback(std::vector<std::vector<unsigned char> > payloads)
-{
-    for(int i = 0; i < payloads.size(); i++)
-    {
-        std::cout << "Received a packet" << std::endl;
-    }
-
-}
-~~~
-
-This example only needs one USRP to be connected since the transmitter and receiver as the code is never trying to transmit and receive at the same time.
-
 
 # Troubleshooting #
 

@@ -8,7 +8,7 @@
 #ifndef RECEIVER_H
 #define RECEIVER_H
 
-#include <semaphore.h>
+#include <stop_token>
 #include <vector>
 #include "receiver_chain.h"
 #include "usrp.h"
@@ -22,16 +22,12 @@ namespace fun
      * \brief The receiver class is the public interface for the fun_ofdm receiver.
      *  This is the easiest way to start receiving 802.11a OFDM frames out of the box.
      *
-     *  Usage: To receive packets simply create a receiver object and pass it a callback
-     *  function that takes a std::vector<std::vector<unsigned char> > as an input parameter.
-     *  The receiver object then automatically creates a separate thread that pulls samples
-     *  from the USRP and processes them with the receive chain. The received packets (if any)
-     *  are then passed into the callback function where the user is able to process them further.
-     *
-     *  If at any time the user wishes to pause the receiver (i.e. so that the user can transmit
-     *  some packets) the user simply needs to call the receiver::pause() function on the receiver
-     *  object. Similarly, the receiver::resume() function can then be used to begin receiving again
-     *  after a pause.
+     *  Usage: To receive packets simply create a receiver object, passing it a callback
+     *  function that takes a std::vector<std::vector<unsigned char> > as an input parameter,
+     *  and then call receiver::run(). run() pulls samples from the USRP and processes them with
+     *  the receive chain on the calling thread. The received packets (if any) are passed into
+     *  the callback function where the user is able to process them further. run() returns
+     *  once a stop is requested on the std::stop_token passed to it.
      */
     class receiver
     {
@@ -73,18 +69,13 @@ namespace fun
         receiver(void(*callback)(std::vector<std::vector<unsigned char> > packets), usrp_params params = usrp_params());
 
         /*!
-         * \brief Pauses the receiver thread.
+         * \brief Receives frames until a stop is requested.
+         * \param stop Stop token for ending the receiver. It is checked between batches of
+         *  #NUM_RX_SAMPLES samples, so run() returns within one batch of the request.
          */
-        void pause();
-
-        /*!
-         * \brief Resumes the receiver thread after it has been paused.
-         */
-        void resume();
+        void run(std::stop_token stop);
 
     private:
-
-        void receiver_chain_loop(); //!< Infinite while loop where samples are received from USRP and processed by the receiver_chain
 
         void (*m_callback)(std::vector<std::vector<unsigned char> > packets); //!< Callback function pointer
 
@@ -93,14 +84,6 @@ namespace fun
         receiver_chain m_rec_chain; //!< The receiver chain object used to detect & decode incoming frames
 
         std::vector<std::complex<double> > m_samples; //!< Vector to hold the raw samples received from the USRP and passed into the receiver_chain
-
-        std::thread m_rec_thread; //!< The thread that the receiver chain runs in
-
-        sem_t m_pause; //!< Semaphore used to pause the receiver thread
-
-
-
-
     };
 
 

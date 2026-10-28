@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
 #include <exception>
 #include <iostream>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -96,11 +95,10 @@ static void process_packets_callback(std::vector<std::vector<unsigned char> > pa
  * \brief Receives frames over the air with a USRP.
  * \return Process exit code.
  *
- *  This function creates a receiver object which spawns its own thread for the receiver chain.
- *  It passes a pointer to the  #process_packets_callback() function which is used to process
- *  the received packets (in this case it just counts them). This function then sleeps
- *  forever until the user kills the program externally (preferably by using something like
- *  Ctrl+c or the kill command in the shell).
+ *  This function creates a receiver object, passing it a pointer to the #process_packets_callback()
+ *  function which is used to process the received packets (in this case it just counts them).
+ *  It then runs the receiver until the user kills the program externally (preferably by using
+ *  something like Ctrl+c or the kill command in the shell).
  */
 static int run_rx(const rx_options & opts)
 {
@@ -113,7 +111,10 @@ static int run_rx(const rx_options & opts)
 
     receiver rx = receiver(&process_packets_callback, to_usrp_params(opts));
 
-    while(1) sleep(1);
+    // Nothing requests a stop on this token, so this receives until the program is killed
+    rx.run(std::stop_token());
+
+    return 0;
 }
 
 /*!
