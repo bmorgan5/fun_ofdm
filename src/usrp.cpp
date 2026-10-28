@@ -8,10 +8,31 @@
  *  such as center frequency, sample rate, tx/rx gain, etc..
  */
 
+#include <sstream>
+#include <stdexcept>
 #include "usrp.h"
 
 namespace fun
 {
+    /*!
+     * \brief Checks that a gain is within the device's range. UHD would otherwise
+     * silently clip it to the nearest valid value.
+     * \param direction "TX" or "RX", for the error message
+     * \param gain The requested gain in dB
+     * \param range The device's gain range
+     * \throws std::out_of_range if the gain is outside the range
+     */
+    static void check_gain(const std::string & direction, double gain, const uhd::gain_range_t & range)
+    {
+        if(gain < range.start() || gain > range.stop())
+        {
+            std::ostringstream message;
+            message << direction << " gain " << gain << " dB is outside this device's range ("
+                    << range.start() << " to " << range.stop() << " dB)";
+            throw std::out_of_range(message.str());
+        }
+    }
+
     /*!
      * -Initializations
      *  + #m_params -> Previously initialized usrp_params object containing the desired parameters
@@ -33,6 +54,8 @@ namespace fun
         m_usrp->set_rx_rate(m_params.rate);
 
         // Set the gains
+        check_gain("TX", m_params.tx_gain, m_usrp->get_tx_gain_range());
+        check_gain("RX", m_params.rx_gain, m_usrp->get_rx_gain_range());
         m_usrp->set_tx_gain(m_params.tx_gain);
         m_usrp->set_rx_gain(m_params.rx_gain);
 
