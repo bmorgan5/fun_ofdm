@@ -5,6 +5,8 @@
 #ifndef OPTIONS_H
 #define OPTIONS_H
 
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <CLI/CLI.hpp>
 #include "rates.h"
@@ -26,6 +28,21 @@ namespace fun
     };
 
     /*!
+     * \brief Options for how much data to send. At most one of them is set.
+     */
+    struct data_options
+    {
+        std::uint64_t packets = 0;  //!< Number of full packets of random data, or 0 if not set
+        std::uint64_t bytes = 0;    //!< Number of bytes of random data, or 0 if not set
+
+        /*!
+         * \brief The number of bytes to send.
+         * \return The bytes set by #packets or #bytes, or std::nullopt if neither is set
+         */
+        std::optional<std::uint64_t> limit() const;
+    };
+
+    /*!
      * \brief Options for the tx mode.
      */
     struct tx_options
@@ -33,6 +50,7 @@ namespace fun
         radio_options radio;            //!< USRP options
         double tx_amp = 0.5;            //!< Scale factor for transmit samples
         Rate phy_rate = RATE_1_2_BPSK;  //!< PHY rate for all transmitted frames
+        data_options data;              //!< How much data to send; unlimited if not set
     };
 
     /*!
@@ -49,7 +67,13 @@ namespace fun
     struct sim_options
     {
         Rate phy_rate = RATE_3_4_QAM16; //!< PHY rate for all simulated frames
+        data_options data;              //!< How much data to send; #SIM_DEFAULT_PACKETS packets if not set
     };
+
+    /*!
+     * \brief The number of packets sim sends when neither --packets nor --bytes is given.
+     */
+    const std::uint64_t SIM_DEFAULT_PACKETS = 100;
 
     /*!
      * \brief Adds the tx mode's options to its subcommand.

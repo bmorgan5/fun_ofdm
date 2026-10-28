@@ -97,149 +97,62 @@ Then open `out/docs/html/index.html`. The docs aren't built by `bazel build //..
 
 ## Simulation ##
 
-The easiest way to test that everything built correctly is to run *fun-ofdm sim* (`bazel run fun-ofdm -- sim`) as this does not require any USRPs to be connected. The source code for this mode is `run_sim()` in src/main.cpp. If everything compiled correctly you should see an output that looks something like:
+The easiest way to test that everything built correctly is to run *fun-ofdm sim* (`bazel run fun-ofdm -- sim`) as this does not require any USRPs to be connected. It sends 100 packets of random data through the transmit and receive chains in software and checks that every byte arrives intact. The source code for this mode is `run_sim()` in src/main.cpp. If everything compiled correctly you should see an output that looks something like:
 
+~~~
+$ ./fun-ofdm sim
+Simulating at 3/4 QAM16
+Received 100 packets (149600 bytes) in 0.047 s, 25.3 Mbit/s
+Lost 0 packets (0.0%), 0 duplicates
+PASS: all 100 packets received intact
+~~~
 
-> [path to fun_ofdm]/fun_ofdm $ sudo bazel-bin/src/fun-ofdm sim
-> I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!
->
-> ...
->
-> ...
->
-> I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!
->
-> Received 100 packets
->
-> Time elapsed: 1500.481000
+sim exits with status 0 on PASS and 1 on FAIL, so it can also be used as an automated test. Try other PHY rates and amounts of data with e.g. `--phy-rate qam64-3/4 --bytes 1MB`.
 
 ## Test Tx ##
 
-To test that the transmitter is working you can run *fun-ofdm tx*. This test requires a USRP so be sure to have one plugged connected properly. (To test if your computer can see the USRP you can use 'uhd_find_devices'). The source code for this is `run_tx()` in src/main.cpp. If everything goes as expected you should see soemthing like:
+To test that the transmitter is working you can run *fun-ofdm tx*. This test requires a USRP so be sure to have one plugged connected properly. (To test if your computer can see the USRP you can use 'uhd_find_devices'). The source code for this is `run_tx()` in src/main.cpp. It sends random data until you press Ctrl+C (or `--packets N` packets), printing a line for each packet and a summary at the end:
 
-> [path to download dir]/fun_ofdm $ sudo bazel-bin/src/fun-ofdm tx
->
-> linux; GNU C++ version 4.8.1; Boost_105300; UHD_003.007.001-72-g383061d8
->
-> Testing transmit chain...
->
-> -- Opening a USRP2/N-Series device...
->
-> -- Current recv frame size: 1472 bytes
->
-> -- Current send frame size: 1472 bytes
->
-> Sending burst 1 of 20 at 1/2 BPSK
->
-> Sending burst 2 of 20 at 1/2 BPSK
->
-> Sending burst 3 of 20 at 1/2 BPSK
->
-> Sending burst 4 of 20 at 1/2 BPSK
->
-> Sending burst 5 of 20 at 1/2 BPSK
->
-> ...
->
-> ...
->
-> Sending packet 995 of 1000 at 1/2 BPSK
->
-> Sending packet 996 of 1000 at 1/2 BPSK
->
-> Sending packet 997 of 1000 at 1/2 BPSK
->
-> Sending packet 998 of 1000 at 1/2 BPSK
->
-> Sending packet 999 of 1000 at 1/2 BPSK
->
-> Sending packet 1000 of 1000 at 1/2 BPSK
+~~~
+$ sudo ./fun-ofdm tx --packets 1000
+Frequency: 5.72 GHz, bandwidth: 5 MHz
+...UHD's messages about opening the USRP...
+Sending at 1/2 BPSK (press Ctrl+C to stop)
+Sent packet 0 (1496 bytes)
+Sent packet 1 (1496 bytes)
+...
+Sent packet 999 (1496 bytes)
+Sent 1000 packets (1496000 bytes) in <time> s, <throughput>
+~~~
 
 ## Test Rx ##
 
-Testing the receiver is a bit more complicated. This test requires at least one USRP for the receiver, but you will probably want to have a second USRP so that you can transmit packets for the receiver to receive as well. To do this,
-first run *fun-ofdm rx*. If you are on a clear channel and don't have anything transmitting you will probably see something like this:
+Testing the receiver is a bit more complicated. This test requires at least one USRP for the receiver, but you will probably want to have a second USRP so that you can transmit packets for the receiver to receive as well. To do this, first run *fun-ofdm rx*. If you are on a clear channel and don't have anything transmitting you will probably see occasional lines like this:
 
-> [path to download dir]/fun_ofdm $ sudo bazel-bin/src/fun-ofdm rx
->
-> linux; GNU C++ version 4.8.1; Boost_105300; UHD_003.007.001-72-g383061d8
->
-> Testing receive chain...
->
-> Instantiating the usrp.
->
-> -- Opening a USRP2/N-Series device...
->
-> -- Current recv frame size: 1472 bytes
->
-> -- Current send frame size: 1472 bytes
->
-> -- Detecting internal GPSDO.... No GPSDO found
->
-> -- not found
->
-> Invalid CRC (length 709)
->
-> Invalid CRC (length 3050)
->
+~~~
+Invalid CRC (length 709)
+~~~
 
 Don't worry about the 'Invalid CRC (length 709)' as this just indicates a false alarm that was successfully detected and dropped when the CRC failed in the frame decoder block.
 
-Once you have the receiver up and running you can then run *fun-ofdm tx* to transmit some packets for the receiver to receive. If everything works as expected you should see something like this:
+Once you have the receiver up and running you can then run *fun-ofdm tx* to transmit some packets for the receiver to receive. The receiver prints each packet's sequence number as it arrives, and when you press Ctrl+C it prints a summary, including how many packets were lost (gaps in the sequence numbers) or received twice:
 
-> [path to download dir]/fun_ofdm $ sudo bazel-bin/src/fun-ofdm rx
->
-> linux; GNU C++ version 4.8.1; Boost_105300; UHD_003.007.001-72-g383061d8
->
-> Testing receive chain...
->
-> Instantiating the usrp.
->
-> -- Opening a USRP2/N-Series device...
->
-> -- Current recv frame size: 1472 bytes
->
-> -- Current send frame size: 1472 bytes
->
-> Invalid CRC (length 1775)
->
-> Received 1 packets at 23:33:55.636086
->
-> Received 2 packets at 23:33:55.639852
->
-> Received 3 packets at 23:33:55.643764
->
-> Received 4 packets at 23:33:55.647949
->
-> Received 5 packets at 23:33:55.652317
->
-> Received 6 packets at 23:33:55.656672
->
-> Received 7 packets at 23:33:55.662527
->
-> Received 8 packets at 23:33:55.666724
->
-> Received 9 packets at 23:33:55.670681
->
-> Received 10 packets at 23:33:55.673931
->
-> ...
->
-> ...
->
-> Received 995 packets at 08:23:39.734422
->
-> Received 996 packets at 08:23:39.744281
->
-> Received 997 packets at 08:23:39.754190
->
-> Received 998 packets at 08:23:39.764118
->
-> Received 999 packets at 08:23:39.773871
->
-> Received 1000 packets at 08:23:39.783544
+~~~
+$ sudo ./fun-ofdm rx
+Frequency: 5.72 GHz, bandwidth: 5 MHz
+...UHD's messages about opening the USRP...
+Receiving (press Ctrl+C to stop)
+Received packet 0 (1496 bytes)
+Received packet 1 (1496 bytes)
+...
+Received packet 999 (1496 bytes)
+^C
+Stopping... (press Ctrl+C again to quit immediately)
+Received 1000 packets (1496000 bytes) in <time> s, <throughput>
+Lost 0 packets (0.0%), 0 duplicates
+~~~
 
-Depending on the PHY Rate used at the transmitter and if you are lucky (as I was when I ran this test) you will receive all transmitted packets. However, as long as you receive anywhere >90% of transmitted packets you can safely assume that you have everything set up correctly.
+Lost packets are counted from sequence number 0, so start the receiver before the transmitter. Depending on the PHY Rate used at the transmitter you may receive all transmitted packets. However, as long as you receive anywhere >90% of transmitted packets you can safely assume that you have everything set up correctly.
 
 # Usage #
 
@@ -264,6 +177,8 @@ The full API is available on the funlab website: [fun_ofdm API](http://www.ee.wa
 ~~~
 sudo fun-ofdm tx --channel 36 --bandwidth 20 --gain 25 --phy-rate qam16-1/2
 ~~~
+
+`tx` and `sim` send random data, split into packets of up to 1496 bytes. Each packet starts with a 4-byte sequence number, which the receiver uses to count lost and duplicate packets. `--packets N` sends N full packets and `--bytes SIZE` sends that much data (e.g. `10MB` or `64KiB`); with neither, `tx` sends until Ctrl+C and `sim` sends 100 packets. `sim` checks every byte it receives against what it sent and prints PASS (exit status 0) or FAIL (exit status 1).
 
 ## Parameters ##
 

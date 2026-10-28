@@ -8,20 +8,21 @@
 
 #include <pthread.h>
 #include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
+#include <algorithm>
+#include <cstdint>
 #include <cstdlib>
 #include <exception>
+#include <iomanip>
 #include <iostream>
 #include <optional>
 #include <stop_token>
 #include <thread>
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <vector>
 #include <CLI/CLI.hpp>
 #include "frame_builder.h"
+#include "framing.h"
 #include "options.h"
+#include "payload.h"
 #include "realtime.h"
 #include "receiver.h"
 #include "receiver_chain.h"
@@ -31,52 +32,48 @@
 using namespace fun;
 
 /*!
- * \brief Transmits test frames over the air with a USRP.
+ * \brief Prints how many packets were lost and duplicated.
+ * \param received The number of packets received, not counting duplicates
+ * \param lost The number of packets lost
+ * \param duplicates The number of duplicate packets received
+ */
+static void print_losses(std::uint64_t received, std::uint64_t lost, std::uint64_t duplicates)
+{
+    std::uint64_t total = received + lost;
+    double percent = total ? 100.0 * lost / total : 0;
+    std::cout << "Lost " << lost << " packets (" << std::fixed << std::setprecision(1) << percent << "%), "
+              << duplicates << " duplicates" << std::defaultfloat << std::endl;
+}
+
+/*!
+ * \brief Transmits data over the air with a USRP.
  * \param opts The tx options
  * \param stop Stops transmitting after the current packet
  * \return Process exit code.
  *
- *  This function transmits 1000 packets. The data in the transmitted packets
- *  is mostly random except for the first, middle, and last 100 bytes which are a
- *  known string. This string is used to verify that the packet was in fact received
- *  along with the IEEE CRC-32 check.
+ *  This function sends random data, split into frames with sequence numbers so that the
+ *  receiver can tell which frames it lost. It sends the amount of data set by --packets or
+ *  --bytes, or keeps sending until a stop is requested.
  */
 static int run_tx(const tx_options & opts, std::stop_token stop)
 {
-    Rate phy_rate = opts.phy_rate;
-
     if(!opts.radio.no_realtime) set_realtime_priority();
 
-    std::cout << "Testing transmit chain..." << std::endl;
-
-    srand(time(NULL)); //Initialize random seed
-
     transmitter tx = transmitter(to_usrp_params(opts));
-    std::string known_string("This known string is used to verify the correctness of the received data along with the IEEE CRC-32!");
 
-    int num_packets = 1000;
-    int packet_length = 1500;
-    std::vector<std::vector<unsigned char> > packets(num_packets, std::vector<unsigned char>(packet_length));
+    random_source source(opts.data.limit());
+    fragmenter frames(source);
 
-    // Build all the packets
-    for(int i = 0; i < num_packets; i++)
-    {
-        //Insert the known string in the beginning, middle, and end with random data inbetween
-        memcpy(&packets[i][0], &known_string[0], known_string.length());
-        for(int j = 100; j < 1000; j++) packets[i][j] = (unsigned char) rand() % 256;
-        memcpy(&packets[i][1000], &known_string[0], known_string.length());
-        for(int j = 1100; j < 1400; j++) packets[i][j] = (unsigned char) rand() % 256;
-        memcpy(&packets[i][1400], &known_string[0], known_string.length());
-    }
-
-    //Transmit all the packets
-    std::string tx_phy_rate = RateParams(phy_rate).name;
+    std::cout << "Sending at " << RateParams(opts.phy_rate).name << " (press Ctrl+C to stop)" << std::endl;
     transfer_stats stats;
-    for(int i = 0; i < num_packets && !stop.stop_requested(); i++)
+    for(std::uint64_t sequence = 0; !stop.stop_requested(); sequence++)
     {
-        std::cout << "Sending packet " << i + 1 << " of " << num_packets << " at " << tx_phy_rate << std::endl;
-        tx.send_frame(packets[i], phy_rate);
-        stats.add_packet(packets[i].size());
+        std::vector<unsigned char> payload = frames.next_frame();
+        if(payload.empty()) break;
+
+        tx.send_frame(payload, opts.phy_rate);
+        stats.add_packet(payload.size() - FRAME_HEADER_SIZE);
+        std::cout << "Sent packet " << sequence << " (" << payload.size() - FRAME_HEADER_SIZE << " bytes)" << std::endl;
     }
 
     stats.print_summary("Sent");
@@ -85,26 +82,36 @@ static int run_tx(const tx_options & opts, std::stop_token stop)
 }
 
 /*!
- * Counts the received packets. The receiver's callback is a plain function pointer, so the
- * callback finds this through a global. It is created when the receiver starts running.
+ * \brief What the receiver's callback keeps track of.
  */
-static std::optional<transfer_stats> rx_stats;
+struct rx_progress
+{
+    transfer_stats stats;  //!< Counts the received packets
+    reassembler frames;    //!< Checks the received packets' sequence numbers
+};
+
+/*!
+ * The receiver's callback is a plain function pointer, so it finds what it keeps track of through
+ * a global. It is created when the receiver starts running.
+ */
+static std::optional<rx_progress> rx_state;
 
 /*!
  * \brief The callback function for processing the Received Packets
  * \param packets The successfully received packets in from the receiver_chain
  *
- *  This function merely counts the number of received packets and prints the timestamps
- *  of when the packets were received.
+ *  This function counts the received packets, skipping duplicates, and prints each one's
+ *  sequence number.
  */
 static void process_packets_callback(std::vector<std::vector<unsigned char> > packets)
 {
-    for(const auto & packet : packets) rx_stats->add_packet(packet.size());
-
-    boost::posix_time::ptime rx_time = boost::posix_time::microsec_clock::local_time();
-    if(packets.size() > 0)
+    for(const auto & payload : packets)
     {
-        std::cout << "Received " << rx_stats->packets() << " packets at " << rx_time.time_of_day() << std::endl;
+        std::optional<received_frame> frame = rx_state->frames.add(payload);
+        if(!frame) continue;
+
+        rx_state->stats.add_packet(frame->data.size());
+        std::cout << "Received packet " << frame->sequence << " (" << frame->data.size() << " bytes)" << std::endl;
     }
 }
 
@@ -115,101 +122,120 @@ static void process_packets_callback(std::vector<std::vector<unsigned char> > pa
  * \return Process exit code.
  *
  *  This function creates a receiver object, passing it a pointer to the #process_packets_callback()
- *  function which is used to process the received packets (in this case it just counts them).
- *  It then runs the receiver until a stop is requested.
+ *  function which is used to process the received packets. It then runs the receiver until a stop
+ *  is requested.
  */
 static int run_rx(const rx_options & opts, std::stop_token stop)
 {
-    std::cout << "Testing receive chain..." << std::endl;
-
     if(!opts.radio.no_realtime) set_realtime_priority();
-
-    // Instantiate a usrp
-    printf("Instantiating the usrp.\n");
 
     receiver rx = receiver(&process_packets_callback, to_usrp_params(opts));
 
     std::cout << "Receiving (press Ctrl+C to stop)" << std::endl;
-    rx_stats.emplace();
+    rx_state.emplace();
     rx.run(stop);
 
-    rx_stats->print_summary("Received");
+    rx_state->stats.print_summary("Received");
+    print_losses(rx_state->stats.packets(), rx_state->frames.lost(), rx_state->frames.duplicates());
 
     return 0;
+}
+
+/*!
+ * \brief Counts the bytes in received data that don't match the data that was sent.
+ * \param sent The data that was sent
+ * \param received The data that was received
+ * \return The number of mismatched bytes, counting any difference in length as mismatched.
+ */
+static std::uint64_t count_mismatches(const std::vector<unsigned char> & sent, const std::vector<unsigned char> & received)
+{
+    std::size_t common = std::min(sent.size(), received.size());
+    std::uint64_t mismatches = std::max(sent.size(), received.size()) - common;
+    for(std::size_t i = 0; i < common; i++)
+    {
+        if(sent[i] != received[i]) mismatches++;
+    }
+    return mismatches;
 }
 
 /*!
  * \brief Builds frames and runs them through the receiver chain in software.
  * \param opts The sim options
  * \param stop Stops the simulation after the current chunk of samples
- * \return Process exit code.
+ * \return Process exit code: 0 if all the data was received intact or the simulation was
+ *  stopped, otherwise 1.
  *
- *  This function builds some packets using the frame builder and sends them through
- *  the receiver chain.  This function does NOT use the transmitter and receiver classes.
+ *  This function sends random data, split into frames with sequence numbers, by building each
+ *  frame's samples with the frame builder and passing them straight to the receiver chain. It
+ *  then checks the data received against the data sent. This function does NOT use the
+ *  transmitter and receiver classes.
  */
 static int run_sim(const sim_options & opts, std::stop_token stop)
 {
-    Rate phy_rate = opts.phy_rate;
+    const std::size_t CHUNK_SIZE = 4096;    // Samples passed to the receiver chain at a time
+    const std::size_t FLUSH_SIZE = 40960;   // Zeros sent at the end to flush the receiver chain
 
-    std::cout << "Running Simulation..." << std::endl;
+    std::optional<std::uint64_t> limit = opts.data.limit();
+    random_source source(limit ? *limit : SIM_DEFAULT_PACKETS * FRAME_DATA_SIZE);
+    fragmenter frames(source);
 
-    frame_builder * fb = new frame_builder();
-    receiver_chain * receiver = new receiver_chain();
-
-    std::string data("I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!");
-    int repeat = 15;
-
-    std::vector<unsigned char> payload(data.length()*repeat); //Payload = 1500 bytes
-    for(int x = 0; x < repeat; x++) memcpy(&payload[x*data.length()], &data[0], data.length());
-
-    // Build a frame
-    std::vector<std::complex<double>> samples = fb->build_frame(payload, phy_rate);
-
-    int pad_length = samples.size()*1000;
-
-    // Concatenate num_frames frames together
-    int num_frames = 100;
-    std::cout << "Transmitting " << num_frames << " frames" << std::endl;
-    std::vector<std::complex<double>> samples_con(samples.size() * num_frames + pad_length);
-    for(int x = 0; x < num_frames; x++)
-    {
-        memcpy(&samples_con[x*samples.size()], &samples[0], samples.size() * sizeof(std::complex<double>));
-    }
-
-    //Pad the end with 0's to flush receive chain
-    std::vector<std::complex<double> > zeros(pad_length);
-    memcpy(&samples_con[num_frames*samples.size()], &zeros[0], zeros.size()*sizeof(std::complex<double>));
-
-    // Run the samples through the receiver chain
-
-    int chunk_size = 4096;
-
+    frame_builder builder;
+    receiver_chain chain;
+    reassembler received;
+    std::vector<std::vector<unsigned char> > sent; // Each frame's data, by sequence number
+    std::uint64_t mismatches = 0;
     transfer_stats stats;
-    for(int x = 0; x < samples_con.size() && !stop.stop_requested(); x += chunk_size)
+
+    // Runs samples through the receiver chain and checks the frames that come out of it
+    auto receive = [&](const std::vector<std::complex<double> > & samples)
     {
-        int start = x;
-        int end = x + chunk_size;
-        if(end > samples_con.size()) end = samples_con.size();
-        std::vector<std::complex<double> > chunk(&samples_con[start], &samples_con[end]);
+        for(std::size_t start = 0; start < samples.size() && !stop.stop_requested(); start += CHUNK_SIZE)
+        {
+            std::size_t end = std::min(start + CHUNK_SIZE, samples.size());
+            std::vector<std::complex<double> > chunk(samples.begin() + start, samples.begin() + end);
 
-        std::vector<std::vector<unsigned char> > rec_frames = receiver->process_samples(chunk);
+            for(const auto & payload : chain.process_samples(chunk))
+            {
+                std::optional<received_frame> frame = received.add(payload);
+                if(!frame) continue;
 
-        if(rec_frames.size()){
-            for(int i = 0; i < rec_frames.size(); i++){
-                stats.add_packet(rec_frames[i].size());
-                for(int j = 0; j < rec_frames[i].size(); j++)
-                    std::cout << rec_frames[i][j];
-                std::cout << std::endl << std::endl;
+                stats.add_packet(frame->data.size());
+                if(frame->sequence < sent.size()) mismatches += count_mismatches(sent[frame->sequence], frame->data);
+                else mismatches += frame->data.size();
             }
         }
+    };
+
+    std::cout << "Simulating at " << RateParams(opts.phy_rate).name << std::endl;
+    while(!stop.stop_requested())
+    {
+        std::vector<unsigned char> payload = frames.next_frame();
+        if(payload.empty()) break;
+
+        sent.emplace_back(payload.begin() + FRAME_HEADER_SIZE, payload.end());
+        receive(builder.build_frame(payload, opts.phy_rate));
     }
+    receive(std::vector<std::complex<double> >(FLUSH_SIZE));
 
     stats.print_summary("Received");
 
-    delete receiver;
-    delete fb;
+    if(stop.stop_requested())
+    {
+        std::cout << "Stopped early, so not checking the received data" << std::endl;
+        return 0;
+    }
 
-    return 0;
+    std::uint64_t lost = sent.size() - stats.packets();
+    print_losses(stats.packets(), lost, received.duplicates());
+
+    if(lost == 0 && mismatches == 0)
+    {
+        std::cout << "PASS: all " << sent.size() << " packets received intact" << std::endl;
+        return 0;
+    }
+
+    std::cout << "FAIL: " << lost << " packets lost, " << mismatches << " bytes mismatched" << std::endl;
+    return 1;
 }
 
 /*!

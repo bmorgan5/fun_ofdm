@@ -6,6 +6,7 @@
 #include <iostream>
 #include <utility>
 #include <vector>
+#include "framing.h"
 #include "options.h"
 
 namespace fun
@@ -100,6 +101,29 @@ namespace fun
         app->add_flag("--no-realtime", opts.no_realtime, "Don't request real time thread priority");
     }
 
+    /*!
+     * \brief Adds the options for how much data to send.
+     * \param app The subcommand to add the options to
+     * \param opts Where to store the options
+     * \param unset What is sent if neither option is given, for the help text
+     */
+    static void add_data_options(CLI::App * app, data_options & opts, const std::string & unset)
+    {
+        CLI::Option * packets = app->add_option("--packets", opts.packets, "Send this many full packets of random data (default: " + unset + ")")
+            ->check(POSITIVE);
+        CLI::Option * bytes = app->add_option("--bytes", opts.bytes, "Send this much random data, e.g. 10MB or 64KiB")
+            ->transform(CLI::AsSizeValue(true))
+            ->check(POSITIVE);
+        packets->excludes(bytes);
+    }
+
+    std::optional<std::uint64_t> data_options::limit() const
+    {
+        if(packets) return packets * FRAME_DATA_SIZE;
+        if(bytes) return bytes;
+        return std::nullopt;
+    }
+
     void add_options(CLI::App * app, tx_options & opts)
     {
         add_radio_options(app, opts.radio);
@@ -107,6 +131,7 @@ namespace fun
             ->check(CLI::Range(0.0, 1.0))
             ->capture_default_str();
         add_phy_rate_option(app, opts.phy_rate);
+        add_data_options(app, opts.data, "send until Ctrl+C");
     }
 
     void add_options(CLI::App * app, rx_options & opts)
@@ -117,6 +142,7 @@ namespace fun
     void add_options(CLI::App * app, sim_options & opts)
     {
         add_phy_rate_option(app, opts.phy_rate);
+        add_data_options(app, opts.data, std::to_string(SIM_DEFAULT_PACKETS));
     }
 
     /*!
