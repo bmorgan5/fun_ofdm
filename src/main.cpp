@@ -188,6 +188,9 @@ static int run_sim(const sim_options & opts)
 
     printf("Time elapsed: %f\n", elapsed.total_microseconds() / 1000.0);
 
+    delete receiver;
+    delete fb;
+
     return 0;
 }
 

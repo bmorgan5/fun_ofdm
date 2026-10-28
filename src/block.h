@@ -47,6 +47,11 @@ namespace fun
         }
 
         /*!
+         * \brief block_base destructor
+         */
+        virtual ~block_base() = default;
+
+        /*!
          * \brief The main work function.
          *
          * The work function is a pure virtual function.

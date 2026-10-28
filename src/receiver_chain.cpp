@@ -51,6 +51,28 @@ namespace fun
     }
 
     /*!
+     * Requests a stop on each block thread and then wakes it up so that it sees the
+     * request and returns. The threads are joined before the semaphores and blocks
+     * they use are destroyed.
+     */
+    receiver_chain::~receiver_chain()
+    {
+        for(auto & thread : m_threads) thread.request_stop();
+        for(auto & sem : m_wake_sems) sem_post(&sem);
+        m_threads.clear(); // Joins the threads
+
+        for(auto & sem : m_wake_sems) sem_destroy(&sem);
+        for(auto & sem : m_done_sems) sem_destroy(&sem);
+
+        delete m_frame_detector;
+        delete m_timing_sync;
+        delete m_fft_symbols;
+        delete m_channel_est;
+        delete m_phase_tracker;
+        delete m_frame_decoder;
+    }
+
+    /*!
      * The #add_block function creates a wake & done semaphore for each block.
      * It then creates a new thread for the block to run in and adds that thread
      * to the thread vector for reference.
@@ -62,12 +84,12 @@ namespace fun
         int index = m_wake_sems.size() - 1;
         sem_init(&m_wake_sems[index], 0, 0);
         sem_init(&m_done_sems[index], 0, 0);
-        m_threads.push_back(std::thread(&receiver_chain::run_block, this, index, block));
+        m_threads.push_back(std::jthread([this, index, block](std::stop_token stop) { run_block(stop, index, block); }));
     }
 
     /*!
      * The #run_block function is the main thread for controlling the calls to
-     * each block's work function. This function is a forever loops that first waits
+     * each block's work function. This function loops until a stop is requested. It first waits
      * for the wake_sempahore to post indicating its time for the block to "wake up" and
      * process the data that has just been placed in its input_buffer by running its work()
      * function. Then once, the work() function returns run_block posts to the done sempahore
@@ -75,11 +97,12 @@ namespace fun
      * it loops back around and waits for the block to be "woken up" again when the next set
      * of input data is ready.
      */
-    void receiver_chain::run_block(int index, fun::block_base * block)
+    void receiver_chain::run_block(std::stop_token stop, int index, fun::block_base * block)
     {
         while(1)
         {
             sem_wait(&m_wake_sems[index]);
+            if(stop.stop_requested()) return;
 
             boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
             block->work();

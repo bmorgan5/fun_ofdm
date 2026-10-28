@@ -10,6 +10,7 @@
 #ifndef RECEIVER_CHAIN_H
 #define RECEIVER_CHAIN_H
 
+#include <stop_token>
 #include <thread>
 #include <semaphore.h>
 
@@ -47,6 +48,14 @@ namespace fun
         receiver_chain();
 
         /*!
+         * \brief Destructor for receiver_chain. Stops and joins the block threads.
+         */
+        ~receiver_chain();
+
+        receiver_chain(const receiver_chain &) = delete;
+        receiver_chain & operator=(const receiver_chain &) = delete;
+
+        /*!
          * \brief Processes the raw time domain samples.
          * \param samples A vector of received time-domain samples from the usrp block to pass to
          *  the receive chain for signal processing.
@@ -80,13 +89,14 @@ namespace fun
 
         /*!
          * \brief Runs the block by calling its work function
+         * \param stop Stop token which ends the loop once it has been woken up
          * \param index the block's index for referencing the correct semaphores for that block.
          * \param block A pointer to the block used as a handle to access its work() function.
          */
-        void run_block(int index, fun::block_base * block);
+        void run_block(std::stop_token stop, int index, fun::block_base * block);
 
 
-        std::vector<std::thread> m_threads; //!< Vector of threads - one for each block
+        std::vector<std::jthread> m_threads; //!< Vector of threads - one for each block
 
 
         std::vector<sem_t> m_wake_sems; //!< Vector of semaphores used to "wake up" each block

@@ -77,7 +77,7 @@ use_repo(
 
 llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
 llvm.toolchain(
-    cxx_standard = {"": "c++17"},
+    cxx_standard = {"": "c++23"},
     extra_opt_compile_flags = {"": ["-O3"]},
     llvm_version = "23.1.4",
     # Dynamically link to libstdc++ from the sysroot so that we are using the
