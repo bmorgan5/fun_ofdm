@@ -16,10 +16,10 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <iostream>
 
-#include "frame_builder.h"
 #include "realtime.h"
 #include "receiver.h"
-#include "receiver_chain.h"
+#include "src/phy/frame_builder.h"
+#include "src/phy/receiver_chain.h"
 #include "transmitter.h"
 
 using namespace fun;
@@ -46,7 +46,8 @@ static int run_tx() {
 
   srand(time(NULL));  // Initialize random seed
 
-  transmitter tx = transmitter(freq, sample_rate, tx_gain, amp);
+  transmitter tx = transmitter(
+      {.freq = freq, .rate = sample_rate, .tx_gain = tx_gain, .tx_amp = amp});
   std::string known_string(
       "This known string is used to verify the correctness of the received "
       "data along with the IEEE CRC-32!");
@@ -126,7 +127,8 @@ static int run_rx() {
   printf("Instantiating the usrp.\n");
 
   receiver rx =
-      receiver(&process_packets_callback, freq, sample_rate, rx_gain, "");
+      receiver(&process_packets_callback,
+               {.freq = freq, .rate = sample_rate, .rx_gain = rx_gain});
 
   while (1) sleep(1);
 }

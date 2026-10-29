@@ -1,11 +1,8 @@
 /*! \file usrp.h
- *  \brief Header file for the usrp class and the usrp_params struct.
+ *  \brief Header file for the usrp class.
  *
  *  The usrp class is a wrapper class for the UHD API. It provides a simple
  * interface for transmitting and receiving samples to/from the USRP.
- *
- *  The usrp_params class is a container for holding the necessary parameters
- * for the usrp such as center frequency, sample rate, tx/rx gain, etc..
  */
 
 #ifndef USRP_H
@@ -17,42 +14,9 @@
 #include <uhd/stream.hpp>
 #include <uhd/usrp/multi_usrp.hpp>
 
+#include "usrp_params.h"
+
 namespace fun {
-/*!
- * \brief The usrp_params struct which holds parameters for the USRP object such
- * as center frequency, sample rate, tx/rx gain, etc..
- */
-struct usrp_params {
-  double freq;     //!< Center Frequency
-  double rate;     //!< Sample Rate
-  double tx_gain;  //!< Transmit Gain (0-35 for USRP N210)
-  double rx_gain;  //!< Receive Gain  (0-35 for USRP N210)
-  double tx_amp;  //!< Transmit Amplitude - scales all tx samples before sending
-                  //!< to USRP
-  std::string device_addr;  //!< IP Address of USRP as a string - i.e.
-                            //!< "192.168.10.2" or "" to find automatically
-
-  /*!
-   * \brief Constructor for usrp_params. Simply initializes member fields to be
-   * looked up later.
-   * \param freq -> #freq
-   * \param rate -> #rate
-   * \param tx_gain -> #tx_gain
-   * \param rx_gain -> #rx_gain
-   * \param tx_amp -> #tx_amp
-   * \param device_addr -> #device_addr
-   */
-  usrp_params(double freq = 5.72e9, double rate = 5e6, double tx_gain = 20,
-              double rx_gain = 20, double tx_amp = 1.0,
-              std::string device_addr = "")
-      : freq(freq),
-        rate(rate),
-        tx_gain(tx_gain),
-        rx_gain(rx_gain),
-        tx_amp(tx_amp),
-        device_addr(device_addr) {}
-};
-
 /*!
  * \brief A simple class used to easily interface with a USRP.
  *
