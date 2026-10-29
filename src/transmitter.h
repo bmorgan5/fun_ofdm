@@ -11,9 +11,9 @@
 
 #include <vector>
 
-#include "frame_builder.h"
-#include "rates.h"
-#include "usrp.h"
+#include "src/phy/frame_builder.h"
+#include "src/phy/rates.h"
+#include "src/usrp/usrp.h"
 
 namespace fun {
 
@@ -31,37 +31,10 @@ namespace fun {
 class transmitter {
  public:
   /*!
-   * \brief Constructor for the transmitter with raw parameters
-   * \param freq [Optional] Center frequency
-   * \param samp_rate [Optional] Sample rate
-   * \param tx_gain [Optional] Transmit Gain
-   * \param tx_amp [Optional] Transmit Amplitude
-   * \param device_addr [Optional] IP address of USRP device
-   *
-   *  Defaults to:
-   *  - center_freq -> 5.72e9 (5.72 GHz)
-   *  - sample_rate -> 5e6 (5 MHz)
-   *  - tx_gain -> 20
-   *  - device_addr -> "" (empty string will default to letting the UHD api
-   *    automatically find an available USRP)
-   *  - *Note:
-   *     + rx_gain -> 20 even though it is irrelevant for the transmitter
-   */
-  transmitter(double freq = 5.72e9, double samp_rate = 5e6, double tx_gain = 20,
-              double tx_amp = 1.0, std::string device_addr = "");
-
-  /*!
-   * \brief Constructor for the transmitter that uses the usrp_params struct
+   * \brief Constructor for the transmitter
    * \param params [Optional] The usrp parameters you want to use for this
-   * transmitter
-   *
-   *  Defaults to:
-   *  - center freq -> 5.72e9 (5.72 GHz)
-   *  - sample rate -> 5e6 (5 MHz)
-   *  - tx gain -> 20
-   *  - rx gain -> 20 (although this is irrelevant for the transmitter)
-   *  - device ip address -> "" (empty string will default to letting the UHD
-   * api automatically find an available USRP)
+   * transmitter. Defaults to the defaults in #usrp_params. The rx gain is
+   * irrelevant for the transmitter.
    */
   transmitter(usrp_params params = usrp_params());
 

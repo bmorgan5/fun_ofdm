@@ -10,20 +10,6 @@
 
 namespace fun {
 
-/*!
- * This constructor shows exactly what parameters need to be set for the
- * receiver.
- */
-receiver::receiver(
-    void (*callback)(std::vector<std::vector<unsigned char>> packets),
-    double freq, double samp_rate, double rx_gain, std::string device_addr)
-    : receiver(callback,
-               usrp_params(freq, samp_rate, 20, rx_gain, 1.0, device_addr)) {}
-
-/*!
- * This constructor is for those who feel more comfortable using the usrp_params
- * struct.
- */
 receiver::receiver(
     void (*callback)(std::vector<std::vector<unsigned char>> packets),
     usrp_params params)

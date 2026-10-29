@@ -13,8 +13,8 @@
 
 #include <vector>
 
-#include "receiver_chain.h"
-#include "usrp.h"
+#include "src/phy/receiver_chain.h"
+#include "src/usrp/usrp.h"
 
 #define NUM_RX_SAMPLES 4096
 
@@ -41,42 +41,12 @@ namespace fun {
 class receiver {
  public:
   /*!
-   * \brief Constructor for the receiver with raw parameters
-   * \param callback Function pointer to the callback function where received
-   * packets are passed
-   * \param freq [Optional] Center frequency
-   * \param samp_rate [Optional] Sample Rate
-   * \param rx_gain [Optional] Receive Gain
-   * \param device_addr [Optional] IP address of USRP device
-   *
-   *  Defaults to:
-   *  - center freq -> 5.72e9 (5.72 GHz)
-   *  - sample rate -> 5e6 (5 MHz)
-   *  - rx gain -> 20
-   *  - device ip address -> "" (empty string will default to letting the UHD
-   * api automatically find an available USRP)
-   *  - *Note:
-   *    + tx_gain -> 20 even though it is irrelevant for the receiver
-   *    + amp -> 1.0 even though it is irrelevant for the receiver
-   */
-  receiver(void (*callback)(std::vector<std::vector<unsigned char>> packets),
-           double freq = 5.72e9, double samp_rate = 5e6, double rx_gain = 20,
-           std::string device_addr = "");
-
-  /*!
-   * \brief Constructor for the receiver that uses the usrp_params struct
+   * \brief Constructor for the receiver
    * \param callback Function pointer to the callback function where received
    * packets are passed
    * \param params [Optional] The usrp parameters you want to use for this
-   * receiver.
-   *
-   *  Defaults to:
-   *  - center freq -> 5.72e9 (5.72 GHz)
-   *  - sample rate -> 5e6 (5 MHz)
-   *  - tx gain -> 20
-   *  - rx gain -> 20 (although this is irrelevant for the transmitter)
-   *  - device ip address -> "" (empty string will default to letting the UHD
-   * api automatically find an available USRP)
+   * receiver. Defaults to the defaults in #usrp_params. The tx gain and
+   * amplitude are irrelevant for the receiver.
    */
   receiver(void (*callback)(std::vector<std::vector<unsigned char>> packets),
            usrp_params params = usrp_params());

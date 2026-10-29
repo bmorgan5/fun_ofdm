@@ -1,0 +1,20 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+# The UHD wrapper that sends and receives baseband samples. It doesn't depend on the PHY.
+cc_library(
+    name = "usrp",
+    srcs = ["usrp.cpp"],
+    hdrs = ["usrp.h"],
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        ":usrp_params",
+        "//third_party:uhd",
+    ],
+)
+
+# The USRP parameters, without UHD, for code that only builds them.
+cc_library(
+    name = "usrp_params",
+    hdrs = ["usrp_params.h"],
+    visibility = ["//src:__subpackages__"],
+)
