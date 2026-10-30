@@ -18,8 +18,8 @@ cc_binary(
         "//docs:__pkg__",
     ],
     deps = [
-        "@cli11",
         "//third_party:fftw3",
         "//third_party:uhd",
+        "@cli11",
     ],
 )

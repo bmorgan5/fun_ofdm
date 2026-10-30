@@ -9,60 +9,56 @@
 #ifndef SYMBOL_MAPPER_H
 #define SYMBOL_MAPPER_H
 
-#include <vector>
 #include <complex>
+#include <vector>
 
-namespace fun
-{
-    /*!
-     * \brief The symbol_mapper class
-     *
-     *  The symbol mapper class takes the stream of modulated data and maps it
-     *  into symbols by mapping the data, pilots, and nulls onto their respective
-     *  subcarriers. Conversely it also extracts the data from received symbols.
-     */
-    class symbol_mapper
-    {
+namespace fun {
+/*!
+ * \brief The symbol_mapper class
+ *
+ *  The symbol mapper class takes the stream of modulated data and maps it
+ *  into symbols by mapping the data, pilots, and nulls onto their respective
+ *  subcarriers. Conversely it also extracts the data from received symbols.
+ */
+class symbol_mapper {
+ public:
+  /*!
+   * \brief Constructor for symbol mapper class.
+   */
+  symbol_mapper();
 
-    public:
+  /*!
+   * \brief Maps the data, pilots, and nulls to their respective subcarriers
+   * \param data_samples Vector of modulated data to be mapped into symbols
+   * \return Vector of symbols with data, pilots, and nulls
+   */
+  std::vector<std::complex<double>> map(
+      std::vector<std::complex<double>> data_samples);
 
-        /*!
-         * \brief Constructor for symbol mapper class.
-         */
-        symbol_mapper();
+  /*!
+   * \brief Extracts the data from the symbols throwing out the nulls and pilots
+   * \param samples Vector of symbols to extract data from
+   * \return Vector of data samples
+   */
+  std::vector<std::complex<double>> demap(
+      std::vector<std::complex<double>> samples);
 
-        /*!
-         * \brief Maps the data, pilots, and nulls to their respective subcarriers
-         * \param data_samples Vector of modulated data to be mapped into symbols
-         * \return Vector of symbols with data, pilots, and nulls
-         */
-        std::vector<std::complex<double> > map(std::vector<std::complex<double> > data_samples);
+  /*!
+   * \brief Gets the current active map of data, pilots, and nulls.
+   * \return The current active map.
+   */
+  std::vector<unsigned char> get_active_map();
 
-        /*!
-         * \brief Extracts the data from the symbols throwing out the nulls and pilots
-         * \param samples Vector of symbols to extract data from
-         * \return Vector of data samples
-         */
-        std::vector<std::complex<double> > demap(std::vector<std::complex<double> > samples);
+ private:
+  static const std::vector<unsigned char>
+      m_active_map;  //!< The current map of data, pilots, and nulls.
 
-        /*!
-         * \brief Gets the current active map of data, pilots, and nulls.
-         * \return The current active map.
-         */
-        std::vector<unsigned char> get_active_map();
+  static const double POLARITY[127];  //!< The Pilot Polarity Sequence
 
-    private:
+  static const std::complex<double> PILOTS[4];  //!< The 4 Pilot symbols
 
-        static const std::vector<unsigned char> m_active_map; //!< The current map of data, pilots, and nulls.
+  int m_data_subcarrier_count;  //!< Number of data subcarriers.
+};
+}  // namespace fun
 
-        static const double POLARITY[127]; //!< The Pilot Polarity Sequence
-
-        static const std::complex<double> PILOTS[4]; //!< The 4 Pilot symbols
-
-        int m_data_subcarrier_count; //!< Number of data subcarriers.
-
-    };
-}
-
-
-#endif // SYMBOL_MAPPER_H
+#endif  // SYMBOL_MAPPER_H

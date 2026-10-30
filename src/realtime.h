@@ -5,13 +5,12 @@
 #ifndef REALTIME_H
 #define REALTIME_H
 
-namespace fun
-{
-    /*!
-     * \brief Attempt to set real time priority for thread scheduling
-     * \return Whether or not real time priority was succesfully set.
-     */
-    bool set_realtime_priority();
-}
+namespace fun {
+/*!
+ * \brief Attempt to set real time priority for thread scheduling
+ * \return Whether or not real time priority was succesfully set.
+ */
+bool set_realtime_priority();
+}  // namespace fun
 
-#endif // REALTIME_H
+#endif  // REALTIME_H
