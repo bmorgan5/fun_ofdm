@@ -1,4 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 # The overview of the PHY, for the API documentation.
 exports_files(["README.md"])
@@ -8,8 +9,14 @@ exports_files(["README.md"])
 # without a USRP.
 cc_library(
     name = "phy",
-    srcs = glob(["*.cpp"]),
-    hdrs = glob(["*.h"]),
+    srcs = glob(
+        ["*.cpp"],
+        exclude = ["*_test.cpp"],
+    ),
+    hdrs = glob(
+        ["*.h"],
+        exclude = ["test_util.h"],
+    ),
     # The Viterbi decoder uses SSE intrinsics.
     copts = select({
         "@platforms//cpu:x86_64": [
@@ -21,3 +28,26 @@ cc_library(
     visibility = ["//src:__subpackages__"],
     deps = ["//third_party:fftw3"],
 )
+
+# Helpers shared by the tests.
+cc_library(
+    name = "test_util",
+    testonly = True,
+    hdrs = ["test_util.h"],
+    deps = [
+        ":phy",
+        "@googletest//:gtest",
+    ],
+)
+
+# One test per *_test.cpp file, named after it.
+[cc_test(
+    name = src.removesuffix(".cpp"),
+    size = "small",
+    srcs = [src],
+    deps = [
+        ":phy",
+        ":test_util",
+        "@googletest//:gtest_main",
+    ],
+) for src in glob(["*_test.cpp"])]
