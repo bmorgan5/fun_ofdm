@@ -12,4 +12,7 @@ build:linux_x86_64 --platforms=//platforms:linux_x86_64
 # TODO(arm64): Enable once the code builds for arm64.
 # build:linux_aarch64 --platforms=//platforms:linux_aarch64
 
+# Print the log of a failing test.
+test --test_output=errors
+
 try-import %workspace%/user.bazelrc

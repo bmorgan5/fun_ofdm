@@ -14,6 +14,9 @@ bazel_dep(name = "toolchains_llvm", version = "1.12.0")
 bazel_dep(name = "buildifier_prebuilt", version = "10.1.0", dev_dependency = True)
 bazel_dep(name = "rules_shell", version = "0.6.1", dev_dependency = True)
 
+# Tests: `bazel test //...`.
+bazel_dep(name = "googletest", version = "1.18.0.bcr.1", dev_dependency = True)
+
 # Sysroots, built from Ubuntu 26.04 packages. Every target architecture gets
 # one, including the host's, so all builds are cross compiles against a known
 # set of files.
