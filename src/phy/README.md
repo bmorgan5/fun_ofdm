@@ -2,8 +2,8 @@
 
 This directory is the 802.11a physical layer. It turns payload bytes into
 complex baseband samples for the radio, and turns received samples back into
-payloads. It's pure DSP, with no USRP dependency, so the `sim` mode runs it
-without hardware.
+payloads. It's pure DSP, with no USRP dependency, so the tests and the `sim`
+mode run it without hardware.
 
 The explanation of each block, with diagrams, is in its header. This page is
 the map: how a frame is laid out and how the blocks connect.
@@ -167,24 +167,26 @@ deinterleave, depuncture, Viterbi decode, descramble, check the CRC.
 
 ## Reading order
 
-Follow the transmit chain, then the receiver.
+Follow the transmit chain; each block's test shows what it does and how its
+inverse undoes it.
 
-| Block | Header |
-|---|---|
-| Parity bit | [parity.h](parity.h) |
-| Convolutional code | [viterbi.h](viterbi.h) |
-| Puncturing | [puncturer.h](puncturer.h) |
-| Interleaving | [interleaver.h](interleaver.h) |
-| Modulation | [modulator.h](modulator.h), [qam.h](qam.h) |
-| Rates | [rates.h](rates.h) |
-| Subcarrier mapping | [symbol_mapper.h](symbol_mapper.h) |
-| FFT | [fft.h](fft.h) |
-| SIGNAL and data coding | [ppdu.h](ppdu.h) |
-| Preamble | [preamble.h](preamble.h) |
-| Whole transmitter | [frame_builder.h](frame_builder.h) |
-| Moving sum | [circular_accumulator.h](circular_accumulator.h) |
-| Receiver | [receiver_chain.h](receiver_chain.h), [block.h](block.h), [tagged_vector.h](tagged_vector.h) |
-| Receiver blocks | [frame_detector.h](frame_detector.h), [timing_sync.h](timing_sync.h), [fft_symbols.h](fft_symbols.h), [channel_est.h](channel_est.h), [phase_tracker.h](phase_tracker.h), [frame_decoder.h](frame_decoder.h) |
+| Block | Header | Test |
+|---|---|---|
+| Test data (PRBS-15) | [test_util.h](test_util.h) | [test_util_test.cpp](test_util_test.cpp) |
+| Parity bit | [parity.h](parity.h) | [parity_test.cpp](parity_test.cpp) |
+| Convolutional code | [viterbi.h](viterbi.h) | [viterbi_test.cpp](viterbi_test.cpp) |
+| Puncturing | [puncturer.h](puncturer.h) | [puncturer_test.cpp](puncturer_test.cpp) |
+| Interleaving | [interleaver.h](interleaver.h) | [interleaver_test.cpp](interleaver_test.cpp) |
+| Modulation | [modulator.h](modulator.h), [qam.h](qam.h) | [modulator_test.cpp](modulator_test.cpp) |
+| Rates | [rates.h](rates.h) | |
+| Subcarrier mapping | [symbol_mapper.h](symbol_mapper.h) | [symbol_mapper_test.cpp](symbol_mapper_test.cpp) |
+| FFT | [fft.h](fft.h) | [fft_test.cpp](fft_test.cpp) |
+| SIGNAL and data coding | [ppdu.h](ppdu.h) | [ppdu_test.cpp](ppdu_test.cpp) |
+| Preamble | [preamble.h](preamble.h) | |
+| Whole transmitter | [frame_builder.h](frame_builder.h) | [frame_builder_test.cpp](frame_builder_test.cpp) |
+| Moving sum | [circular_accumulator.h](circular_accumulator.h) | [circular_accumulator_test.cpp](circular_accumulator_test.cpp) |
+| Receiver | [receiver_chain.h](receiver_chain.h), [block.h](block.h), [tagged_vector.h](tagged_vector.h) | |
+| Receiver blocks | [frame_detector.h](frame_detector.h), [timing_sync.h](timing_sync.h), [fft_symbols.h](fft_symbols.h), [channel_est.h](channel_est.h), [phase_tracker.h](phase_tracker.h), [frame_decoder.h](frame_decoder.h) | |
 
 ## Differences from 802.11a
 
@@ -217,4 +219,6 @@ can't talk to other 802.11a devices:
   layer above the PHY (the MAC, once there is one), so the PSDU and LENGTH
   match the standard.
 
-Each header describes its own differences.
+Each header describes its own differences. The tests that check the
+convolutional code and the puncturing against the standard are skipped, with
+the reason.
