@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Stops a commit if any staged C++ or Starlark file needs formatting. Enable it
+# once per clone:
+#
+#   git config core.hooksPath tools/githooks
+#
+# It checks the files as they are in the working tree, which can differ from
+# what's staged. Skip it with `git commit --no-verify`.
+
+set -euo pipefail
+
+# Added, copied, modified or renamed: deleted files have nothing to check.
+mapfile -d '' -t files < <(git diff --cached --name-only --diff-filter=ACMR -z)
+((${#files[@]} > 0)) || exit 0
+
+# format.sh skips files that aren't C++ or Starlark.
+exec bazel run --noshow_progress --ui_event_filters=-info --show_result=0 //:format.check -- "${files[@]}"
