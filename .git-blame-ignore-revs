@@ -1,0 +1,7 @@
+# Commits that `git blame` skips: formatting-only changes. GitHub's blame view
+# reads this file; locally, run once per clone:
+#
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Reformat with clang-format and buildifier
+11310e4121c0c50fc62d174684e557e851c32dfb
