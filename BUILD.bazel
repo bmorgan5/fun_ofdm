@@ -30,3 +30,15 @@ pkg_install(
         # "@platforms//cpu:aarch64": "out/linux_aarch64",
     }),
 )
+
+# Shorthands for the formatter in tools/format: `bazel run format` and
+# `bazel run format.check`.
+alias(
+    name = "format",
+    actual = "//tools/format",
+)
+
+alias(
+    name = "format.check",
+    actual = "//tools/format:check",
+)
