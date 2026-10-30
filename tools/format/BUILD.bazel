@@ -1,0 +1,32 @@
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+# The pinned formatters: clang-format from the hermetic LLVM toolchain, and
+# buildifier for BUILD, .bzl and MODULE.bazel files.
+_TOOLS = [
+    "@buildifier_prebuilt//:buildifier",
+    "@llvm_toolchain_llvm//:clang-format",
+]
+
+_TOOL_PATHS = {
+    "BUILDIFIER": "$(rootpath @buildifier_prebuilt//:buildifier)",
+    "CLANG_FORMAT": "$(rootpath @llvm_toolchain_llvm//:clang-format)",
+}
+
+# Formats files in place: `bazel run format`.
+sh_binary(
+    name = "format",
+    srcs = ["format.sh"],
+    data = _TOOLS,
+    env = _TOOL_PATHS,
+    visibility = ["//:__pkg__"],
+)
+
+# Reports files that need formatting: `bazel run format.check`.
+sh_binary(
+    name = "check",
+    srcs = ["format.sh"],
+    args = ["--check"],
+    data = _TOOLS,
+    env = _TOOL_PATHS,
+    visibility = ["//:__pkg__"],
+)

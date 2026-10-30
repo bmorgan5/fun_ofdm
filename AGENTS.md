@@ -17,7 +17,12 @@ libraries.
 | Smoke test (sends and decodes 100 packets) | `bazel run fun-ofdm -- sim` |
 | Build the API docs (Doxygen) | `bazel build //docs` |
 | Copy the binary to `out/<platform>/bin/` | `bazel run install` |
+| Format the C++ and Starlark files | `bazel run format` |
+| Check formatting, changing nothing | `bazel run format.check` |
 
+- Format before proposing a commit: `bazel run format.check` must pass. Run
+  from the repo root, `bazel run format` formats every file;
+  `bazel run format -- <files>` formats only those.
 - Builds are optimized by default. Use `-c dbg` for a debug build.
 - Only x86-64 builds for now: the code uses SSE intrinsics. arm64 is stubbed
   out under `TODO(arm64)` comments.
