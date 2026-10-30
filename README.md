@@ -93,6 +93,24 @@ bazel run //docs:install
 
 Then open `out/docs/html/index.html`. The docs aren't built by `bazel build //...`.
 
+## Formatting ##
+
+C++ follows Google's style, formatted with clang-format, and the Bazel files are formatted with buildifier. Bazel downloads both, so everyone gets the same output:
+
+~~~
+bazel run format         # Format every file
+bazel run format.check   # Change nothing; fail if any file needs formatting
+~~~
+
+Once per clone, enable the pre-commit hook, which runs `format.check` on the staged files, and have `git blame` skip the commit that reformatted the tree. The dev container does this when it's created; otherwise, run:
+
+~~~
+git config core.hooksPath tools/githooks
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+~~~
+
+VS Code formats C++ on save (see `.vscode/settings.json`), with the C/C++ extension's clang-format and the repo's `.clang-format`. The dev container installs the extension. Its clang-format can be a different version from Bazel's, so if the two disagree, `bazel run format` wins.
+
 # Testing #
 
 ## Simulation ##

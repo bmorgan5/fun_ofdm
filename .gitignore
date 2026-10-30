@@ -1,4 +1,6 @@
 bazel-*
 user.bazelrc
 /out/
-/.vscode
+# Personal VS Code settings, except the shared ones.
+/.vscode/*
+!/.vscode/settings.json

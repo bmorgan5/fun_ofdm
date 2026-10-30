@@ -21,6 +21,10 @@
 
     "remoteUser": "ubuntu",
 
+    // Enable the pre-commit hook and have git blame skip the reformat commit.
+    // This writes to .git/config, so it applies to the host's checkout too.
+    "postCreateCommand": "git config core.hooksPath tools/githooks && git config blame.ignoreRevsFile .git-blame-ignore-revs",
+
     // git authenticates to GitHub through the GitHub CLI; point out a missing login
     "postStartCommand": "gh auth status --hostname github.com >/dev/null 2>&1 || echo \"Not logged in to GitHub, so git push/pull won't work. Run 'gh auth login' to log in.\"",
 

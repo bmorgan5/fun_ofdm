@@ -1,0 +1,12 @@
+{
+  // Format C++ on save. The C/C++ extension's clang-format follows the
+  // repo's .clang-format.
+  "[c]": {
+    "editor.defaultFormatter": "ms-vscode.cpptools",
+    "editor.formatOnSave": true
+  },
+  "[cpp]": {
+    "editor.defaultFormatter": "ms-vscode.cpptools",
+    "editor.formatOnSave": true
+  }
+}
