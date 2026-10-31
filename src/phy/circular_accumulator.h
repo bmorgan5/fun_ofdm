@@ -1,11 +1,19 @@
 /*! \file circular_accumulator.h
- *  \brief Template for a circular accumulator.
+ *  \brief A running sum of the last N values.
  *
- *  This class stores size samples of type T and
- *  keeps a running sum of the current samples.
- *  No indexing is needed, once the buffer is full
- *  each call to add() overwrites the oldest sample
- *  with the new one.
+ *  Keeps the last N values in a ring buffer, and their sum. add() replaces
+ *  the oldest value with the new one and updates the sum, so a moving sum
+ *  costs O(1) per sample however long the window is:
+ *
+ *  ~~~
+ *  N = 4:   ... 7  2  5  1  3        sum = 2 + 5 + 1 + 3 = 11
+ *                  └─────────┘
+ *  add(6):  ... 7  2  5  1  3  6     sum = 11 - 2 + 6 = 15
+ *                     └─────────┘
+ *  ~~~
+ *
+ *  A NaN is added as 0, so one bad sample can't poison the sum. The frame
+ *  detector uses two of these, for its correlation and its power.
  */
 
 #ifndef CIRCULAR_ACCUMULATOR_H

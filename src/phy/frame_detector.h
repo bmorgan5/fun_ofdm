@@ -1,8 +1,30 @@
 /*! \file frame_detector.h
- *  \brief Header file for frame_detector block.
+ *  \brief Receiver block 1: finds frames by their short training sequence.
  *
- * This block is in charge of detecting the beginning of a frame using the
- * short training sequence in the preamble.
+ *  The short training sequence (see preamble.h) repeats every 16 samples, so
+ *  while it's arriving, each sample matches the one 16 before it. This block
+ *  correlates the signal with itself 16 samples back, over a 16-sample window,
+ *  and normalizes by the power:
+ *
+ *  ~~~
+ *  corr[n] = |Σ r[m] · conj(r[m - 16])| / Σ |r[m]|²    (m over the last 16)
+ *
+ *   corr
+ *   1.0 ┤        ┌───────────────────────┐
+ *   0.9 ┤ - - - -│- - - - - - - - - - - -│- - - -  PLATEAU_THRESHOLD
+ *       │        │                       │
+ *     0 ┼────────┘                       └───────
+ *       noise    STS arriving            LTS
+ *                   ▲ STS_START             ▲ STS_END
+ *            (16 samples above 0.9)   (drops below)
+ *  ~~~
+ *
+ *  Noise doesn't repeat, so it gives a low value. A frequency offset rotates
+ *  both samples alike, so it doesn't affect the magnitude, and the detector
+ *  works before anything has been corrected.
+ *
+ *  All samples pass through. The block only adds the tags, which tell
+ *  timing_sync where to look for the long training sequence.
  */
 
 #ifndef FRAME_DETECTOR_H

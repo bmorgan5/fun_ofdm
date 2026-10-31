@@ -1,18 +1,23 @@
 /*! \file frame_builder.h
- *  \brief Header file for the Frame Builder class.
+ *  \brief Builds a frame's samples from a payload: the whole transmitter.
  *
- * This class takes input data (MPDUs) and builds PHY layer frames by first
- * prepending a PHY header and appending an IEEE CRC-32 checksum to the data. It
- * then encodes the data by scrambling, convolutional coding the data at the
- * coding rate specified (this may or may not require puncturing), and
- * interleaving the data. It then modulates the data as specified. The modulated
- * data is then mapped into symbols with the data being mapped to the respective
- * data subcarriers with pilots and nulls being mapped to their respective
- * subcarriers. Each symbol is then run through an IFFT to convert it to time
- * domain an a cyclic prefix is attached to each symbol. Finally, the symbols
- * are concatenated together and a preamble is prepended to complete the frame.
- * The frame is then returned so that it can be passed to the USRP for
- * transmission.
+ *  ~~~
+ *  payload
+ *    → ppdu::encode()      SIGNAL and data, 48 points per symbol
+ *    → symbol_mapper       add pilots and empty subcarriers: 64 per symbol
+ *    → fft::inverse()      64 time samples per symbol
+ *    → cyclic prefix       copy each symbol's last 16 samples to its front
+ *    → preamble            320 samples in front
+ *  = 320 + 80 × (1 + data symbols) samples, for the USRP
+ *  ~~~
+ *
+ *  The cyclic prefix gives echoes of each symbol time to die out before the
+ *  receiver's 64-sample window for the next one starts. Inside the window, an
+ *  echo shorter than the prefix is a circular shift of the symbol, which the
+ *  FFT turns into a gain and phase on each subcarrier, which the receiver
+ *  corrects (see channel_est.h).
+ *
+ *  See README.md for the frame layout and the pipeline.
  */
 
 #ifndef FRAME_BUILDER_H

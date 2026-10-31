@@ -1,7 +1,12 @@
 /*! \file parity.h
- *  \brief Header file for parity class.
+ *  \brief Parity of a word: 1 if it has an odd number of 1 bits, else 0.
  *
- *  The parity class is used to compute the 1 bit parity in the PHY header.
+ *  Two users:
+ *  - The SIGNAL field ends with a parity bit chosen so its first 18 bits have
+ *    an even number of 1s. The receiver checks it to reject most corrupted
+ *    headers (see ppdu.h).
+ *  - The convolutional encoder computes each coded bit as the parity of some
+ *    of its shift register's bits (see viterbi.h).
  */
 
 #ifndef PARITY_H

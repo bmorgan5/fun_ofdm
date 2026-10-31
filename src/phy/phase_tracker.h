@@ -1,10 +1,27 @@
 /*! \file phase_tracker.h
- *  \brief Header file for the Phase Tracker block.
+ *  \brief Receiver block 5: corrects each symbol's phase with the pilots,
+ *  and keeps the 48 data subcarriers.
  *
- *  The phase tracker block is in charge of tracking and correcting
- *  phase rotation accross symbols in a frame using the 4 pilot subcarriers.
- *  It also removes the pilot and null subcarriers passing on only the data
- *  subcarriers after any necessary frequency corrections have been made.
+ *  channel_est measures the channel once, at the start of the frame. Any
+ *  remaining frequency offset, and the oscillators' phase noise, rotates the
+ *  whole constellation a little further each symbol, and the points would
+ *  eventually drift across decision boundaries.
+ *
+ *  Each symbol's 4 pilots are known (see symbol_mapper.h), so this block
+ *  compares them with what they should be, averages the 4 errors, and rotates
+ *  the data subcarriers back by that angle:
+ *
+ *  ~~~
+ *        Q                          Q
+ *        │   ● received             │
+ *        │  ╱                       │
+ *        │ ╱ θ                      │
+ *  ──────┼──────● sent     →  ──────┼──────● corrected (rotated by -θ)
+ *        │                          │
+ *  ~~~
+ *
+ *  It then drops the pilots and empty subcarriers, and passes on the 48 data
+ *  subcarriers of each symbol.
  */
 
 #ifndef PHASE_TRACKER_H

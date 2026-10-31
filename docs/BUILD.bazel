@@ -6,7 +6,10 @@ load("@rules_pkg//pkg:mappings.bzl", "pkg_files")
 # or build it and copy it to out/docs/ with `bazel run //docs:install`.
 doxygen(
     name = "docs",
-    srcs = ["//:README.md"],
+    srcs = [
+        "//:README.md",
+        "//src/phy:README.md",
+    ],
     always_detailed_sec = True,
     extract_all = True,
     extract_local_methods = True,
