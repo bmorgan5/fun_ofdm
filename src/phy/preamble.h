@@ -1,8 +1,23 @@
 /*! \file preamble.h
- *  \brief Hardcoded preamble samples.
+ *  \brief The preamble's samples, and the long training symbol's subcarriers.
  *
- * This file contains the 802.11a Preamble samples in time domain
- * as well as short and long training sequence samples in frequency domain.
+ *  Every frame starts with the same 320 samples, so the receiver can find it
+ *  and measure the channel before any data (802.11a-1999 section 17.3.3):
+ *
+ *  ~~~
+ *  ┌───────────────────────────────┬────────┬───────────┬───────────┐
+ *  │ STS: 10 × 16 samples          │ CP: 32 │ LTS: 64   │ LTS: 64   │
+ *  └───────────────────────────────┴────────┴───────────┴───────────┘
+ *   frame_detector finds this       timing_sync finds these, and
+ *   by its 16-sample repetition     channel_est measures the channel
+ *  ~~~
+ *
+ *  - **Short training sequence (STS):** uses every fourth subcarrier, so it
+ *    repeats every 16 samples. Repetition is easy to spot without knowing the
+ *    timing or the channel.
+ *  - **Long training sequence (LTS):** a known BPSK point on all 52 used
+ *    subcarriers, sent twice. Correlating against it gives the exact timing,
+ *    and comparing each subcarrier with LTS_FREQ_DOMAIN gives the channel.
  */
 
 #ifndef PREAMBLE_H

@@ -1,5 +1,8 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
+# The overview of the PHY, for the API documentation.
+exports_files(["README.md"])
+
 # The 802.11a PHY: building frames into samples and receiving frames from
 # samples. Pure DSP, with no UHD dependency, so tests and benchmarks can use it
 # without a USRP.

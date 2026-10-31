@@ -1,11 +1,35 @@
 /*! \file rates.h
- *  \brief Header file for the PHY Rates parameters and the RateParams struct.
+ *  \brief The PHY rates: a modulation and a coding rate, and their parameters.
  *
- *  The PHY rate parameters are used by the PPDU class to correctly encode and
- * decode PHY frames.  The RateParams struct holds all the necessary parameters
- * for each PPDU and contains constructors for getting the necessary parameters
- * either from the desired transmit rate or from the rate field in the received
- * PHY frame.
+ *  Each rate pairs a modulation (bits per subcarrier) with a code rate (data
+ *  bits per coded bit). RateParams gives the numbers that follow from them:
+ *
+ *  ~~~
+ *  Rate         bpsc  cbps  dbps   Mbps at 20 MHz   at 5 MHz
+ *  1/2 BPSK       1    48    24          6             1.5
+ *  2/3 BPSK *     1    48    32          8             2
+ *  3/4 BPSK       1    48    36          9             2.25
+ *  1/2 QPSK       2    96    48         12             3
+ *  2/3 QPSK *     2    96    64         16             4
+ *  3/4 QPSK       2    96    72         18             4.5
+ *  1/2 QAM16      4   192    96         24             6
+ *  2/3 QAM16 *    4   192   128         32             8
+ *  3/4 QAM16      4   192   144         36             9
+ *  2/3 QAM64      6   288   192         48            12
+ *  3/4 QAM64      6   288   216         54            13.5
+ *
+ *  bpsc: coded bits per subcarrier   cbps: coded bits per symbol (48 × bpsc)
+ *  dbps: data bits per symbol (cbps × code rate)
+ *  * not an 802.11a rate
+ *  ~~~
+ *
+ *  A symbol takes 80 samples, so 4 µs at 20 MHz, which gives
+ *  `Mbps = dbps / 4`.
+ *  rel_rate is the code rate relative to rate 1/2, the fraction of the rate
+ *  1/2 coded bits the puncturer keeps: 3/4 for rate 2/3, and 2/3 for rate 3/4.
+ *
+ *  The SIGNAL field carries a 4-bit rate field, and RateParams::FromRateField
+ *  goes from it back to the rate.
  */
 
 #ifndef RATES_H

@@ -1,12 +1,30 @@
 /*! \file interleaver.h
- *  \brief Header file for the Interleaver class and the BitInterleave struct.
+ *  \brief Reorders coded bits so neighbouring bits go on distant subcarriers.
  *
- * The interleaver class performs interleaving as described in section 17.3.5.6
- * of the 802.11a-1999 standard. The Interleaver class contains two static
- * functions: interleave and deinterleave and thus doesn't need a constructor.
- * However, it does use the BitInterleave struct as a helper for these two
- * functions.
+ *  Echoes make some subcarriers fade (see README.md). Without interleaving, a
+ *  faded subcarrier would wipe out a run of consecutive coded bits, and the
+ *  Viterbi decoder can't fix bursts like that. The interleaver spreads
+ *  neighbouring coded bits across the symbol, so a fade turns into scattered
+ *  errors that the decoder fixes easily (802.11a-1999 section 17.3.5.6).
  *
+ *  The first permutation writes a symbol's bits in rows of 16 and reads them
+ *  out by column. For BPSK, with 48 bits per symbol:
+ *
+ *  ~~~
+ *  written in rows:   0  1  2  3 ... 15
+ *                    16 17 18 19 ... 31
+ *                    32 33 34 35 ... 47
+ *
+ *  read by column:    0 16 32  1 17 33  2 18 34 ... 15 31 47
+ *  ~~~
+ *
+ *  Bits k and k + 1 end up 3 positions apart, so on subcarriers 3 apart. The
+ *  standard's second permutation, for QAM, alternates which bits of each
+ *  subcarrier get the more and less reliable positions in the constellation.
+ *  BitInterleave computes both for any number of bits per subcarrier.
+ *
+ *  Unlike 802.11a, interleave() and deinterleave() always use the BPSK
+ *  permutation, on each block of 48 bits, whatever the modulation.
  */
 
 #ifndef INTERLEAVER_H

@@ -1,10 +1,22 @@
 /*! \file channel_est.h
- *  \brief Header file for the Channel Estimate block.
+ *  \brief Receiver block 4: measures the channel on each subcarrier and
+ *  undoes it.
  *
- *  The Channel Estimate block is in charge of estimating the current channel
- * conditions using the two known LTS symbols and equalizing the channel affect
- * by applying the inverse of the channel attenuation & phase rotation to each
- * of the subcarriers.
+ *  The channel scales and rotates each subcarrier by a complex gain H[k]: the
+ *  radios' gains, the echoes, and the timing and phase offsets all end up in
+ *  it. The long training symbols are known (LTS_FREQ_DOMAIN in preamble.h),
+ *  so for each subcarrier
+ *
+ *  ~~~
+ *  correction[k] = average over the two LTS of  sent[k] / received[k]
+ *  ~~~
+ *
+ *  which is 1 / H[k]. Every later symbol of the frame is multiplied by it,
+ *  subcarrier by subcarrier. This is called equalization. Thanks to the cyclic
+ *  prefix (see frame_builder.h), it's one multiply per subcarrier.
+ *
+ *  The LTS symbols are dropped, and the next symbol, the SIGNAL, is tagged
+ *  START_OF_FRAME.
  */
 
 #ifndef channel_est_H

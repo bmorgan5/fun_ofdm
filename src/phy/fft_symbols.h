@@ -1,9 +1,17 @@
 /*! \file fft_symbols.h
- *  \brief Header file for the FFT symbols block.
+ *  \brief Receiver block 3: cuts the samples into symbols and FFTs them.
  *
- * This FFT Symbols block aligns the input samples into symbols, chops off the
- * cyclic prefixes, and performs a forward FFT on vectorized samples to convert
- * them from time domain to frequency domain symbols.
+ *  From each LTS1 tag, this block takes the two long training symbols (64
+ *  samples each, back to back), then every following 80-sample symbol,
+ *  dropping its 16-sample cyclic prefix. Each 64-sample window goes through
+ *  the forward FFT, giving the symbol's 64 subcarriers:
+ *
+ *  ~~~
+ *  │ LTS: 64 │ LTS: 64 │ CP: 16 │ SIGNAL: 64 │ CP: 16 │ data: 64 │ ...
+ *     FFT       FFT      drop       FFT        drop      FFT
+ *  ~~~
+ *
+ *  The first output symbol of each frame is tagged LTS_START.
  */
 
 #ifndef FFT_SYMBOLS_H

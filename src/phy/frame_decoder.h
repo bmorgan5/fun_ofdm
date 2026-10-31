@@ -1,13 +1,13 @@
 /*! \file frame_decoder.h
- *  \brief Header file for the Frame Decoder block and the FrameData struct.
+ *  \brief Receiver block 6: decodes the SIGNAL field and then the data.
  *
- * The Frame Decoder block is in charge of decoding the frame header and then
- * the frame body. This includes demodulating, deinterleaving,
- * de-convolutional-coding, and descrambling. First these must all be done to
- * the header so as to get the correct rate and length of the payload, then the
- * payload must be decoded as well. If the block is succesful in decoding the
- * frame as determined by an IEEE CRC-32 check the payload is passed into the
- * output_buffer as unsigned char's or bytes.
+ *  On a START_OF_FRAME tag, this block decodes the symbol as the SIGNAL field
+ *  (see ppdu.h). If its parity and rate are valid, the field gives the rate
+ *  and the number of data symbols to collect. Once they've all arrived, which
+ *  can take several calls, ppdu decodes them, and the payload is output if
+ *  its CRC-32 matches.
+ *
+ *  A bad SIGNAL field drops the frame, as does a bad CRC.
  */
 
 #ifndef FRAME_DECODER_H

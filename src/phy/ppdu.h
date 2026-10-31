@@ -1,10 +1,73 @@
 /*! \file ppdu.h
- *  \brief Header file for the ppdu class and the plcp_header struct.
+ *  \brief The SIGNAL field and data of a frame, and their coding.
  *
- * The ppdu class is a container for a ppdu which is made up of a PHY Header,
- * otherwise known as a PLCP Header, and a payload of bytes. The class also
- * has functions for encoding and decoding the header and payload based on the
- * PHY transmission rates.
+ *  A PPDU is what follows the preamble: one SIGNAL symbol, then the data
+ *  symbols (802.11a-1999 section 17.3.2). This class codes both into
+ *  constellation points, 48 per symbol, and decodes them.
+ *
+ *  **SIGNAL** tells the receiver the data's rate and length. It's always rate
+ *  1/2 BPSK, so it can be decoded first, and it isn't scrambled. Sizes are
+ *  in bits:
+ *
+ *  ~~~
+ *  ┌──────┬──────────┬────────┬────────┬──────┐
+ *  │ rate │ reserved │ length │ parity │ tail │
+ *  │  4   │    1     │   12   │   1    │  6   │  24 bits
+ *  └──────┴──────────┴────────┴────────┴──────┘
+ *  → encode (rate 1/2) → 48 coded bits → interleave → BPSK → 48 points
+ *  ~~~
+ *
+ *  The length is the payload's length in bytes, up to 4095. The receiver
+ *  rejects a header with the wrong parity or an unknown rate.
+ *
+ *  **Data** is one bit stream for the whole frame, coded and then cut into
+ *  symbols, so there's one CRC however many symbols it takes. Sizes are in
+ *  bits:
+ *
+ *  ~~~
+ *  ┌─────────┬──────────────┬────────┬───────────────────────┬──────┐
+ *  │ SERVICE │ payload      │ CRC-32 │ pad to a whole symbol │ tail │
+ *  │ 16      │ 8 × length   │ 32     │                       │ 6    │
+ *  └─────────┴──────────────┴────────┴───────────────────────┴──────┘
+ *  → scramble → encode → puncture → interleave → modulate → 48 points/symbol
+ *  ~~~
+ *
+ *  The symbol count is:
+ *
+ *  ~~~
+ *  bits     = 16 + 8 × (length + 4) + 6     SERVICE + payload + CRC + tail
+ *  symbols  = ceil(bits / dbps)
+ *  ~~~
+ *
+ *  The scrambler XORs the data with a pseudo-random sequence, so long runs of
+ *  identical bits don't turn into a few strong tones. Decoding reverses the
+ *  steps: demodulate, deinterleave, depuncture, Viterbi decode, descramble,
+ *  then check the CRC.
+ *
+ *  Unlike 802.11a:
+ *  - The scrambler starts from a fixed state of 93, steps once per byte, and
+ *    only flips the lowest bit of each byte.
+ *  - Bytes are sent most significant bit first, and the SIGNAL field's bits
+ *    are in a different order.
+ *  - The tail bits come after the padding instead of before it, and are
+ *    scrambled instead of being set to zero after scrambling.
+ *  - The PHY adds a CRC-32 to the payload, and checks and strips it on
+ *    receive. In 802.11 the CRC-32 is the MAC's frame check sequence (FCS),
+ *    already part of the PSDU that the PHY is given, and LENGTH counts it.
+ *    Here LENGTH is the payload's length, without the CRC.
+ *
+ *  \bug The tail bits are scrambled, so they aren't always zeros, and the
+ *  encoder doesn't always end in state 0. The Viterbi decoder assumes it
+ *  does. The scrambler only flips the lowest bit of each byte, so at most one
+ *  or two tail bits are 1, and in practice only the tail bits themselves
+ *  decode wrong, so frames still get through. 802.11a sets the tail bits to
+ *  zero after scrambling, and puts them before the padding.
+ *
+ *  \todo Move the CRC-32 out of the PHY, into the layer that calls it (the
+ *  MAC, once there is one). Then the PSDU is exactly the bytes the PHY is
+ *  given, LENGTH is their length, and the receiver passes up every PSDU whose
+ *  SIGNAL field decodes, leaving the FCS check to the layer above, as 802.11a
+ *  does.
  */
 
 #ifndef PPDU_H

@@ -1,11 +1,28 @@
 /*! \file receiver_chain.h
- *  \brief Header file for Receiver Chain class
+ *  \brief The receiver: six blocks in a pipeline, from samples to payloads.
  *
- *  The Receiver Chain class is the main controller for the blocks that are
- *  used to receive and decode PHY layer frames. It holds the instances of each
- * block and shifts the data through the receive chain as it is processed
- * eventually returning the correctly received payloads (MPDUs) which can then
- * be passed to the upper layers.
+ *  ~~~
+ *  samples → frame_detector → timing_sync → fft_symbols
+ *          → channel_est → phase_tracker → frame_decoder → payloads
+ *  ~~~
+ *
+ *  Each block runs on its own thread. A call to process_samples() starts all
+ *  six on their input buffers at once and waits for them, then moves each
+ *  block's output to the next block's input. So a chunk of samples moves one
+ *  block on per call, and its payloads come out five calls after it went in:
+ *
+ *  ~~~
+ *  call              1        2        3        4        5        6
+ *  frame_detector    chunk 1  chunk 2  chunk 3  chunk 4  chunk 5  chunk 6
+ *  timing_sync                chunk 1  chunk 2  chunk 3  chunk 4  chunk 5
+ *  fft_symbols                         chunk 1  chunk 2  chunk 3  chunk 4
+ *  channel_est                                  chunk 1  chunk 2  chunk 3
+ *  phase_tracker                                         chunk 1  chunk 2
+ *  frame_decoder                                                  chunk 1
+ *  ~~~
+ *
+ *  The blocks keep state between calls, so a frame can span chunks. They mark
+ *  the frame's parts with tags on the samples (see tagged_vector.h).
  */
 
 #ifndef RECEIVER_CHAIN_H

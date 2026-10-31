@@ -1,8 +1,15 @@
 /*! \file fft.h
- *  \brief Header file for the fft class.
+ *  \brief 64-point FFTs, wrapping FFTW, in the subcarrier order of the PHY.
  *
- *  This class is a wrapper class on the fftw3 library and contains functions
- * for performing 64 point forward and inverse FFTs.
+ *  The inverse FFT turns a symbol's 64 subcarrier values into 64 time
+ *  samples: the sum of 64 tones, each with that subcarrier's amplitude and
+ *  phase. The forward FFT turns them back. That's all OFDM needs to send 64
+ *  points at once.
+ *
+ *  Subcarriers are in order from -32 to 31, so subcarrier k is at index
+ *  k + 32. FFTW puts 0 first, so both functions reorder. inverse() runs on a
+ *  whole vector of symbols, and scales by 1/64 so forward(inverse(x)) is x.
+ *  forward() runs on one symbol in place.
  */
 
 #ifndef FFT_H
