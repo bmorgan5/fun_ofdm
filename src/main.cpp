@@ -54,26 +54,25 @@ static int run_tx() {
       "This known string is used to verify the correctness of the received "
       "data along with the IEEE CRC-32!");
 
-  int num_packets = 1000;
-  int packet_length = 1500;
+  std::size_t num_packets = 1000;
+  std::size_t packet_length = 1500;
   std::vector<std::vector<std::uint8_t>> packets(
       num_packets, std::vector<std::uint8_t>(packet_length));
 
   // Build all the packets
-  for (int i = 0; i < num_packets; i++) {
+  for (std::size_t i = 0; i < num_packets; i++) {
     // Insert the known string in the beginning, middle, and end with random
     // data inbetween
     memcpy(&packets[i][0], &known_string[0], known_string.length());
-    for (int j = 100; j < 1000; j++) packets[i][j] = (std::uint8_t)rand() % 256;
+    for (std::size_t j = 100; j < 1000; j++) packets[i][j] = rand() % 256;
     memcpy(&packets[i][1000], &known_string[0], known_string.length());
-    for (int j = 1100; j < 1400; j++)
-      packets[i][j] = (std::uint8_t)rand() % 256;
+    for (std::size_t j = 1100; j < 1400; j++) packets[i][j] = rand() % 256;
     memcpy(&packets[i][1400], &known_string[0], known_string.length());
   }
 
   // Transmit all the packets
   std::string tx_phy_rate = RateParams(phy_rate).name;
-  for (int i = 0; i < num_packets; i++) {
+  for (std::size_t i = 0; i < num_packets; i++) {
     std::cout << "Sending packet " << i + 1 << " of " << num_packets << " at "
               << tx_phy_rate << std::endl;
     tx.send_frame(packets[i], phy_rate);
@@ -153,11 +152,11 @@ static int run_sim() {
   std::string data(
       "I'm a little tea pot, short and stout.....here is my handle.....blah "
       "blah blah.....this rhyme sucks!");
-  int repeat = 15;
+  std::size_t repeat = 15;
 
   std::vector<std::uint8_t> payload(data.length() *
                                     repeat);  // Payload = 1500 bytes
-  for (int x = 0; x < repeat; x++)
+  for (std::size_t x = 0; x < repeat; x++)
     memcpy(&payload[x * data.length()], &data[0], data.length());
 
   // Build a frame
@@ -167,11 +166,11 @@ static int run_sim() {
   int pad_length = samples.size() * 1000;
 
   // Concatenate num_frames frames together
-  int num_frames = 100;
+  std::size_t num_frames = 100;
   std::cout << "Transmitting " << num_frames << " frames" << std::endl;
   std::vector<std::complex<double>> samples_con(samples.size() * num_frames +
                                                 pad_length);
-  for (int x = 0; x < num_frames; x++) {
+  for (std::size_t x = 0; x < num_frames; x++) {
     memcpy(&samples_con[x * samples.size()], &samples[0],
            samples.size() * sizeof(std::complex<double>));
   }

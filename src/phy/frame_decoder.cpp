@@ -77,9 +77,9 @@ void frame_decoder::work() {
       if (!h.decode_header(header_samples)) continue;
 
       // Calculate the frame sample count
-      int length = h.get_length();
+      std::size_t length = h.get_length();
       RateParams rate_params = RateParams(h.get_rate());
-      int frame_sample_count = h.get_num_symbols() * 48;
+      std::size_t frame_sample_count = h.get_num_symbols() * 48;
 
       // Start a new frame
       m_current_frame.Reset(rate_params, frame_sample_count, length);

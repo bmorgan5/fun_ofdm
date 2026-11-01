@@ -41,14 +41,14 @@ void channel_est::work() {
     // Start of LTS found
     if (input_buffer[i].tag == LTS_START) {
       m_lts_flag = 1;
-      for (int j = 0; j < 64; j++)
+      for (std::size_t j = 0; j < 64; j++)
         m_chan_est[j] = std::complex<double>(0.0, 0.0);
     }
 
     if (m_lts_flag > 0)  // This is a LTS symbol
     {
       // Calculate channel correction
-      for (int j = 0; j < 64; j++) {
+      for (std::size_t j = 0; j < 64; j++) {
         std::complex<double> ref_lts_sample = LTS_FREQ_DOMAIN[j];
         std::complex<double> rec_lts_sample = input_buffer[i].samples[j];
         m_chan_est[j] += ref_lts_sample / rec_lts_sample / 2.0;
@@ -68,7 +68,7 @@ void channel_est::work() {
       }
 
       // Apply channel correction
-      for (int j = 0; j < 64; j++) {
+      for (std::size_t j = 0; j < 64; j++) {
         std::complex<double> out_sample =
             m_chan_est[j] * input_buffer[i].samples[j];
         symbol.samples[j] = out_sample;

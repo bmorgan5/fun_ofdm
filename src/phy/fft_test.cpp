@@ -29,7 +29,7 @@ std::vector<std::complex<double>> naive_forward(
     const std::complex<double>* samples) {
   std::vector<std::complex<double>> subcarriers(64);
   for (int k = -32; k < 32; k++) {
-    for (int n = 0; n < 64; n++) {
+    for (std::size_t n = 0; n < 64; n++) {
       subcarriers[k + 32] +=
           samples[n] * std::polar(1.0, -2 * std::numbers::pi * k * n / 64);
     }
@@ -41,7 +41,7 @@ std::vector<std::complex<double>> naive_forward(
 std::vector<std::complex<double>> naive_inverse(
     const std::complex<double>* subcarriers) {
   std::vector<std::complex<double>> samples(64);
-  for (int n = 0; n < 64; n++) {
+  for (std::size_t n = 0; n < 64; n++) {
     for (int k = -32; k < 32; k++) {
       samples[n] += subcarriers[k + 32] *
                     std::polar(1.0 / 64, 2 * std::numbers::pi * k * n / 64);
@@ -50,9 +50,9 @@ std::vector<std::complex<double>> naive_inverse(
   return samples;
 }
 
-double energy(const std::complex<double>* data, int count) {
+double energy(const std::complex<double>* data, std::size_t count) {
   double sum = 0;
-  for (int x = 0; x < count; x++) sum += std::norm(data[x]);
+  for (std::size_t x = 0; x < count; x++) sum += std::norm(data[x]);
   return sum;
 }
 
@@ -64,7 +64,7 @@ TEST(FftTest, InverseOfASubcarrierIsATone) {
     std::vector<std::complex<double>> data(64);
     data[k + 32] = 1;
     f.inverse(data);
-    for (int n = 0; n < 64; n++) {
+    for (std::size_t n = 0; n < 64; n++) {
       std::complex<double> expected =
           std::polar(1.0 / 64, 2 * std::numbers::pi * k * n / 64);
       EXPECT_NEAR(std::abs(data[n] - expected), 0, 1e-12)
@@ -75,17 +75,17 @@ TEST(FftTest, InverseOfASubcarrierIsATone) {
 
 TEST(FftTest, ForwardUndoesInverse) {
   fft f(64);
-  int symbols = 3;
+  std::size_t symbols = 3;
   std::vector<std::complex<double>> freq(64 * symbols);
   for (std::size_t x = 0; x < freq.size(); x++)
     freq[x] = {std::sin(x * 1.3), std::cos(x * 0.7)};
   std::vector<std::complex<double>> data = freq;
   f.inverse(data);
-  for (int s = 0; s < symbols; s++) {
+  for (std::size_t s = 0; s < symbols; s++) {
     f.forward(&data[64 * s]);
-    for (int x = 0; x < 64; x++) {
+    for (std::size_t x = 0; x < 64; x++) {
       EXPECT_NEAR(std::abs(data[64 * s + x] - freq[64 * s + x]), 0, 1e-12)
-          << "symbol " << s << ", subcarrier " << x - 32;
+          << "symbol " << s << ", index " << x;
     }
   }
 }
@@ -96,9 +96,9 @@ TEST(FftTest, ForwardMatchesTheDft) {
     std::vector<std::complex<double>> samples = prbs_values(64, 1024 * symbol);
     std::vector<std::complex<double>> expected = naive_forward(samples.data());
     f.forward(samples.data());
-    for (int x = 0; x < 64; x++) {
+    for (std::size_t x = 0; x < 64; x++) {
       EXPECT_NEAR(std::abs(samples[x] - expected[x]), 0, 1e-9)
-          << "symbol " << symbol << ", subcarrier " << x - 32;
+          << "symbol " << symbol << ", index " << x;
     }
   }
 }
@@ -106,13 +106,13 @@ TEST(FftTest, ForwardMatchesTheDft) {
 // inverse() runs on every symbol in the vector.
 TEST(FftTest, InverseMatchesTheDft) {
   fft f(64);
-  int symbols = 4;
+  std::size_t symbols = 4;
   std::vector<std::complex<double>> data = prbs_values(64 * symbols, 0);
   std::vector<std::complex<double>> freq = data;
   f.inverse(data);
-  for (int s = 0; s < symbols; s++) {
+  for (std::size_t s = 0; s < symbols; s++) {
     std::vector<std::complex<double>> expected = naive_inverse(&freq[64 * s]);
-    for (int x = 0; x < 64; x++) {
+    for (std::size_t x = 0; x < 64; x++) {
       EXPECT_NEAR(std::abs(data[64 * s + x] - expected[x]), 0, 1e-12)
           << "symbol " << s << ", sample " << x;
     }

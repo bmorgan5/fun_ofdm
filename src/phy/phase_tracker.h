@@ -28,6 +28,7 @@
 #define PHASE_TRACKER_H
 
 #include <complex>
+#include <cstddef>
 #include <vector>
 
 #include "block.h"
@@ -57,7 +58,7 @@ class phase_tracker : public fun::block<tagged_vector<64>, tagged_vector<48>> {
    * as to know what pilot polarity to expect. This is reset at the beginning
    * of each new frame.
    */
-  int m_symbol_count;
+  std::size_t m_symbol_count;
 };
 }  // namespace fun
 

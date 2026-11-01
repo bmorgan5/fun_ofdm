@@ -36,9 +36,9 @@ ppdu::ppdu() {
 /*!
  * This constructor creates a PPDU with a header, but no payload field.
  */
-ppdu::ppdu(Rate rate, int length) {
+ppdu::ppdu(Rate rate, std::size_t length) {
   RateParams rate_params = RateParams(rate);
-  int num_symbols = std::ceil(
+  std::size_t num_symbols = std::ceil(
       double((16 /* service */ + 8 * (length + 4 /* CRC */) + 6 /* tail */)) /
       double(rate_params.dbps));
   header = plcp_header(rate, length, num_symbols);
@@ -50,8 +50,8 @@ ppdu::ppdu(Rate rate, int length) {
  */
 ppdu::ppdu(std::vector<std::uint8_t> payload, Rate rate) : payload(payload) {
   RateParams rate_params = RateParams(rate);
-  int length = payload.size();
-  int num_symbols = std::ceil(
+  std::size_t length = payload.size();
+  std::size_t num_symbols = std::ceil(
       double((16 /* service */ + 8 * (length + 4 /* CRC */) + 6 /* tail */)) /
       double(rate_params.dbps));
 
@@ -119,14 +119,14 @@ std::vector<std::complex<double>> ppdu::encode_data() {
   RateParams rate_params = RateParams(header.rate);
 
   // Calculate the number of symbols
-  int num_symbols =
+  std::size_t num_symbols =
       std::ceil(double((16 /* service */ + 8 * (payload.size() + 4 /* CRC */) +
                         6 /* tail */)) /
                 double(rate_params.dbps));
 
   // Calculate the number of data bits/bytes (including padding bits)
-  int num_data_bits = num_symbols * rate_params.dbps;
-  int num_data_bytes = num_data_bits / 8;
+  std::size_t num_data_bits = num_symbols * rate_params.dbps;
+  std::size_t num_data_bytes = num_data_bits / 8;
 
   unsigned short service_field = 0;
 
@@ -193,7 +193,7 @@ bool ppdu::decode_header(std::vector<std::complex<double>> samples) {
 
   // Get the rate field and length
   std::uint8_t rate_field = ((header_field >> 19) & 0xF);
-  unsigned int length = ((header_field >> 6) & 0xFFF);
+  std::size_t length = (header_field >> 6) & 0xFFF;
 
   // Check for a valid rate
   bool valid_rate = false;
@@ -205,7 +205,7 @@ bool ppdu::decode_header(std::vector<std::complex<double>> samples) {
 
   // Calculate the number of symbols
   RateParams rate_params = RateParams::FromRateField(rate_field);
-  int num_symbols = std::ceil(
+  std::size_t num_symbols = std::ceil(
       double((16 /* service */ + 8 * (length + 4 /* CRC */) + 6 /* tail */)) /
       double(rate_params.dbps));
 
@@ -223,14 +223,14 @@ bool ppdu::decode_data(std::vector<std::complex<double>> samples) {
   RateParams rate_params = RateParams(header.rate);
 
   // Calculate the number of symbols
-  int num_symbols =
+  std::size_t num_symbols =
       std::ceil(double((16 /* service */ + 8 * (header.length + 4 /* CRC */) +
                         6 /* tail */)) /
                 double(rate_params.dbps));
 
   // Calculate the number of data bits/bytes (including padding bits)
-  int num_data_bits = num_symbols * rate_params.dbps;
-  int num_data_bytes = num_data_bits / 8;
+  std::size_t num_data_bits = num_symbols * rate_params.dbps;
+  std::size_t num_data_bytes = num_data_bits / 8;
 
   // Demodulate the data
   std::vector<std::uint8_t> demodulated =
@@ -245,9 +245,9 @@ bool ppdu::decode_data(std::vector<std::complex<double>> samples) {
       puncturer::depuncture(deinterleaved, header.rate);
 
   // Convolutionally decode the data
-  int data_bits =
+  std::size_t data_bits =
       16 /* service */ + (header.length + 4 /* CRC */) * 8 + 6 /* tail bits */;
-  int data_bytes = data_bits / 8 + 1;
+  std::size_t data_bytes = data_bits / 8 + 1;
   data_bits = num_data_bits - 6;
   data_bytes = num_data_bytes;
   std::vector<std::uint8_t> decoded(data_bytes);

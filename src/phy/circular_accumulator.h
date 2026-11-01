@@ -19,6 +19,7 @@
 #ifndef CIRCULAR_ACCUMULATOR_H
 #define CIRCULAR_ACCUMULATOR_H
 
+#include <cstddef>
 #include <vector>
 
 namespace fun {
@@ -54,7 +55,7 @@ struct circular_accumulator {
    * This variable is essentially private as the user should not interface
    * with it directly.
    */
-  int index;
+  std::size_t index;
 
   /*!
    * \brief The max number of samples the accumulator holds at any give time.
@@ -62,7 +63,7 @@ struct circular_accumulator {
    * This variable is essentially private as the user should not interface
    * with it directly.
    */
-  int size;
+  std::size_t size;
 
   /*!
    * \brief Constructor for circular_accumulator
@@ -72,11 +73,11 @@ struct circular_accumulator {
    * Initializes the #samples vector to contain #size elements and sets each
    * element to 0 along with the initial #sum.
    */
-  circular_accumulator(int _size) {
+  circular_accumulator(std::size_t _size) {
     size = _size;
     samples.resize(size);
     index = 0;
-    for (int x = 0; x < size; x++) samples[x] = T(0);
+    for (std::size_t x = 0; x < size; x++) samples[x] = T(0);
     sum = T(0);
   }
 

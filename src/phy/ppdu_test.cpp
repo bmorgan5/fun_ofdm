@@ -21,9 +21,9 @@ class PpduTest : public testing::TestWithParam<Rate> {};
 
 // 802.11a-1999 section 17.3.5.3: SERVICE (16 bits), the PSDU, and 6 tail bits,
 // padded to whole symbols. The PSDU here is the payload and a 4 byte CRC.
-int symbol_count(Rate rate, int length) {
-  int bits = 16 + 8 * (length + 4) + 6;
-  int dbps = RateParams(rate).dbps;
+std::size_t symbol_count(Rate rate, std::size_t length) {
+  std::size_t bits = 16 + 8 * (length + 4) + 6;
+  std::size_t dbps = RateParams(rate).dbps;
   return (bits + dbps - 1) / dbps;
 }
 
@@ -43,7 +43,7 @@ std::vector<std::uint8_t> encoder_input(
   std::vector<std::uint8_t> bits;
   int state = 0;
   for (std::size_t x = 0; x + 1 < coded.size(); x += 2) {
-    int k = coded[x] != 127 ? 0 : 1;
+    std::size_t k = coded[x] != 127 ? 0 : 1;
     int coded_bit = coded[x + k] > 127;
     int bit = coded_bit ^ parity((state << 1) & polys[k]);
     bits.push_back(bit);
@@ -61,18 +61,17 @@ std::vector<std::uint8_t> pack(const std::vector<std::uint8_t>& bits) {
 }
 
 TEST_P(PpduTest, EncodesOneSignalSymbolAndTheDataSymbols) {
-  for (int length : {1, 100, 1500}) {
+  for (std::size_t length : {1, 100, 1500}) {
     ppdu frame(test::prbs_bytes(length), GetParam());
     EXPECT_EQ(frame.get_num_symbols(), symbol_count(GetParam(), length));
-    EXPECT_EQ(
-        frame.encode().size(),
-        static_cast<std::size_t>(48 * (1 + symbol_count(GetParam(), length))))
+    EXPECT_EQ(frame.encode().size(),
+              48 * (1 + symbol_count(GetParam(), length)))
         << length << " bytes";
   }
 }
 
 TEST_P(PpduTest, DecodesWhatItEncodes) {
-  for (int length : {1, 100, 1500, 4095}) {
+  for (std::size_t length : {1, 100, 1500, 4095}) {
     std::vector<std::uint8_t> payload = test::prbs_bytes(length, length);
     std::vector<std::complex<double>> samples =
         ppdu(payload, GetParam()).encode();
@@ -104,7 +103,7 @@ TEST_P(PpduTest, RejectsDataWithTooManyErrors) {
 // Checks encoder_input(): descrambled, the bits it recovers are SERVICE (16
 // zero bits), then the payload.
 TEST_P(PpduTest, RecoversTheEncoderInput) {
-  for (int length : {1, 100, 1500}) {
+  for (std::size_t length : {1, 100, 1500}) {
     std::vector<std::uint8_t> payload = test::prbs_bytes(length, length);
     std::vector<std::complex<double>> samples =
         ppdu(payload, GetParam()).encode();
@@ -126,7 +125,7 @@ TEST_P(PpduTest, EndsWithTheEncoderInStateZero) {
   GTEST_SKIP() << "The tail bits are scrambled, so the encoder doesn't always "
                   "end in state 0 (see the \\bug in ppdu.h)";
 
-  for (int length : {1, 2, 3, 4, 5, 6, 7, 8, 100, 1500}) {
+  for (std::size_t length : {1, 2, 3, 4, 5, 6, 7, 8, 100, 1500}) {
     std::vector<std::complex<double>> samples =
         ppdu(test::prbs_bytes(length, length), GetParam()).encode();
     std::vector<std::uint8_t> bits =
@@ -149,7 +148,7 @@ TEST(PpduSignalTest, CorrectsAnError) {
   ppdu received;
   ASSERT_TRUE(received.decode_header(header));
   EXPECT_EQ(received.get_rate(), RATE_3_4_QAM16);
-  EXPECT_EQ(received.get_length(), 100);
+  EXPECT_EQ(received.get_length(), 100u);
 }
 
 // A SIGNAL field decoded from noise should fail the parity or rate check most
@@ -159,7 +158,7 @@ TEST(PpduSignalTest, RejectsMostNoise) {
   for (int trial = 0; trial < 1000; trial++) {
     std::vector<std::uint8_t> bits = test::prbs_bits(48, 48 * trial);
     std::vector<std::complex<double>> header(48);
-    for (int x = 0; x < 48; x++) header[x] = bits[x] ? 1 : -1;
+    for (std::size_t x = 0; x < 48; x++) header[x] = bits[x] ? 1 : -1;
     ppdu received;
     if (received.decode_header(header)) accepted++;
   }

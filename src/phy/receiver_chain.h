@@ -30,6 +30,7 @@
 
 #include <semaphore.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <thread>
 
@@ -106,7 +107,7 @@ class receiver_chain {
    * \param block A pointer to the block used as a handle to access its work()
    * function.
    */
-  void run_block(int index, fun::block_base* block);
+  void run_block(std::size_t index, fun::block_base* block);
 
   std::vector<std::thread>
       m_threads;  //!< Vector of threads - one for each block

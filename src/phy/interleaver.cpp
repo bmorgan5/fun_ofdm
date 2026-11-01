@@ -17,7 +17,7 @@ namespace fun {
 // Interleave some data
 std::vector<std::uint8_t> interleaver::interleave(
     std::vector<std::uint8_t> data) {
-  std::vector<unsigned int> interleave_map;
+  std::vector<std::size_t> interleave_map;
   BitInterleave(48, 1).fill(interleave_map, false);
 
   std::vector<std::uint8_t> data_interleaved(data.size());
@@ -30,7 +30,7 @@ std::vector<std::uint8_t> interleaver::interleave(
 // Deinterleave some data
 std::vector<std::uint8_t> interleaver::deinterleave(
     std::vector<std::uint8_t> data) {
-  std::vector<unsigned int> deinterleave_map;
+  std::vector<std::size_t> deinterleave_map;
   BitInterleave(48, 1).fill(deinterleave_map, true);
 
   std::vector<std::uint8_t> data_deinterleaved(data.size());

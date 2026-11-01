@@ -19,17 +19,16 @@ class FrameBuilderTest : public testing::TestWithParam<Rate> {};
 
 // The preamble (320 samples) and 80 samples (16 cyclic prefix + 64) for the
 // SIGNAL symbol and each data symbol.
-int frame_length(Rate rate, int length) {
+std::size_t frame_length(Rate rate, std::size_t length) {
   return 320 + 80 * (1 + ppdu(rate, length).get_num_symbols());
 }
 
 TEST_P(FrameBuilderTest, HasThePreambleAndWholeSymbols) {
   frame_builder builder;
-  for (int length : {1, 100, 1500}) {
+  for (std::size_t length : {1, 100, 1500}) {
     std::vector<std::complex<double>> frame =
         builder.build_frame(test::prbs_bytes(length), GetParam());
-    ASSERT_EQ(frame.size(),
-              static_cast<std::size_t>(frame_length(GetParam(), length)))
+    ASSERT_EQ(frame.size(), frame_length(GetParam(), length))
         << length << " bytes";
     EXPECT_TRUE(
         std::equal(frame.begin(), frame.begin() + 320, PREAMBLE_SAMPLES));
@@ -40,7 +39,7 @@ TEST_P(FrameBuilderTest, StartsEachSymbolWithACyclicPrefix) {
   std::vector<std::complex<double>> frame =
       frame_builder().build_frame(test::prbs_bytes(100), GetParam());
   for (std::size_t start = 320; start < frame.size(); start += 80) {
-    for (int x = 0; x < 16; x++) {
+    for (std::size_t x = 0; x < 16; x++) {
       ASSERT_EQ(frame[start + x], frame[start + 64 + x])
           << "symbol at " << start << ", sample " << x;
     }
