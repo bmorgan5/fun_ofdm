@@ -174,6 +174,7 @@ inverse undoes it.
 |---|---|---|
 | Test data (PRBS-15) | [test_util.h](test_util.h) | [test_util_test.cpp](test_util_test.cpp) |
 | Parity bit | [parity.h](parity.h) | [parity_test.cpp](parity_test.cpp) |
+| Scrambling | [scrambler.h](scrambler.h) | [scrambler_test.cpp](scrambler_test.cpp) |
 | Convolutional code | [viterbi.h](viterbi.h) | [viterbi_test.cpp](viterbi_test.cpp) |
 | Puncturing | [puncturer.h](puncturer.h) | [puncturer_test.cpp](puncturer_test.cpp) |
 | Interleaving | [interleaver.h](interleaver.h) | [interleaver_test.cpp](interleaver_test.cpp) |

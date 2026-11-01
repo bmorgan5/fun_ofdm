@@ -40,13 +40,13 @@
  *  ~~~
  *
  *  The scrambler XORs the data with a pseudo-random sequence, so long runs of
- *  identical bits don't turn into a few strong tones. Decoding reverses the
- *  steps: demodulate, deinterleave, depuncture, Viterbi decode, descramble,
- *  then check the CRC.
+ *  identical bits don't turn into a few strong tones (see scrambler.h).
+ *  Decoding reverses the steps: demodulate, deinterleave, depuncture, Viterbi
+ *  decode, descramble, then check the CRC.
  *
  *  Unlike 802.11a:
- *  - The scrambler starts from a fixed state of 93, steps once per byte, and
- *    only flips the lowest bit of each byte.
+ *  - The scrambler starts from a fixed state, steps once per byte, and only
+ *    flips the lowest bit of each byte (see scrambler.h).
  *  - Bytes are sent most significant bit first, and the SIGNAL field's bits
  *    are in a different order.
  *  - The tail bits come after the padding instead of before it, and are
