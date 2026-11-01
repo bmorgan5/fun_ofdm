@@ -37,6 +37,7 @@
 
 #include <assert.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <string>
@@ -77,9 +78,9 @@ enum Rate : int {
  */
 struct RateParams {
   std::uint8_t rate_field;  //!< SIGNAL rate field
-  int cbps;                 //!< Coded bits per symbol
-  int dbps;                 //!< Data bits per symbol
-  int bpsc;                 //!< Bits per subcarrier
+  std::size_t cbps;         //!< Coded bits per symbol
+  std::size_t dbps;         //!< Data bits per symbol
+  std::size_t bpsc;         //!< Bits per subcarrier
   Rate rate;                //!< Rate enum value
   double rel_rate;          //!< Relative coding rate (relative to 1/2)
   std::string name;         //!< Display name

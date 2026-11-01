@@ -59,7 +59,7 @@ receiver_chain::receiver_chain() {
 void receiver_chain::add_block(fun::block_base* block) {
   m_wake_sems.push_back(sem_t());
   m_done_sems.push_back(sem_t());
-  int index = m_wake_sems.size() - 1;
+  std::size_t index = m_wake_sems.size() - 1;
   sem_init(&m_wake_sems[index], 0, 0);
   sem_init(&m_done_sems[index], 0, 0);
   m_threads.push_back(
@@ -76,7 +76,7 @@ void receiver_chain::add_block(fun::block_base* block) {
  * the input_buffer. At this point it loops back around and waits for the block
  * to be "woken up" again when the next set of input data is ready.
  */
-void receiver_chain::run_block(int index, fun::block_base* block) {
+void receiver_chain::run_block(std::size_t index, fun::block_base* block) {
   while (1) {
     sem_wait(&m_wake_sems[index]);
 

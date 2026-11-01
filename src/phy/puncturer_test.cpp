@@ -20,8 +20,7 @@ std::vector<std::uint8_t> coded_bits(const RateParams& rp) {
 
 TEST_P(PuncturerTest, FillsTheCodedBitsPerSymbol) {
   RateParams rp(GetParam());
-  EXPECT_EQ(puncturer::puncture(coded_bits(rp), rp).size(),
-            static_cast<std::size_t>(rp.cbps * 4));
+  EXPECT_EQ(puncturer::puncture(coded_bits(rp), rp).size(), rp.cbps * 4);
 }
 
 TEST_P(PuncturerTest, DepunctureRestoresTheBitsAndMarksTheErasures) {

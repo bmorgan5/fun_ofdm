@@ -52,6 +52,20 @@ libraries.
   - `\bug` for code that's wrong by its own design.
   - An "Unlike 802.11a" list for deliberate differences from the standard.
   - `\todo` for a planned change, plus a **TODO** in the directory's README.
+- **Integer types**, following Google's style guide:
+  - `std::uint8_t` for bytes and bits, not `unsigned char`.
+  - Fixed-width types (`std::uint16_t`, `std::uint32_t`, ...) where the size
+    matters: bit fields like the SIGNAL field, CRCs, shift registers, SIMD
+    lanes.
+  - `std::size_t` for sizes and indices. A loop counter that's used as an
+    index is an index, so it's a `std::size_t` too. A position that can be
+    negative, like an offset before it's checked, is a `std::ptrdiff_t`.
+  - `int` for other small values, including loop counters that don't index
+    anything. Don't use an unsigned type just to say a value can't be
+    negative.
+  - No C-style casts: use `std::size_t{1}`-style braces where the value
+    always fits, and `static_cast` otherwise. Better still, pick types that
+    don't need a cast.
 - **Moving files.** Use `git mv`, so history follows the file.
 
 ## Workflow

@@ -23,6 +23,7 @@
 #include <fftw3.h>
 
 #include <complex>
+#include <cstddef>
 #include <vector>
 
 namespace fun {
@@ -60,7 +61,7 @@ class fft {
   /*!
    * \brief Mapping to/from FFT order.
    */
-  static const int fft_map[64];
+  static const std::size_t fft_map[64];
 
   /*!
    * \brief Length of FFT. In 802.11a it is always a 64 Point FFT since

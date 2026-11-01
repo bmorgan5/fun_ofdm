@@ -50,6 +50,7 @@
 #include <stdlib.h>
 #include <xmmintrin.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -100,7 +101,7 @@ class viterbi {
 
   void viterbi_chainback(struct v* vp,
                          std::uint8_t* data, /* Decoded output data */
-                         unsigned int nbits, /* Number of data bits */
+                         std::size_t nbits,  /* Number of data bits */
                          unsigned int endstate);
 
   void FULL_SPIRAL(int nbits, std::uint8_t* Y, std::uint8_t* X,
@@ -152,7 +153,8 @@ class viterbi {
    * \param data_bits Number of data bits that that should be left after
    * decoding. It must be even, since the decoder handles two bits at a time.
    */
-  void conv_decode(std::uint8_t* symbols, std::uint8_t* data, int data_bits);
+  void conv_decode(std::uint8_t* symbols, std::uint8_t* data,
+                   std::size_t data_bits);
 
   /*!
    * \brief Convolutionally encodeds data.
@@ -160,7 +162,8 @@ class viterbi {
    * \param symbols The coded output symbols.
    * \param data_bits The number of bits in the data input.
    */
-  void conv_encode(std::uint8_t* data, std::uint8_t* symbols, int data_bits);
+  void conv_encode(std::uint8_t* data, std::uint8_t* symbols,
+                   std::size_t data_bits);
 };
 
 }  // namespace fun

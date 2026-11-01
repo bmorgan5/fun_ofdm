@@ -40,7 +40,7 @@ static int PILOTS[4][2] = {
 };
 
 /*! \brief The indicies of the 48 data subcarriers in the 64 sample symbol */
-static int DATA_SUBCARRIERS[48] = {
+static std::size_t DATA_SUBCARRIERS[48] = {
     6,          7,  8,  9,  10, /*11,*/ 12, 13,         14, 15, 16, 17, 18, 19,
     20,         21, 22, 23, 24, /*25,*/ 26, 27,         28, 29, 30, 31,
     /*32,*/ 33, 34, 35, 36, 37, 38,         /*39,*/ 40, 41, 42, 43, 44, 45, 46,
@@ -74,7 +74,7 @@ void phase_tracker::work() {
 
     // Calculate the phase error of this symbol based on the pilots
     std::complex<double> phase_error = std::complex<double>(0, 0);
-    for (int p = 0; p < 4; p++) {
+    for (std::size_t p = 0; p < 4; p++) {
       int pilot = PILOTS[p][1] * POLARITY[m_symbol_count % 127];
       std::complex<double> ref_pilot_sample = std::complex<double>(pilot, 0);
       std::complex<double> rec_pilot_sample =
@@ -85,8 +85,8 @@ void phase_tracker::work() {
     double angle = std::arg(phase_error);
 
     // Apply the phase correction to the data samples
-    for (int s = 0; s < 48; s++) {
-      int index = DATA_SUBCARRIERS[s];
+    for (std::size_t s = 0; s < 48; s++) {
+      std::size_t index = DATA_SUBCARRIERS[s];
       output_buffer[i].samples[s] =
           input_buffer[i].samples[index] *
           std::complex<double>(std::cos(-angle), std::sin(-angle));

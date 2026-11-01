@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 
@@ -62,18 +63,18 @@ void timing_sync::work() {
     // End of STS found: Look for LTS peaks
     if (input[x].tag == STS_END) {
       // Cross correlate against the LTS
-      std::vector<std::pair<double, int>> peaks;
+      std::vector<std::pair<double, std::ptrdiff_t>> peaks;
       for (std::size_t p = x; p < x + CARRYOVER_LENGTH - LTS_LENGTH; p++) {
         std::complex<double> corr(0, 0);
         double power = 0;
-        for (int s = 0; s < 64; s++) {
+        for (std::size_t s = 0; s < 64; s++) {
           corr += input[p + s].sample *
                   LTS_TIME_DOMAIN_CONJ[s] /* complex conjugate of LTS */;
           power += std::norm(input[p + s].sample);
         }
         double corr_norm = std::abs(corr) / power;
         if (corr_norm > LTS_CORR_THRESHOLD)
-          peaks.push_back(std::pair<double, int>(corr_norm, p));
+          peaks.push_back(std::pair<double, std::ptrdiff_t>(corr_norm, p));
       }
 
       std::sort(peaks.begin(), peaks.end());
@@ -81,15 +82,17 @@ void timing_sync::work() {
 
       // Look for two peaks, 64 samples apart
       bool found = false;
-      int jump = 5;
-      for (int s = 0; s < std::min((int)peaks.size(), 3) && !found; s += jump) {
-        for (int t = s; t < std::min((int)peaks.size(), s + jump) && !found;
+      std::size_t jump = 5;
+      for (std::size_t s = 0;
+           s < std::min(peaks.size(), std::size_t{3}) && !found; s += jump) {
+        for (std::size_t t = s; t < std::min(peaks.size(), s + jump) && !found;
              t++) {
           if (std::abs(peaks[s].second - peaks[t].second) == 64) {
             // Determine the LTS offset
             found = true;
-            int lts_offset = std::min(peaks[s].second, peaks[t].second) -
-                             32;  // Start of the LTS CP
+            std::ptrdiff_t lts_offset =
+                std::min(peaks[s].second, peaks[t].second) -
+                32;  // Start of the LTS CP
             if (lts_offset < 0) break;
 
             input[lts_offset + 24].tag = LTS1;       // First sample in the LTS

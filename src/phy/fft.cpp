@@ -19,7 +19,7 @@ namespace fun {
  * sequentially from 0-63 they can be thought of as positive and negative
  * frequencies which is the ordering that the FFTW3 library uses.
  */
-const int fft::fft_map[64] = {
+const std::size_t fft::fft_map[64] = {
     32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
     48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
     0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15,
@@ -59,7 +59,7 @@ void fft::forward(std::complex<double> data[64]) {
          m_fft_length * sizeof(std::complex<double>));
   fftw_execute(m_fftw_plan_forward);
 
-  for (int s = 0; s < 64; s++) {
+  for (std::size_t s = 0; s < 64; s++) {
     memcpy(&data[s], &m_fftw_out_forward[fft_map[s]],
            sizeof(std::complex<double>));
   }
@@ -79,7 +79,7 @@ void fft::inverse(std::vector<std::complex<double>>& data) {
   // Run the IFFT on each m_fft_length samples
   for (std::size_t x = 0; x < data.size(); x += m_fft_length) {
     if (m_fft_length == 64) {
-      for (int s = 0; s < 64; s++) {
+      for (std::size_t s = 0; s < 64; s++) {
         memcpy(&m_fftw_in_inverse[s], &data[x + fft_map[s]],
                sizeof(std::complex<double>));
       }

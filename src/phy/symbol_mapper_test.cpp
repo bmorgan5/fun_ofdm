@@ -64,10 +64,10 @@ TEST(SymbolMapperTest, UsesTheStandardSubcarriers) {
 // (the SIGNAL field), and the sequence repeats every 127 symbols.
 TEST(SymbolMapperTest, UsesTheStandardPilotPolarity) {
   std::vector<double> polarity = standard_polarity();
-  int symbols = 130;
+  std::size_t symbols = 130;
   std::vector<std::complex<double>> mapped =
       symbol_mapper().map(numbered_data(symbols));
-  for (int n = 0; n < symbols; n++) {
+  for (std::size_t n = 0; n < symbols; n++) {
     double p = polarity[n % 127];
     const std::complex<double>* symbol = &mapped[64 * n];
     EXPECT_EQ(symbol[index(-21)], std::complex<double>(p, 0)) << "symbol " << n;

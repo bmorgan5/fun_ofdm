@@ -32,7 +32,9 @@
 
 #include <stdlib.h>
 
+#include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -73,33 +75,33 @@ class interleaver {
  * bits per symbol
  */
 struct BitInterleave {
-  unsigned int d_bpsc;  // coded bits per subcarrier
-  unsigned int d_cbps;  // coded bits per symbol
-  static const int d_num_chunks = 16;
+  std::size_t d_bpsc;  // coded bits per subcarrier
+  std::size_t d_cbps;  // coded bits per symbol
+  static constexpr std::size_t d_num_chunks = 16;
 
-  BitInterleave(int ncarriers, int nbits)
+  BitInterleave(std::size_t ncarriers, std::size_t nbits)
       : d_bpsc(nbits), d_cbps(nbits * ncarriers) {}
 
-  unsigned int index(unsigned int k) {
+  std::size_t index(std::size_t k) {
     // see 17.3.5.6 in 802.11a-1999, floor is implicit
     assert(k < d_cbps);
-    unsigned int s = std::max(d_bpsc / 2, (unsigned int)1);
-    unsigned int i =
+    std::size_t s = std::max(d_bpsc / 2, std::size_t{1});
+    std::size_t i =
         (d_cbps / d_num_chunks) * (k % d_num_chunks) + (k / d_num_chunks);
-    unsigned int j =
+    std::size_t j =
         s * (i / s) + (i + d_cbps - (d_num_chunks * i / d_cbps)) % s;
     assert(j < d_cbps);
     return j;
   }
 
-  void fill(std::vector<unsigned int>& v, bool inverse) {
+  void fill(std::vector<std::size_t>& v, bool inverse) {
     v.resize(d_cbps);
     if (!inverse) {
-      for (unsigned int i = 0; i < d_cbps; ++i) {
+      for (std::size_t i = 0; i < d_cbps; ++i) {
         v[i] = index(i);
       }
     } else {
-      for (unsigned int i = 0; i < d_cbps; ++i) {
+      for (std::size_t i = 0; i < d_cbps; ++i) {
         v[index(i)] = i;
       }
     }

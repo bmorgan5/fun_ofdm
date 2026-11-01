@@ -20,6 +20,7 @@
 #include <fftw3.h>
 
 #include <complex>
+#include <cstddef>
 #include <vector>
 
 #include "block.h"
@@ -52,7 +53,7 @@ class fft_symbols : public fun::block<tagged_sample, tagged_vector<64>> {
   /*!
    * \brief Offset into the current vector being filled
    */
-  int m_offset;
+  std::size_t m_offset;
 
   /*!
    * \brief Forward FFT

@@ -74,6 +74,7 @@
 #define PPDU_H
 
 #include <complex>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -87,10 +88,10 @@ namespace fun {
  *  respective parameters.
  */
 struct plcp_header {
-  Rate rate;               //!< The PHY Rate for this frame.
-  int length;              //!< The length of the payload in bytes.
-  int num_symbols;         //!< The number of ofdm symbols in the frame.
-  unsigned short service;  //!< The service field.
+  Rate rate;                //!< The PHY Rate for this frame.
+  std::size_t length;       //!< The length of the payload in bytes.
+  std::size_t num_symbols;  //!< The number of ofdm symbols in the frame.
+  unsigned short service;   //!< The service field.
 
   /*!
    * \brief Constructor for empty plcp_header.
@@ -114,7 +115,7 @@ struct plcp_header {
    * \param _rate PHY Rate for this frame.
    * \param _length Length of payload in bytes.
    */
-  plcp_header(Rate _rate, int _length) {
+  plcp_header(Rate _rate, std::size_t _length) {
     rate = _rate;
     length = _length;
     service = 0;
@@ -127,7 +128,7 @@ struct plcp_header {
    * \param _length Length of payload in bytes.
    * \param _num_symbols Number of OFDM symbols in frame.
    */
-  plcp_header(Rate _rate, int _length, int _num_symbols) {
+  plcp_header(Rate _rate, std::size_t _length, std::size_t _num_symbols) {
     rate = _rate;
     length = _length;
     num_symbols = _num_symbols;
@@ -159,7 +160,7 @@ class ppdu {
    * \param rate PHY Rate for this frame.
    * \param length Length of payload in bytes.
    */
-  ppdu(Rate rate, int length);
+  ppdu(Rate rate, std::size_t length);
 
   /*!
    * \brief Constructor for ppdu with payload and Rate known.
@@ -199,10 +200,10 @@ class ppdu {
   bool decode_data(std::vector<std::complex<double>> samples);
 
   Rate get_rate() { return header.rate; }  //!< Get this PPDU's PHY tx rate
-  int get_length() {
+  std::size_t get_length() {
     return header.length;
   }  //!< Get this PPDU's payload length
-  int get_num_symbols() {
+  std::size_t get_num_symbols() {
     return header.num_symbols;
   }  //!< Get the number of OFDM symbols in this PPDU
   std::vector<std::uint8_t> get_payload() {

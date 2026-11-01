@@ -20,6 +20,7 @@ data
 #include <unistd.h>
 #include <xmmintrin.h>
 
+#include <cstddef>
 #include <cstdint>
 
 #include "parity.h"
@@ -30,7 +31,7 @@ namespace fun {
  *  Main decode function.
  */
 void viterbi::conv_decode(std::uint8_t* symbols, std::uint8_t* data,
-                          int data_bits) {
+                          std::size_t data_bits) {
   struct v* vp = viterbi_alloc(data_bits);
   viterbi_init(vp, 0);
   viterbi_decode(vp, &symbols[0], &data[0], data_bits);
@@ -38,21 +39,21 @@ void viterbi::conv_decode(std::uint8_t* symbols, std::uint8_t* data,
 }
 
 void viterbi::conv_encode(std::uint8_t* data, std::uint8_t* symbols,
-                          int data_bits) {
-  int symbol_count = RATE * (data_bits + 6);
+                          std::size_t data_bits) {
+  std::size_t symbol_count = RATE * (data_bits + 6);
   memset(symbols, 0, symbol_count);
 
   int polys[RATE] = POLYS;
   int sr = 0;
 
-  int index = 0;
-  for (int i = 0; i < data_bits + (K - 1); i++) {
+  std::size_t index = 0;
+  for (std::size_t i = 0; i < data_bits + (K - 1); i++) {
     int b = data[i / 8];
     int j = i % 8;
     int bit = (b >> (7 - j)) & 1;
 
     sr = (sr << 1) | bit;
-    for (int k = 0; k < RATE; k++) {
+    for (std::size_t k = 0; k < RATE; k++) {
       int par = parity(sr & polys[k]);
       symbols[index++] = par;
     }
@@ -67,7 +68,7 @@ void viterbi::conv_encode(std::uint8_t* data, std::uint8_t* symbols,
  * \param starting_state
  */
 void viterbi::viterbi_init(struct v* vp, int starting_state) {
-  for (int i = 0; i < NUMSTATES; i++) vp->metrics1.t[i] = 63;
+  for (std::size_t i = 0; i < NUMSTATES; i++) vp->metrics1.t[i] = 63;
 
   vp->old_metrics = &vp->metrics1;
   vp->new_metrics = &vp->metrics2;
@@ -104,7 +105,7 @@ struct v* viterbi::viterbi_alloc(int len) {
 /* Viterbi chainback */
 void viterbi::viterbi_chainback(
     struct v* vp, std::uint8_t* data, /* Decoded output data */
-    unsigned int nbits,               /* Number of data bits */
+    std::size_t nbits,                /* Number of data bits */
     unsigned int endstate)            /* Terminal encoder state */
 {
   decision_t* d = vp->decisions;

@@ -21,9 +21,9 @@ std::vector<std::uint8_t> pack(const std::vector<std::uint8_t>& bits) {
 }
 
 std::vector<std::uint8_t> unpack(const std::vector<std::uint8_t>& bytes,
-                                 int bit_count) {
+                                 std::size_t bit_count) {
   std::vector<std::uint8_t> bits(bit_count);
-  for (int x = 0; x < bit_count; x++)
+  for (std::size_t x = 0; x < bit_count; x++)
     bits[x] = (bytes[x / 8] >> (7 - x % 8)) & 1;
   return bits;
 }
@@ -126,12 +126,12 @@ class PuncturedViterbiTest : public testing::TestWithParam<Rate> {};
 // as the PPDU does.
 TEST_P(PuncturedViterbiTest, CorrectsIsolatedErrors) {
   RateParams rp(GetParam());
-  int symbols = 20;
+  std::size_t symbols = 20;
   int bit_count = rp.dbps * symbols - 6;
   std::vector<std::uint8_t> bits = test::prbs_bits(bit_count);
   std::vector<std::uint8_t> punctured =
       puncturer::puncture(to_soft(encode(bits)), rp);
-  ASSERT_EQ(punctured.size(), static_cast<std::size_t>(rp.cbps * symbols));
+  ASSERT_EQ(punctured.size(), rp.cbps * symbols);
   for (std::size_t x = 7; x < punctured.size(); x += 60)
     punctured[x] = 255 - punctured[x];
   EXPECT_EQ(decode(puncturer::depuncture(punctured, rp), bit_count), bits);

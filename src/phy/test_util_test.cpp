@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <set>
 #include <vector>
@@ -29,9 +30,9 @@ TEST(Prbs15Test, HasMaximalLength) {
   // Every nonzero 15-bit pattern appears once per period.
   std::set<int> patterns;
   int ones = 0;
-  for (int x = 0; x < 32767; x++) {
+  for (std::size_t x = 0; x < 32767; x++) {
     int pattern = 0;
-    for (int b = 0; b < 15; b++) pattern = (pattern << 1) | bits[x + b];
+    for (std::size_t b = 0; b < 15; b++) pattern = (pattern << 1) | bits[x + b];
     patterns.insert(pattern);
     ones += bits[x];
   }

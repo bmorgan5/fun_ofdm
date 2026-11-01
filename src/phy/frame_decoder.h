@@ -14,6 +14,7 @@
 #define FRAME_DECODER_H
 
 #include <complex>
+#include <cstddef>
 #include <cstdint>
 #include <deque>
 
@@ -28,12 +29,12 @@ namespace fun {
  * This struct keeps track of frame parameters such as length etc.
  */
 struct FrameData {
-  int sample_count;        //!< Number of samples in this frame
-  int samples_copied;      //!< Number of samples already copied
-  RateParams rate_params;  //!< Rate parameters for this frame
+  std::size_t sample_count;    //!< Number of samples in this frame
+  std::size_t samples_copied;  //!< Number of samples already copied
+  RateParams rate_params;      //!< Rate parameters for this frame
   std::vector<std::complex<double>> samples;  //!< Decoded Samples
-  int length;                                 //!< Data length
-  int required_samples;  //!< Number of samples required to decode frame
+  std::size_t length;                         //!< Data length
+  std::size_t required_samples;  //!< Number of samples required to decode frame
 
   /*!
    * \brief Constructor for FrameData
@@ -52,7 +53,8 @@ struct FrameData {
    * Also calculates #required_samples from the above parameters and resets
    * #samples_copied to 0.
    */
-  void Reset(RateParams _rate_params, int _sample_count, int _length) {
+  void Reset(RateParams _rate_params, std::size_t _sample_count,
+             std::size_t _length) {
     rate_params = _rate_params;
     length = _length;
     sample_count = _sample_count;

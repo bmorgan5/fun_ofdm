@@ -78,8 +78,8 @@ std::vector<std::uint8_t> puncturer::puncture(std::vector<std::uint8_t> data,
  */
 std::vector<std::uint8_t> puncturer::depuncture(std::vector<std::uint8_t> data,
                                                 RateParams rate_params) {
-  int sym_buffer_index = 0;
-  int psc = 0;
+  std::size_t sym_buffer_index = 0;
+  std::size_t psc = 0;
   switch (rate_params.rate) {
     // Nothing to do
     case RATE_1_2_BPSK:

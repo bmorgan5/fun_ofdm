@@ -26,8 +26,8 @@ TEST(InterleaverTest, MatchesTheStandardBpskPermutation) {
   std::vector<std::uint8_t> in(48);
   std::iota(in.begin(), in.end(), 0);
   std::vector<std::uint8_t> out = interleaver::interleave(in);
-  for (int k = 0; k < 48; k++) {
-    int i = (48 / 16) * (k % 16) + k / 16;
+  for (std::size_t k = 0; k < 48; k++) {
+    std::size_t i = (48 / 16) * (k % 16) + k / 16;
     EXPECT_EQ(out[i], k) << "bit " << k;
   }
 }
@@ -45,37 +45,36 @@ TEST(InterleaverTest, KeepsEachSymbolSeparate) {
   }
 }
 
-class BitInterleaveTest : public testing::TestWithParam<int> {};
+class BitInterleaveTest : public testing::TestWithParam<std::size_t> {};
 
 TEST_P(BitInterleaveTest, IsAPermutationWithMatchingInverse) {
-  int bpsc = GetParam();
-  std::vector<unsigned int> forward, inverse;
+  std::size_t bpsc = GetParam();
+  std::vector<std::size_t> forward, inverse;
   BitInterleave(48, bpsc).fill(forward, false);
   BitInterleave(48, bpsc).fill(inverse, true);
-  ASSERT_EQ(forward.size(), static_cast<std::size_t>(48 * bpsc));
-  std::vector<unsigned int> sorted = forward;
+  ASSERT_EQ(forward.size(), 48 * bpsc);
+  std::vector<std::size_t> sorted = forward;
   std::ranges::sort(sorted);
-  for (unsigned int k = 0; k < sorted.size(); k++) EXPECT_EQ(sorted[k], k);
-  for (unsigned int k = 0; k < forward.size(); k++)
+  for (std::size_t k = 0; k < sorted.size(); k++) EXPECT_EQ(sorted[k], k);
+  for (std::size_t k = 0; k < forward.size(); k++)
     EXPECT_EQ(inverse[forward[k]], k);
 }
 
 // The first permutation puts adjacent coded bits 3 subcarriers apart, and the
 // second one only moves bits within a subcarrier.
 TEST_P(BitInterleaveTest, PutsAdjacentBitsThreeSubcarriersApart) {
-  int bpsc = GetParam();
-  std::vector<unsigned int> forward;
+  std::size_t bpsc = GetParam();
+  std::vector<std::size_t> forward;
   BitInterleave(48, bpsc).fill(forward, false);
-  for (unsigned int k = 0; k + 1 < forward.size(); k++) {
+  for (std::size_t k = 0; k + 1 < forward.size(); k++) {
     if (k % 16 == 15) continue;
-    EXPECT_EQ(int(forward[k + 1] / bpsc) - int(forward[k] / bpsc), 3)
-        << "bit " << k;
+    EXPECT_EQ(forward[k + 1] / bpsc, forward[k] / bpsc + 3) << "bit " << k;
   }
 }
 
 INSTANTIATE_TEST_SUITE_P(Modulations, BitInterleaveTest,
                          testing::Values(1, 2, 4, 6),
-                         [](const testing::TestParamInfo<int>& info) {
+                         [](const testing::TestParamInfo<std::size_t>& info) {
                            return std::to_string(info.param) +
                                   "BitsPerSubcarrier";
                          });
