@@ -18,6 +18,7 @@
 #include "modulator.h"
 #include "parity.h"
 #include "puncturer.h"
+#include "scrambler.h"
 #include "viterbi.h"
 
 namespace fun {
@@ -139,14 +140,7 @@ std::vector<std::complex<double>> ppdu::encode_data() {
   memcpy(&data[2 + payload.size()], &calculated_crc, 4);
 
   // Scramble the data
-  std::vector<unsigned char> scrambled(num_data_bytes + 1, 0);
-  int state = 93, feedback = 0;
-  for (int x = 0; x < num_data_bytes; x++) {
-    feedback = (!!(state & 64)) ^ (!!(state & 8));
-    scrambled[x] = feedback ^ data[x];
-    state = ((state << 1) & 0x7E) | feedback;
-  }
-  data.swap(scrambled);
+  data = scrambler::scramble(data);
 
   // Convolutionally encode the data
   std::vector<unsigned char> data_encoded(num_data_bits * 2, 0);
@@ -259,14 +253,7 @@ bool ppdu::decode_data(std::vector<std::complex<double>> samples) {
   v.conv_decode(&depunctured[0], &decoded[0], data_bits);
 
   // Descramble the data
-  std::vector<unsigned char> descrambled(num_data_bytes + 1, 0);
-  int state = 93, feedback = 0;
-  for (int x = 0; x < num_data_bytes; x++) {
-    feedback = (!!(state & 64)) ^ (!!(state & 8));
-    descrambled[x] = feedback ^ decoded[x];
-    state = ((state << 1) & 0x7E) | feedback;
-  }
-  decoded.swap(descrambled);
+  decoded = scrambler::scramble(decoded);
 
   // Calculate the CRC
   boost::crc_32_type crc;
