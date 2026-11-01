@@ -1,0 +1,6 @@
+# Leaks that LeakSanitizer ignores in the PHY tests (`--config=asan`). Each
+# matches a function in the stack where the memory was allocated.
+
+# fft never frees its FFTW buffers and plans: see the \bug in fft.h. Fixed in
+# Milestone 3.
+leak:fun::fft::fft

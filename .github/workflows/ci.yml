@@ -1,5 +1,5 @@
-# Runs the tests and the format check on every PR, and on every push to main,
-# which also keeps a warm cache for new PR branches to start from.
+# Runs the tests and the format check on every PR. The tests also run on every
+# push to main, which keeps a warm cache for new PR branches to start from.
 name: CI
 
 on:
@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config: [opt]
+        config: [opt, asan, ubsan, tsan]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Installs Bazel and saves its caches between runs: the Bazel binary,
@@ -35,6 +35,8 @@ jobs:
       - run: bazel test //... --config=${{ matrix.config }}
 
   format:
+    # main only gets commits from PRs that passed it.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

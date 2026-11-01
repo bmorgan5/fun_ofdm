@@ -16,6 +16,25 @@ build:linux_x86_64 --platforms=//platforms:linux_x86_64
 # default build, named so the matrix can list it.
 build:opt --compilation_mode=opt
 
+# Sanitizers: `bazel test //... --config=asan`. Each builds on the optimized
+# build, with debug info so reports have file names and line numbers, and
+# fails the test on any error it finds.
+build:sanitizer --copt=-g --copt=-fno-omit-frame-pointer
+# Address errors (out of bounds, use after free) and leaks.
+build:asan --config=sanitizer
+build:asan --copt=-fsanitize=address --linkopt=-fsanitize=address
+# Undefined behaviour, such as signed overflow and misaligned pointers.
+build:ubsan --config=sanitizer
+build:ubsan --copt=-fsanitize=undefined --linkopt=-fsanitize=undefined
+build:ubsan --copt=-fno-sanitize-recover=all
+# Data races between threads. TSan needs the host kernel's
+# vm.mmap_rnd_bits to be 28 or less, as on GitHub's runners, or to be allowed
+# to turn off address randomization, as in the dev container, which runs
+# without a seccomp profile for this. Otherwise it fails at startup with
+# "incompatible memory layout".
+build:tsan --config=sanitizer
+build:tsan --copt=-fsanitize=thread --linkopt=-fsanitize=thread
+
 # Print the log of a failing test.
 test --test_output=errors
 
