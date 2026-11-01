@@ -40,11 +40,30 @@ cc_library(
     ],
 )
 
+# For the sanitizer configs (.bazelrc): the toolchain's llvm-symbolizer, so
+# reports have function names and lines, and the leaks to ignore.
+_SYMBOLIZER = "external_symbolizer_path=$(rootpath @llvm_toolchain_llvm//:symbolizer)"
+
+_SANITIZER_ENV = {
+    # FFTW, from the sysroot, has no frame pointers, so ASan's fast unwinder
+    # stops inside it. The slow one uses the unwind tables, and gets past it to
+    # the suppressed caller.
+    "ASAN_OPTIONS": _SYMBOLIZER + ":fast_unwind_on_malloc=0",
+    "LSAN_OPTIONS": _SYMBOLIZER + ":suppressions=$(rootpath lsan_suppressions.txt)",
+    "TSAN_OPTIONS": _SYMBOLIZER,
+    "UBSAN_OPTIONS": _SYMBOLIZER + ":print_stacktrace=1",
+}
+
 # One test per *_test.cpp file, named after it.
 [cc_test(
     name = src.removesuffix(".cpp"),
     size = "small",
     srcs = [src],
+    data = [
+        "lsan_suppressions.txt",
+        "@llvm_toolchain_llvm//:symbolizer",
+    ],
+    env = _SANITIZER_ENV,
     deps = [
         ":phy",
         ":test_util",

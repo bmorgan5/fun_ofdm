@@ -10,6 +10,11 @@
  *  k + 32. FFTW puts 0 first, so both functions reorder. inverse() runs on a
  *  whole vector of symbols, and scales by 1/64 so forward(inverse(x)) is x.
  *  forward() runs on one symbol in place.
+ *
+ *  \bug fft has no destructor, so it never frees its four FFTW buffers or its
+ *  two FFTW plans. LeakSanitizer ignores this leak in the tests
+ *  (src/phy/lsan_suppressions.txt) until it's fixed. Copying an fft copies
+ *  the raw pointers, so the fix must also forbid or define copying.
  */
 
 #ifndef FFT_H

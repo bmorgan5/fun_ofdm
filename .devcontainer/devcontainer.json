@@ -4,7 +4,15 @@
         "dockerfile": "Dockerfile",
         "options": ["--platform=linux/amd64"]
     },
-    "runArgs": ["--platform=linux/amd64"],
+    "runArgs": [
+        "--platform=linux/amd64",
+        // No seccomp filter, so ThreadSanitizer (`--config=tsan`) can start.
+        // On a kernel with high mmap randomization, TSan re-runs itself with
+        // randomization off, through personality(), which Docker's default
+        // seccomp profile blocks. This container is only for development, so
+        // filtering syscalls isn't worth losing TSan for.
+        "--security-opt", "seccomp=unconfined"
+    ],
 
     "mounts": [
         // Claude Code state (login, settings, sessions), kept across rebuilds
