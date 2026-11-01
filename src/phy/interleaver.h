@@ -30,8 +30,6 @@
 #ifndef INTERLEAVER_H
 #define INTERLEAVER_H
 
-#include <stdlib.h>
-
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

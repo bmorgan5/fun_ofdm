@@ -10,11 +10,12 @@
 
 #include "receiver_chain.h"
 
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <iostream>
+
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 namespace fun {
 /*!

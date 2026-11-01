@@ -7,8 +7,7 @@
 
 #include "fft.h"
 
-#include <assert.h>
-
+#include <cassert>
 #include <cstddef>
 #include <cstring>
 
@@ -55,13 +54,13 @@ fft::fft(int fft_length) : m_fft_length(fft_length) {
  * all positive (0-63) indexing to positive & negative frequency indexing.
  */
 void fft::forward(std::complex<double> data[64]) {
-  memcpy(m_fftw_in_forward, &data[0],
-         m_fft_length * sizeof(std::complex<double>));
+  std::memcpy(m_fftw_in_forward, &data[0],
+              m_fft_length * sizeof(std::complex<double>));
   fftw_execute(m_fftw_plan_forward);
 
   for (std::size_t s = 0; s < 64; s++) {
-    memcpy(&data[s], &m_fftw_out_forward[fft_map[s]],
-           sizeof(std::complex<double>));
+    std::memcpy(&data[s], &m_fftw_out_forward[fft_map[s]],
+                sizeof(std::complex<double>));
   }
 }
 
@@ -80,17 +79,17 @@ void fft::inverse(std::vector<std::complex<double>>& data) {
   for (std::size_t x = 0; x < data.size(); x += m_fft_length) {
     if (m_fft_length == 64) {
       for (std::size_t s = 0; s < 64; s++) {
-        memcpy(&m_fftw_in_inverse[s], &data[x + fft_map[s]],
-               sizeof(std::complex<double>));
+        std::memcpy(&m_fftw_in_inverse[s], &data[x + fft_map[s]],
+                    sizeof(std::complex<double>));
       }
     } else {
-      memcpy(&m_fftw_in_inverse[0], &data[x],
-             m_fft_length * sizeof(std::complex<double>));
+      std::memcpy(&m_fftw_in_inverse[0], &data[x],
+                  m_fft_length * sizeof(std::complex<double>));
     }
 
     fftw_execute(m_fftw_plan_inverse);
-    memcpy(&data[x], m_fftw_out_inverse,
-           m_fft_length * sizeof(std::complex<double>));
+    std::memcpy(&data[x], m_fftw_out_inverse,
+                m_fft_length * sizeof(std::complex<double>));
   }
 
   // Scale by 1/fft_length

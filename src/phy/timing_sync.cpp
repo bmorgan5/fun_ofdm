@@ -54,10 +54,11 @@ void timing_sync::work() {
 
   std::vector<tagged_sample> input(input_buffer.size() + CARRYOVER_LENGTH);
 
-  memcpy(&input[0], &m_carryover[0], CARRYOVER_LENGTH * sizeof(tagged_sample));
+  std::memcpy(&input[0], &m_carryover[0],
+              CARRYOVER_LENGTH * sizeof(tagged_sample));
 
-  memcpy(&input[CARRYOVER_LENGTH], &input_buffer[0],
-         input_buffer.size() * sizeof(tagged_sample));
+  std::memcpy(&input[CARRYOVER_LENGTH], &input_buffer[0],
+              input_buffer.size() * sizeof(tagged_sample));
 
   for (std::size_t x = 0; x < input.size() - CARRYOVER_LENGTH; x++) {
     // End of STS found: Look for LTS peaks
@@ -122,12 +123,12 @@ void timing_sync::work() {
   }
 
   // Copy working samples to output
-  memcpy(&output_buffer[0], &input[0],
-         input_buffer.size() * sizeof(tagged_sample));
+  std::memcpy(&output_buffer[0], &input[0],
+              input_buffer.size() * sizeof(tagged_sample));
 
   // Carryover last 160 samples from input buffer
-  memcpy(&m_carryover[0], &input[input_buffer.size()],
-         CARRYOVER_LENGTH * sizeof(tagged_sample));
+  std::memcpy(&m_carryover[0], &input[input_buffer.size()],
+              CARRYOVER_LENGTH * sizeof(tagged_sample));
 }
 
 }  // namespace fun

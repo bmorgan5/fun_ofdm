@@ -10,9 +10,9 @@
 #ifndef TAGGED_VECTOR_H
 #define TAGGED_VECTOR_H
 
-#include <assert.h>
-
+#include <cassert>
 #include <complex>
+#include <cstring>
 #include <vector>
 
 namespace fun {
@@ -69,8 +69,8 @@ struct tagged_vector {
   tagged_vector(std::vector<std::complex<double>> _samples,
                 vector_tag _tag = NONE) {
     assert(_samples.size() == N);
-    memcpy(&samples[0], &_samples[0],
-           _samples.size() * sizeof(std::complex<double>));
+    std::memcpy(&samples[0], &_samples[0],
+                _samples.size() * sizeof(std::complex<double>));
     tag = _tag;
   }
 };

@@ -11,10 +11,12 @@
 
 #include <arpa/inet.h>
 
-#include <boost/crc.hpp>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <iostream>
+
+#include <boost/crc.hpp>
 
 #include "interleaver.h"
 #include "modulator.h"
@@ -68,10 +70,10 @@ std::vector<std::complex<double>> ppdu::encode() {
   std::vector<std::complex<double>> ppdu_samples =
       std::vector<std::complex<double>>(header_samples.size() +
                                         payload_samples.size());
-  memcpy(&ppdu_samples[0], &header_samples[0],
-         header_samples.size() * sizeof(std::complex<double>));
-  memcpy(&ppdu_samples[48], payload_samples.data(),
-         payload_samples.size() * sizeof(std::complex<double>));
+  std::memcpy(&ppdu_samples[0], &header_samples[0],
+              header_samples.size() * sizeof(std::complex<double>));
+  std::memcpy(&ppdu_samples[48], payload_samples.data(),
+              payload_samples.size() * sizeof(std::complex<double>));
   return ppdu_samples;
 }
 
@@ -94,7 +96,7 @@ std::vector<std::complex<double>> ppdu::encoder_header() {
   // Convert the header to a std::uint8_t array
   std::uint8_t header_bytes[4];
   std::uint32_t h = htonl(header_field) >> 8;
-  memcpy(header_bytes, &h, 3);
+  std::memcpy(header_bytes, &h, 3);
 
   // Convolutionally encode the header
   std::vector<std::uint8_t> header_symbols(
@@ -132,14 +134,14 @@ std::vector<std::complex<double>> ppdu::encode_data() {
 
   // Concatenate the service and payload
   std::vector<std::uint8_t> data(num_data_bytes + 1, 0);
-  memcpy(&data[0], &service_field, 2);
-  memcpy(&data[2], payload.data(), payload.size());
+  std::memcpy(&data[0], &service_field, 2);
+  std::memcpy(&data[2], payload.data(), payload.size());
 
   // Calcualate and append the CRC
   boost::crc_32_type crc;
   crc.process_bytes(&data[0], 2 + payload.size());
   std::uint32_t calculated_crc = crc.checksum();
-  memcpy(&data[2 + payload.size()], &calculated_crc, 4);
+  std::memcpy(&data[2 + payload.size()], &calculated_crc, 4);
 
   // Scramble the data
   data = scrambler::scramble(data);
@@ -184,7 +186,7 @@ bool ppdu::decode_header(std::vector<std::complex<double>> samples) {
 
   // Verify header parity
   std::uint32_t header_field;
-  memcpy(&header_field, &header_bytes[0], 3);
+  std::memcpy(&header_field, &header_bytes[0], 3);
   header_field = htonl(header_field) >> 8;
   int par = parity(header_field);
   if (par == 1) {
@@ -262,7 +264,7 @@ bool ppdu::decode_data(std::vector<std::complex<double>> samples) {
   crc.process_bytes(&decoded[0], 2 + header.length);
   std::uint32_t calculated_crc = crc.checksum();
   std::uint32_t given_crc = 0;
-  memcpy(&given_crc, &decoded[2 + header.length], 4);
+  std::memcpy(&given_crc, &decoded[2 + header.length], 4);
 
   // Verify the CRC
   if (given_crc != calculated_crc) {
@@ -273,12 +275,12 @@ bool ppdu::decode_data(std::vector<std::complex<double>> samples) {
     // Copy the payload
     //        std::vector<std::uint8_t> payload(length);
     payload.resize(header.length);
-    memcpy(&payload[0], &decoded[2 /* skip the service field */],
-           header.length);
+    std::memcpy(&payload[0], &decoded[2 /* skip the service field */],
+                header.length);
 
     // Fill the output values
     //        data_out.rate = rate;
-    memcpy(&header.service, &decoded[0], 2);
+    std::memcpy(&header.service, &decoded[0], 2);
     //        data_out.length = length;
     // Indicate success
     return true;

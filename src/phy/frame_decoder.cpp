@@ -9,10 +9,11 @@
 
 #include <arpa/inet.h>
 
-#include <boost/crc.hpp>
 #include <cstddef>
 #include <cstring>
 #include <iostream>
+
+#include <boost/crc.hpp>
 
 #include "interleaver.h"
 #include "modulator.h"
@@ -51,8 +52,9 @@ void frame_decoder::work() {
   for (std::size_t x = 0; x < input_buffer.size(); x++) {
     // Copy over available symbols
     if (m_current_frame.samples_copied < m_current_frame.sample_count) {
-      memcpy(&m_current_frame.samples[m_current_frame.samples_copied],
-             &input_buffer[x].samples[0], 48 * sizeof(std::complex<double>));
+      std::memcpy(&m_current_frame.samples[m_current_frame.samples_copied],
+                  &input_buffer[x].samples[0],
+                  48 * sizeof(std::complex<double>));
       m_current_frame.samples_copied += 48;
     }
 
@@ -72,8 +74,8 @@ void frame_decoder::work() {
       // Attempt to decode the header
       ppdu h = ppdu();
       std::vector<std::complex<double>> header_samples(48);
-      memcpy(header_samples.data(), input_buffer[x].samples,
-             48 * sizeof(std::complex<double>));
+      std::memcpy(header_samples.data(), input_buffer[x].samples,
+                  48 * sizeof(std::complex<double>));
       if (!h.decode_header(header_samples)) continue;
 
       // Calculate the frame sample count

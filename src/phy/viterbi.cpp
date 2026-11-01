@@ -9,19 +9,15 @@ data
 #include "viterbi.h"
 
 #include <emmintrin.h>
-#include <math.h>
-#include <memory.h>
 #include <mmintrin.h>
 #include <pmmintrin.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/resource.h>
-#include <time.h>
-#include <unistd.h>
+#include <stdlib.h>  // posix_memalign, which isn't in <cstdlib>
 #include <xmmintrin.h>
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
 
 #include "parity.h"
 
@@ -41,7 +37,7 @@ void viterbi::conv_decode(std::uint8_t* symbols, std::uint8_t* data,
 void viterbi::conv_encode(std::uint8_t* data, std::uint8_t* symbols,
                           std::size_t data_bits) {
   std::size_t symbol_count = RATE * (data_bits + 6);
-  memset(symbols, 0, symbol_count);
+  std::memset(symbols, 0, symbol_count);
 
   int polys[RATE] = POLYS;
   int sr = 0;
@@ -85,7 +81,7 @@ struct v* viterbi::viterbi_alloc(int len) {
   for (state = 0; state < NUMSTATES / 2; state++) {
     for (i = 0; i < RATE; i++) {
       Branchtab[i * NUMSTATES / 2 + state] =
-          (polys[i] < 0) ^ parity((2 * state) & abs(polys[i])) ? 255 : 0;
+          (polys[i] < 0) ^ parity((2 * state) & std::abs(polys[i])) ? 255 : 0;
     }
   }
 
@@ -190,7 +186,7 @@ void viterbi::viterbi_update_blk_SPIRAL(struct v* vp, const COMPUTETYPE* syms,
                                         int nbits) {
   decision_t* d = (decision_t*)vp->decisions;
 
-  for (int s = 0; s < nbits; s++) memset(d + s, 0, sizeof(decision_t));
+  for (int s = 0; s < nbits; s++) std::memset(d + s, 0, sizeof(decision_t));
 
   FULL_SPIRAL(nbits, vp->new_metrics->t, vp->old_metrics->t, syms, d->t,
               Branchtab);

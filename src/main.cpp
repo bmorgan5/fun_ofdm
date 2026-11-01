@@ -6,17 +6,18 @@
  * through the receive chain in software (sim).
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
 #include <unistd.h>
+
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
+#include <iostream>
 
 #include <CLI/CLI.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <cstddef>
-#include <cstdint>
-#include <iostream>
 
 #include "realtime.h"
 #include "receiver.h"
@@ -46,7 +47,7 @@ static int run_tx() {
 
   std::cout << "Testing transmit chain..." << std::endl;
 
-  srand(time(NULL));  // Initialize random seed
+  std::srand(std::time(nullptr));  // Initialize random seed
 
   transmitter tx = transmitter(
       {.freq = freq, .rate = sample_rate, .tx_gain = tx_gain, .tx_amp = amp});
@@ -63,11 +64,11 @@ static int run_tx() {
   for (std::size_t i = 0; i < num_packets; i++) {
     // Insert the known string in the beginning, middle, and end with random
     // data inbetween
-    memcpy(&packets[i][0], &known_string[0], known_string.length());
-    for (std::size_t j = 100; j < 1000; j++) packets[i][j] = rand() % 256;
-    memcpy(&packets[i][1000], &known_string[0], known_string.length());
-    for (std::size_t j = 1100; j < 1400; j++) packets[i][j] = rand() % 256;
-    memcpy(&packets[i][1400], &known_string[0], known_string.length());
+    std::memcpy(&packets[i][0], &known_string[0], known_string.length());
+    for (std::size_t j = 100; j < 1000; j++) packets[i][j] = std::rand() % 256;
+    std::memcpy(&packets[i][1000], &known_string[0], known_string.length());
+    for (std::size_t j = 1100; j < 1400; j++) packets[i][j] = std::rand() % 256;
+    std::memcpy(&packets[i][1400], &known_string[0], known_string.length());
   }
 
   // Transmit all the packets
@@ -124,7 +125,7 @@ static int run_rx() {
   set_realtime_priority();
 
   // Instantiate a usrp
-  printf("Instantiating the usrp.\n");
+  std::printf("Instantiating the usrp.\n");
 
   receiver rx =
       receiver(&process_packets_callback,
@@ -157,7 +158,7 @@ static int run_sim() {
   std::vector<std::uint8_t> payload(data.length() *
                                     repeat);  // Payload = 1500 bytes
   for (std::size_t x = 0; x < repeat; x++)
-    memcpy(&payload[x * data.length()], &data[0], data.length());
+    std::memcpy(&payload[x * data.length()], &data[0], data.length());
 
   // Build a frame
   std::vector<std::complex<double>> samples =
@@ -171,14 +172,14 @@ static int run_sim() {
   std::vector<std::complex<double>> samples_con(samples.size() * num_frames +
                                                 pad_length);
   for (std::size_t x = 0; x < num_frames; x++) {
-    memcpy(&samples_con[x * samples.size()], &samples[0],
-           samples.size() * sizeof(std::complex<double>));
+    std::memcpy(&samples_con[x * samples.size()], &samples[0],
+                samples.size() * sizeof(std::complex<double>));
   }
 
   // Pad the end with 0's to flush receive chain
   std::vector<std::complex<double>> zeros(pad_length);
-  memcpy(&samples_con[num_frames * samples.size()], &zeros[0],
-         zeros.size() * sizeof(std::complex<double>));
+  std::memcpy(&samples_con[num_frames * samples.size()], &zeros[0],
+              zeros.size() * sizeof(std::complex<double>));
 
   boost::posix_time::ptime start =
       boost::posix_time::microsec_clock::local_time();
@@ -211,9 +212,9 @@ static int run_sim() {
   boost::posix_time::time_duration elapsed =
       boost::posix_time::microsec_clock::local_time() - start;
 
-  printf("Received %i packets\n", count);
+  std::printf("Received %i packets\n", count);
 
-  printf("Time elapsed: %f\n", elapsed.total_microseconds() / 1000.0);
+  std::printf("Time elapsed: %f\n", elapsed.total_microseconds() / 1000.0);
 
   return 0;
 }

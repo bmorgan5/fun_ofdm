@@ -42,14 +42,6 @@
 
 #pragma once
 
-#include <emmintrin.h>
-#include <math.h>
-#include <memory.h>
-#include <mmintrin.h>
-#include <pmmintrin.h>
-#include <stdlib.h>
-#include <xmmintrin.h>
-
 #include <cstddef>
 #include <cstdint>
 #include <vector>
