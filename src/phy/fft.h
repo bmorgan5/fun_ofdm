@@ -20,11 +20,11 @@
 #ifndef FFT_H
 #define FFT_H
 
-#include <fftw3.h>
-
 #include <complex>
 #include <cstddef>
 #include <vector>
+
+#include <fftw3.h>
 
 namespace fun {
 /*!

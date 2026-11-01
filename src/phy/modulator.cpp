@@ -95,8 +95,8 @@ std::vector<std::complex<double>> modulator::modulate(
   }
 
   std::vector<std::complex<double>> modulated_data(data_mod_buffer.size() / 2);
-  memcpy(&modulated_data[0], &data_mod_buffer[0],
-         modulated_data.size() * sizeof(std::complex<double>));
+  std::memcpy(&modulated_data[0], &data_mod_buffer[0],
+              modulated_data.size() * sizeof(std::complex<double>));
   return modulated_data;
 }
 

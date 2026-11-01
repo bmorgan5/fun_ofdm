@@ -4,3 +4,26 @@ BasedOnStyle: Google
 # Format as the newest C++ (i.e. `>>` instead of `> >` to close templates). The
 # default, Auto, keeps C++03 formatting in files that look like C++03.
 Standard: Latest
+# Include groups. clang-format puts the file's own header first by itself
+# (foo.h for foo.cpp and foo_test.cpp), then these groups, in order. They
+# follow Google's order, except that a test's GoogleTest header comes right
+# after the header it tests. Google's built-in categories can't tell the C++
+# standard library from other libraries, so spell them out. clang-format
+# tries the rules from top to bottom and uses the first that matches.
+IncludeBlocks: Regroup
+IncludeCategories:
+  # GoogleTest, in tests.
+  - Regex: '^<gtest/'
+    Priority: 1
+  # C system and POSIX headers: <unistd.h>, <sys/resource.h>, <arpa/inet.h>.
+  - Regex: '^<((arpa|net|netinet|sys)/)?[a-z_]+\.h>$'
+    Priority: 2
+  # The C++ standard library: <cstddef>, <iostream>.
+  - Regex: '^<[a-z_]+>$'
+    Priority: 3
+  # Other libraries: <fftw3.h>, <CLI/CLI.hpp>, <boost/...>, <uhd/...>.
+  - Regex: '^<'
+    Priority: 4
+  # This project.
+  - Regex: '.*'
+    Priority: 5

@@ -19,9 +19,11 @@
 
 #include <arpa/inet.h>
 
-#include <boost/crc.hpp>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
+
+#include <boost/crc.hpp>
 
 #include "fft.h"
 #include "interleaver.h"
@@ -70,18 +72,19 @@ std::vector<std::complex<double>> frame_builder::build_frame(
   // Add the cyclic prefixes
   std::vector<std::complex<double>> prefixed(mapped.size() * 80 / 64);
   for (std::size_t x = 0; x < mapped.size() / 64; x++) {
-    memcpy(&prefixed[x * 80], &mapped[x * 64 + 48],
-           16 * sizeof(std::complex<double>));
-    memcpy(&prefixed[x * 80 + 16], &mapped[x * 64],
-           64 * sizeof(std::complex<double>));
+    std::memcpy(&prefixed[x * 80], &mapped[x * 64 + 48],
+                16 * sizeof(std::complex<double>));
+    std::memcpy(&prefixed[x * 80 + 16], &mapped[x * 64],
+                64 * sizeof(std::complex<double>));
   }
 
   // Prepend the preamble
   std::vector<std::complex<double>> frame(prefixed.size() + 320);
 
-  memcpy(&frame[0], &PREAMBLE_SAMPLES[0], 320 * sizeof(std::complex<double>));
-  memcpy(&frame[320], &prefixed[0],
-         prefixed.size() * sizeof(std::complex<double>));
+  std::memcpy(&frame[0], &PREAMBLE_SAMPLES[0],
+              320 * sizeof(std::complex<double>));
+  std::memcpy(&frame[320], &prefixed[0],
+              prefixed.size() * sizeof(std::complex<double>));
 
   // Return the samples
   return frame;

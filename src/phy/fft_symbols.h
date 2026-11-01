@@ -17,11 +17,11 @@
 #ifndef FFT_SYMBOLS_H
 #define FFT_SYMBOLS_H
 
-#include <fftw3.h>
-
 #include <complex>
 #include <cstddef>
 #include <vector>
+
+#include <fftw3.h>
 
 #include "block.h"
 #include "fft.h"

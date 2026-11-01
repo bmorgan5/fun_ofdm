@@ -8,8 +8,7 @@
 
 #include "symbol_mapper.h"
 
-#include <assert.h>
-
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

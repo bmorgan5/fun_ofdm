@@ -35,8 +35,7 @@
 #ifndef RATES_H
 #define RATES_H
 
-#include <assert.h>
-
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>

@@ -7,10 +7,10 @@
 
 #include "fft_symbols.h"
 
-#include <fftw3.h>
-
 #include <cstddef>
 #include <cstring>
+
+#include <fftw3.h>
 
 #include "fft.h"
 

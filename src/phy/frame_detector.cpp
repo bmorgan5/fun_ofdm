@@ -79,8 +79,8 @@ void frame_detector::work() {
   }
 
   // Carryover the last 16 output samples
-  memcpy(&m_carryover[0], &input_buffer[input_buffer.size() - STS_LENGTH],
-         STS_LENGTH * sizeof(std::complex<double>));
+  std::memcpy(&m_carryover[0], &input_buffer[input_buffer.size() - STS_LENGTH],
+              STS_LENGTH * sizeof(std::complex<double>));
 }
 
 }  // namespace fun
