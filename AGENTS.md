@@ -62,6 +62,9 @@ libraries.
   example `bmorgan5/1.1-build-with-bazel`.
 - The PR description says `Closes #N`. PRs are merged by rebase, so every
   commit lands on `main` as it is.
+- The PR description summarizes the change as a whole, and how it was tested.
+  Don't list the commits: a workflow adds their messages to the description
+  on every push.
 - CI (`.github/workflows/ci.yml`) runs `bazel test //...` and
   `bazel run //:format.check` on every PR, so both must pass locally first.
 - If a PR closes an issue, the issue is the unit of work: only the issue goes

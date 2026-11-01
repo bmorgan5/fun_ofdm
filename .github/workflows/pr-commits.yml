@@ -1,0 +1,66 @@
+# Lists the PR's commit messages in its description, between the
+# commits:start and commits:end markers from the PR template, and updates
+# them on every push. The rest of the description is left alone.
+name: PR commits
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-commits-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-26.04
+    # A fork PR's token can't edit the PR.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      REPO: ${{ github.repository }}
+    steps:
+      # Only GitHub's API: nothing from the PR is checked out or run.
+      - run: |
+          gh api "repos/$REPO/pulls/$PR/commits?per_page=100" > commits.json
+          gh api "repos/$REPO/pulls/$PR" --jq '.body // ""' > body.md
+          python3 - <<'EOF'
+          import json
+          import re
+
+          START, END = "<!-- commits:start -->", "<!-- commits:end -->"
+          TRAILER = re.compile(r"^(Co-Authored-By|Signed-off-by):", re.IGNORECASE)
+
+          # Each commit's message in a code block, as written. The fence is
+          # longer than any run of backticks in the message, so it can't end
+          # the block early.
+          # The API lists them oldest first, the order they land on main.
+          blocks = ["Oldest first, in the order they land on `main`."]
+          commits = json.load(open("commits.json"))
+          for number, commit in enumerate(commits, 1):
+              lines = commit["commit"]["message"].strip().splitlines()
+              message = "\n".join(l for l in lines if not TRAILER.match(l)).strip()
+              runs = re.findall(r"`+", message)
+              fence = "`" * max([3] + [len(run) + 1 for run in runs])
+              # GitHub links a bare commit hash to the commit.
+              label = f"**{number} of {len(commits)}** · {commit['sha'][:7]}"
+              blocks.append(f"{label}\n\n{fence}text\n{message}\n{fence}")
+          commits = START + "\n" + "\n\n".join(blocks) + "\n" + END
+
+          body = open("body.md").read()
+          if START in body and END in body:
+              before, _, after = body.partition(START)
+              body = before + commits + after.partition(END)[2]
+          else:
+              body = body.rstrip() + "\n\n## Commits\n" + commits + "\n"
+          open("new_body.md", "w").write(body)
+          EOF
+          if ! cmp -s body.md new_body.md; then
+            gh api -X PATCH "repos/$REPO/pulls/$PR" -F body=@new_body.md > /dev/null
+          fi
