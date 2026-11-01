@@ -9,6 +9,7 @@
 
 #include <fftw3.h>
 
+#include <cstddef>
 #include <cstring>
 
 #include "fft.h"
@@ -32,7 +33,7 @@ void fft_symbols::work() {
   output_buffer.resize(0);
 
   // Step through the input samples
-  for (int x = 0; x < input_buffer.size(); x++) {
+  for (std::size_t x = 0; x < input_buffer.size(); x++) {
     // Check if this is the start of a new frame
     if (input_buffer[x].tag == LTS1) {
       // Push the current vector to the output buffer if
@@ -63,7 +64,7 @@ void fft_symbols::work() {
   }
 
   // Perform forward FFT
-  for (int x = 0; x < output_buffer.size(); x++) {
+  for (std::size_t x = 0; x < output_buffer.size(); x++) {
     m_ffft.forward(output_buffer[x].samples);
   }
 }

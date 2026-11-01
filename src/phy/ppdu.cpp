@@ -12,6 +12,7 @@
 #include <arpa/inet.h>
 
 #include <boost/crc.hpp>
+#include <cstddef>
 #include <iostream>
 
 #include "interleaver.h"
@@ -195,7 +196,7 @@ bool ppdu::decode_header(std::vector<std::complex<double>> samples) {
 
   // Check for a valid rate
   bool valid_rate = false;
-  for (int x = 0; x < VALID_RATES.size(); x++)
+  for (std::size_t x = 0; x < VALID_RATES.size(); x++)
     if (VALID_RATES[x] == rate_field) valid_rate = true;
   if (!valid_rate) {
     return false;

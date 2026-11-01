@@ -9,6 +9,7 @@
 
 #include "channel_est.h"
 
+#include <cstddef>
 #include <cstring>
 
 #include "preamble.h"
@@ -36,7 +37,7 @@ void channel_est::work() {
   if (input_buffer.size() == 0) return;
   output_buffer.resize(0);
 
-  for (int i = 0; i < input_buffer.size(); i++) {
+  for (std::size_t i = 0; i < input_buffer.size(); i++) {
     // Start of LTS found
     if (input_buffer[i].tag == LTS_START) {
       m_lts_flag = 1;

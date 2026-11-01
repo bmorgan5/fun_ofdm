@@ -35,8 +35,8 @@ TEST(Prbs15Test, HasMaximalLength) {
     patterns.insert(pattern);
     ones += bits[x];
   }
-  EXPECT_EQ(patterns.size(), 32767);
-  EXPECT_EQ(patterns.count(0), 0);
+  EXPECT_EQ(patterns.size(), 32767u);
+  EXPECT_EQ(patterns.count(0), 0u);
 
   // So it has one more 1 than 0.
   EXPECT_EQ(ones, 16384);

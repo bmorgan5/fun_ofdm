@@ -64,8 +64,9 @@ TEST_P(PpduTest, EncodesOneSignalSymbolAndTheDataSymbols) {
   for (int length : {1, 100, 1500}) {
     ppdu frame(test::prbs_bytes(length), GetParam());
     EXPECT_EQ(frame.get_num_symbols(), symbol_count(GetParam(), length));
-    EXPECT_EQ(frame.encode().size(),
-              48 * (1 + symbol_count(GetParam(), length)))
+    EXPECT_EQ(
+        frame.encode().size(),
+        static_cast<std::size_t>(48 * (1 + symbol_count(GetParam(), length))))
         << length << " bytes";
   }
 }
@@ -95,7 +96,7 @@ TEST_P(PpduTest, RejectsDataWithTooManyErrors) {
   ASSERT_TRUE(received.decode_header(std::vector<std::complex<double>>(
       samples.begin(), samples.begin() + 48)));
   // Rotate every other data point by 180 degrees.
-  for (int x = 48; x < samples.size(); x += 2) samples[x] = -samples[x];
+  for (std::size_t x = 48; x < samples.size(); x += 2) samples[x] = -samples[x];
   EXPECT_FALSE(received.decode_data(
       std::vector<std::complex<double>>(samples.begin() + 48, samples.end())));
 }

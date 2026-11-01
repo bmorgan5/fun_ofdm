@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -19,7 +20,8 @@ std::vector<std::uint8_t> coded_bits(const RateParams& rp) {
 
 TEST_P(PuncturerTest, FillsTheCodedBitsPerSymbol) {
   RateParams rp(GetParam());
-  EXPECT_EQ(puncturer::puncture(coded_bits(rp), rp).size(), rp.cbps * 4);
+  EXPECT_EQ(puncturer::puncture(coded_bits(rp), rp).size(),
+            static_cast<std::size_t>(rp.cbps * 4));
 }
 
 TEST_P(PuncturerTest, DepunctureRestoresTheBitsAndMarksTheErasures) {
@@ -30,8 +32,8 @@ TEST_P(PuncturerTest, DepunctureRestoresTheBitsAndMarksTheErasures) {
   ASSERT_EQ(depunctured.size(), bits.size());
 
   // Depuncturing puts 127, halfway between a 0 (0) and a 1 (255), in each hole.
-  int erasures = 0;
-  for (int x = 0; x < bits.size(); x++) {
+  std::size_t erasures = 0;
+  for (std::size_t x = 0; x < bits.size(); x++) {
     if (depunctured[x] == 127)
       erasures++;
     else
@@ -50,12 +52,12 @@ TEST_P(PuncturerTest, MatchesTheStandardPattern) {
   }
 
   std::vector<std::uint8_t> index(2 * rp.dbps);
-  for (int x = 0; x < index.size(); x++) index[x] = x % 12;
+  for (std::size_t x = 0; x < index.size(); x++) index[x] = x % 12;
   // rel_rate is relative to rate 1/2, so it's 2/3 for rate 3/4.
   bool rate_3_4 = rp.rel_rate == 2.0 / 3.0;
   bool rate_2_3 = rp.rel_rate == 3.0 / 4.0;
   std::vector<std::uint8_t> expected;
-  for (int x = 0; x < index.size(); x++) {
+  for (std::size_t x = 0; x < index.size(); x++) {
     int position = x % 12;
     bool dropped = (rate_3_4 && (position % 6 == 3 || position % 6 == 4)) ||
                    (rate_2_3 && position % 4 == 3);

@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <complex>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -27,7 +28,8 @@ TEST_P(FrameBuilderTest, HasThePreambleAndWholeSymbols) {
   for (int length : {1, 100, 1500}) {
     std::vector<std::complex<double>> frame =
         builder.build_frame(test::prbs_bytes(length), GetParam());
-    ASSERT_EQ(frame.size(), frame_length(GetParam(), length))
+    ASSERT_EQ(frame.size(),
+              static_cast<std::size_t>(frame_length(GetParam(), length)))
         << length << " bytes";
     EXPECT_TRUE(
         std::equal(frame.begin(), frame.begin() + 320, PREAMBLE_SAMPLES));
@@ -37,7 +39,7 @@ TEST_P(FrameBuilderTest, HasThePreambleAndWholeSymbols) {
 TEST_P(FrameBuilderTest, StartsEachSymbolWithACyclicPrefix) {
   std::vector<std::complex<double>> frame =
       frame_builder().build_frame(test::prbs_bytes(100), GetParam());
-  for (int start = 320; start < frame.size(); start += 80) {
+  for (std::size_t start = 320; start < frame.size(); start += 80) {
     for (int x = 0; x < 16; x++) {
       ASSERT_EQ(frame[start + x], frame[start + 64 + x])
           << "symbol at " << start << ", sample " << x;
@@ -54,7 +56,7 @@ TEST_P(FrameBuilderTest, DecodesWithAnIdealReceiver) {
 
   fft f(64);
   std::vector<std::complex<double>> subcarriers;
-  for (int start = 320; start < frame.size(); start += 80) {
+  for (std::size_t start = 320; start < frame.size(); start += 80) {
     std::complex<double> symbol[64];
     std::copy(frame.begin() + start + 16, frame.begin() + start + 80, symbol);
     f.forward(symbol);

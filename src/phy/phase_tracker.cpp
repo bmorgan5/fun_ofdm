@@ -10,6 +10,7 @@
 
 #include "phase_tracker.h"
 
+#include <cstddef>
 #include <cstring>
 #include <iostream>
 
@@ -66,7 +67,7 @@ void phase_tracker::work() {
   if (input_buffer.size() == 0) return;
   output_buffer.resize(input_buffer.size());
 
-  for (int i = 0; i < input_buffer.size(); i++) {
+  for (std::size_t i = 0; i < input_buffer.size(); i++) {
     if (input_buffer[i].tag == START_OF_FRAME) {
       m_symbol_count = 0;  // Reset the symbol count
     }
