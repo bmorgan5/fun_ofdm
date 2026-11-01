@@ -68,8 +68,8 @@ namespace fun {
 /*! \brief decision_t is a BIT vector */
 typedef union {
   DECISIONTYPE t[NUMSTATES / DECISIONTYPE_BITSIZE];
-  unsigned int w[NUMSTATES / 32];
-  unsigned short s[NUMSTATES / 16];
+  std::uint32_t w[NUMSTATES / 32];
+  std::uint16_t s[NUMSTATES / 16];
   std::uint8_t c[NUMSTATES / 8];
 } decision_t __attribute__((aligned(16)));
 
@@ -102,7 +102,7 @@ class viterbi {
   void viterbi_chainback(struct v* vp,
                          std::uint8_t* data, /* Decoded output data */
                          std::size_t nbits,  /* Number of data bits */
-                         unsigned int endstate);
+                         std::uint32_t endstate);
 
   void FULL_SPIRAL(int nbits, std::uint8_t* Y, std::uint8_t* X,
                    const std::uint8_t* syms, std::uint8_t* dec,

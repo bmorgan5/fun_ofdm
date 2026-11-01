@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <bit>
+#include <cstdint>
 
 namespace fun {
 namespace {
@@ -16,8 +17,8 @@ TEST(ParityTest, MatchesKnownValues) {
 
 // Every 16-bit value, at the bottom, middle and top of the word.
 TEST(ParityTest, MatchesPopcount) {
-  for (unsigned int x = 0; x < 0x10000; x++) {
-    for (unsigned int value : {x, x << 8, x << 16}) {
+  for (std::uint32_t x = 0; x < 0x10000; x++) {
+    for (std::uint32_t value : {x, x << 8, x << 16}) {
       ASSERT_EQ(parity(value), std::popcount(value) & 1) << "value " << value;
     }
   }
