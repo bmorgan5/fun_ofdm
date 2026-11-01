@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -14,7 +15,8 @@ namespace {
 // encoder's tail bits.
 std::vector<std::uint8_t> pack(const std::vector<std::uint8_t>& bits) {
   std::vector<std::uint8_t> bytes(bits.size() / 8 + 2, 0);
-  for (int x = 0; x < bits.size(); x++) bytes[x / 8] |= bits[x] << (7 - x % 8);
+  for (std::size_t x = 0; x < bits.size(); x++)
+    bytes[x / 8] |= bits[x] << (7 - x % 8);
   return bytes;
 }
 
@@ -89,14 +91,14 @@ TEST(ViterbiTest, DecodesWithoutErrors) {
 TEST(ViterbiTest, CorrectsIsolatedErrors) {
   std::vector<std::uint8_t> bits = test::prbs_bits(1000);
   std::vector<std::uint8_t> soft = to_soft(encode(bits));
-  for (int x = 5; x < soft.size(); x += 20) soft[x] = 255 - soft[x];
+  for (std::size_t x = 5; x < soft.size(); x += 20) soft[x] = 255 - soft[x];
   EXPECT_EQ(decode(soft, bits.size()), bits);
 }
 
 TEST(ViterbiTest, CorrectsBurstsOfTwoErrors) {
   std::vector<std::uint8_t> bits = test::prbs_bits(1000);
   std::vector<std::uint8_t> soft = to_soft(encode(bits));
-  for (int x = 5; x + 1 < soft.size(); x += 40) {
+  for (std::size_t x = 5; x + 1 < soft.size(); x += 40) {
     soft[x] = 255 - soft[x];
     soft[x + 1] = 255 - soft[x + 1];
   }
@@ -109,10 +111,11 @@ TEST(ViterbiTest, UsesSoftConfidence) {
   std::vector<std::uint8_t> bits = test::prbs_bits(1000);
   std::vector<std::uint8_t> coded = encode(bits);
   std::vector<std::uint8_t> soft = to_soft(coded);
-  for (int x = 1; x < soft.size(); x += 4) soft[x] = coded[x] ? 115 : 140;
+  for (std::size_t x = 1; x < soft.size(); x += 4)
+    soft[x] = coded[x] ? 115 : 140;
   EXPECT_EQ(decode(soft, bits.size()), bits);
 
-  for (int x = 1; x < soft.size(); x += 4) soft[x] = coded[x] ? 0 : 255;
+  for (std::size_t x = 1; x < soft.size(); x += 4) soft[x] = coded[x] ? 0 : 255;
   EXPECT_NE(decode(soft, bits.size()), bits)
       << "Strong errors should be uncorrectable";
 }
@@ -128,8 +131,8 @@ TEST_P(PuncturedViterbiTest, CorrectsIsolatedErrors) {
   std::vector<std::uint8_t> bits = test::prbs_bits(bit_count);
   std::vector<std::uint8_t> punctured =
       puncturer::puncture(to_soft(encode(bits)), rp);
-  ASSERT_EQ(punctured.size(), rp.cbps * symbols);
-  for (int x = 7; x < punctured.size(); x += 60)
+  ASSERT_EQ(punctured.size(), static_cast<std::size_t>(rp.cbps * symbols));
+  for (std::size_t x = 7; x < punctured.size(); x += 60)
     punctured[x] = 255 - punctured[x];
   EXPECT_EQ(decode(puncturer::depuncture(punctured, rp), bit_count), bits);
 }

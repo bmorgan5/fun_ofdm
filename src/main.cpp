@@ -14,6 +14,7 @@
 
 #include <CLI/CLI.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <cstddef>
 #include <iostream>
 
 #include "realtime.h"
@@ -188,9 +189,9 @@ static int run_sim() {
   int chunk_size = 4096;
 
   int count = 0;
-  for (int x = 0; x < samples_con.size(); x += chunk_size) {
-    int start = x;
-    int end = x + chunk_size;
+  for (std::size_t x = 0; x < samples_con.size(); x += chunk_size) {
+    std::size_t start = x;
+    std::size_t end = x + chunk_size;
     if (end > samples_con.size()) end = samples_con.size();
     std::vector<std::complex<double>> chunk(&samples_con[start],
                                             &samples_con[end]);
@@ -200,8 +201,8 @@ static int run_sim() {
     count += rec_frames.size();
 
     if (rec_frames.size()) {
-      for (int i = 0; i < rec_frames.size(); i++) {
-        for (int j = 0; j < rec_frames[i].size(); j++)
+      for (std::size_t i = 0; i < rec_frames.size(); i++) {
+        for (std::size_t j = 0; j < rec_frames[i].size(); j++)
           std::cout << rec_frames[i][j];
         std::cout << std::endl << std::endl;
       }

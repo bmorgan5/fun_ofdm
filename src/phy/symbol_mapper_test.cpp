@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <complex>
+#include <cstddef>
 #include <vector>
 
 namespace fun {
@@ -13,7 +14,7 @@ int index(int subcarrier) { return subcarrier + 32; }
 // 48 data points per symbol, all different so they can be traced.
 std::vector<std::complex<double>> numbered_data(int symbols) {
   std::vector<std::complex<double>> data(48 * symbols);
-  for (int x = 0; x < data.size(); x++) data[x] = {double(x + 1), 0.5};
+  for (std::size_t x = 0; x < data.size(); x++) data[x] = {double(x + 1), 0.5};
   return data;
 }
 
@@ -34,7 +35,7 @@ TEST(SymbolMapperTest, DemapUndoesMap) {
   symbol_mapper mapper;
   std::vector<std::complex<double>> data = numbered_data(5);
   std::vector<std::complex<double>> mapped = mapper.map(data);
-  ASSERT_EQ(mapped.size(), 64 * 5);
+  ASSERT_EQ(mapped.size(), 64u * 5);
   EXPECT_EQ(mapper.demap(mapped), data);
 }
 

@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 
 #include <boost/crc.hpp>
+#include <cstddef>
 #include <cstring>
 #include <iostream>
 
@@ -47,7 +48,7 @@ void frame_decoder::work() {
   output_buffer.resize(0);
 
   // Step through each 48 sample symbol
-  for (int x = 0; x < input_buffer.size(); x++) {
+  for (std::size_t x = 0; x < input_buffer.size(); x++) {
     // Copy over available symbols
     if (m_current_frame.samples_copied < m_current_frame.sample_count) {
       memcpy(&m_current_frame.samples[m_current_frame.samples_copied],

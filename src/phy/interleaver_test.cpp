@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <numeric>
 #include <vector>
@@ -51,7 +52,7 @@ TEST_P(BitInterleaveTest, IsAPermutationWithMatchingInverse) {
   std::vector<unsigned int> forward, inverse;
   BitInterleave(48, bpsc).fill(forward, false);
   BitInterleave(48, bpsc).fill(inverse, true);
-  ASSERT_EQ(forward.size(), 48 * bpsc);
+  ASSERT_EQ(forward.size(), static_cast<std::size_t>(48 * bpsc));
   std::vector<unsigned int> sorted = forward;
   std::ranges::sort(sorted);
   for (unsigned int k = 0; k < sorted.size(); k++) EXPECT_EQ(sorted[k], k);

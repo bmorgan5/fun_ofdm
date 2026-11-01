@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <complex>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -25,14 +26,14 @@ std::vector<std::uint8_t> every_pattern(int bpsc) {
 TEST_P(ModulatorTest, MakesOnePointPerSubcarrier) {
   RateParams rp(GetParam());
   EXPECT_EQ(modulator::modulate(test::prbs_bits(rp.cbps * 3), rp.rate).size(),
-            48 * 3);
+            48u * 3);
 }
 
 TEST_P(ModulatorTest, HasUnitAveragePower) {
   RateParams rp(GetParam());
   std::vector<std::complex<double>> points =
       modulator::modulate(every_pattern(rp.bpsc), rp.rate);
-  ASSERT_EQ(points.size(), 1 << rp.bpsc);
+  ASSERT_EQ(points.size(), std::size_t{1} << rp.bpsc);
   double power = 0;
   for (std::complex<double> p : points) power += std::norm(p);
   EXPECT_NEAR(power / points.size(), 1.0, 1e-12);
@@ -44,7 +45,7 @@ TEST_P(ModulatorTest, DemodulatesToConfidentBits) {
   std::vector<std::uint8_t> soft =
       modulator::demodulate(modulator::modulate(bits, rp.rate), rp.rate);
   ASSERT_EQ(soft.size(), bits.size());
-  for (int x = 0; x < bits.size(); x++) {
+  for (std::size_t x = 0; x < bits.size(); x++) {
     // 0 is a confident 0 and 255 is a confident 1. The bits that pick an inner
     // level of QAM16 or QAM64 are only one level from the boundary, so they
     // are the least confident, at 32 from the middle (128).
@@ -61,11 +62,11 @@ TEST_P(ModulatorTest, DemodulatesWithNoise) {
   std::vector<std::complex<double>> points = modulator::modulate(bits, rp.rate);
   // Move each point by less than half the distance to its neighbours, which is
   // 1/sqrt(42) for QAM64 (the closest).
-  for (int x = 0; x < points.size(); x++) {
+  for (std::size_t x = 0; x < points.size(); x++) {
     points[x] += std::polar(0.9 / std::sqrt(42.0), x * 0.7);
   }
   std::vector<std::uint8_t> soft = modulator::demodulate(points, rp.rate);
-  for (int x = 0; x < bits.size(); x++) {
+  for (std::size_t x = 0; x < bits.size(); x++) {
     EXPECT_EQ(soft[x] > 127, bits[x] == 1) << "bit " << x;
   }
 }
@@ -81,7 +82,7 @@ void expect_standard_mapping(Rate rate, int bpsc,
   std::vector<std::complex<double>> points =
       modulator::modulate(every_pattern(bpsc), rate);
   int axis_bits = std::max(bpsc / 2, 1);
-  for (int p = 0; p < points.size(); p++) {
+  for (std::size_t p = 0; p < points.size(); p++) {
     double i = levels[p >> (bpsc - axis_bits)] * k_mod;
     double q = bpsc == 1 ? 0 : levels[p & ((1 << axis_bits) - 1)] * k_mod;
     EXPECT_NEAR(points[p].real(), i, 1e-12) << "pattern " << p;

@@ -20,6 +20,7 @@
 #include <arpa/inet.h>
 
 #include <boost/crc.hpp>
+#include <cstddef>
 
 #include "fft.h"
 #include "interleaver.h"
@@ -67,7 +68,7 @@ std::vector<std::complex<double>> frame_builder::build_frame(
 
   // Add the cyclic prefixes
   std::vector<std::complex<double>> prefixed(mapped.size() * 80 / 64);
-  for (int x = 0; x < mapped.size() / 64; x++) {
+  for (std::size_t x = 0; x < mapped.size() / 64; x++) {
     memcpy(&prefixed[x * 80], &mapped[x * 64 + 48],
            16 * sizeof(std::complex<double>));
     memcpy(&prefixed[x * 80 + 16], &mapped[x * 64],

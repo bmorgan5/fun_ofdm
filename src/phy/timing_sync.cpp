@@ -9,6 +9,7 @@
 #include "timing_sync.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstring>
 #include <iostream>
 
@@ -57,12 +58,12 @@ void timing_sync::work() {
   memcpy(&input[CARRYOVER_LENGTH], &input_buffer[0],
          input_buffer.size() * sizeof(tagged_sample));
 
-  for (int x = 0; x < input.size() - CARRYOVER_LENGTH; x++) {
+  for (std::size_t x = 0; x < input.size() - CARRYOVER_LENGTH; x++) {
     // End of STS found: Look for LTS peaks
     if (input[x].tag == STS_END) {
       // Cross correlate against the LTS
       std::vector<std::pair<double, int>> peaks;
-      for (int p = x; p < x + CARRYOVER_LENGTH - LTS_LENGTH; p++) {
+      for (std::size_t p = x; p < x + CARRYOVER_LENGTH - LTS_LENGTH; p++) {
         std::complex<double> corr(0, 0);
         double power = 0;
         for (int s = 0; s < 64; s++) {

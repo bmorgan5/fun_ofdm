@@ -9,6 +9,7 @@
 
 #include <assert.h>
 
+#include <cstddef>
 #include <cstring>
 
 namespace fun {
@@ -76,7 +77,7 @@ void fft::inverse(std::vector<std::complex<double>>& data) {
   assert(data.size() % m_fft_length == 0);
 
   // Run the IFFT on each m_fft_length samples
-  for (int x = 0; x < data.size(); x += m_fft_length) {
+  for (std::size_t x = 0; x < data.size(); x += m_fft_length) {
     if (m_fft_length == 64) {
       for (int s = 0; s < 64; s++) {
         memcpy(&m_fftw_in_inverse[s], &data[x + fft_map[s]],
@@ -93,7 +94,7 @@ void fft::inverse(std::vector<std::complex<double>>& data) {
   }
 
   // Scale by 1/fft_length
-  for (int x = 0; x < data.size(); x++) {
+  for (std::size_t x = 0; x < data.size(); x++) {
     data[x] /= m_fft_length;
   }
 }

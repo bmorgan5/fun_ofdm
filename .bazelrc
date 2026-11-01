@@ -5,6 +5,11 @@ common --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 # fun_ofdm is a real-time DSP application; build optimized by default.
 build --compilation_mode=opt
 
+# Warnings are errors in our own code (src/), not in dependencies. Leaving out
+# fields in a designated initializer is how a struct's defaults are used, so
+# that isn't a warning.
+build --per_file_copt=^src/@-Wall,-Wextra,-Werror,-Wno-missing-designated-field-initializers
+
 # Target platforms. Every build targets an explicit platform (and sysroot),
 # even the host's.
 build --config=linux_x86_64

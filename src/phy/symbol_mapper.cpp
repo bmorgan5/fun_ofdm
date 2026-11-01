@@ -10,6 +10,7 @@
 
 #include <assert.h>
 
+#include <cstddef>
 #include <cstring>
 
 namespace fun {
@@ -76,9 +77,10 @@ std::vector<std::complex<double>> symbol_mapper::map(
   int out_index = 0, in_index = 0;
   int symbol_count = 0;
 
-  for (int x = 0; x < data_samples.size(); x += m_data_subcarrier_count) {
+  for (std::size_t x = 0; x < data_samples.size();
+       x += m_data_subcarrier_count) {
     int pilot_index = 0;
-    for (int s = 0; s < m_active_map.size(); s++) {
+    for (std::size_t s = 0; s < m_active_map.size(); s++) {
       switch (m_active_map[s]) {
         // Null subcarrier
         case 0:
@@ -118,7 +120,7 @@ std::vector<std::complex<double>> symbol_mapper::demap(
   std::vector<std::complex<double>> data_samples(
       samples.size() * m_data_subcarrier_count / m_active_map.size());
   int out_index = 0;
-  for (int x = 0; x < samples.size(); x++) {
+  for (std::size_t x = 0; x < samples.size(); x++) {
     int index = x % m_active_map.size();
     if (m_active_map[index] == 1) data_samples[out_index++] = samples[x];
   }

@@ -10,6 +10,8 @@
 
 #include "usrp.h"
 
+#include <cstddef>
+
 namespace fun {
 /*!
  * -Initializations
@@ -89,7 +91,8 @@ void usrp::send_burst(std::vector<std::complex<double>> samples) {
 void usrp::send_burst_sync(std::vector<std::complex<double>> samples) {
   // Scale the samples by m_amp
   if (m_params.tx_amp != 1.0)
-    for (int x = 0; x < samples.size(); x++) samples[x] *= m_params.tx_amp;
+    for (std::size_t x = 0; x < samples.size(); x++)
+      samples[x] *= m_params.tx_amp;
 
   // Send the samples
   uhd::tx_metadata_t tx_metadata;

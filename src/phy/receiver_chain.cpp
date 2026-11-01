@@ -11,6 +11,7 @@
 #include "receiver_chain.h"
 
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <cstddef>
 #include <functional>
 #include <iostream>
 
@@ -108,10 +109,12 @@ std::vector<std::vector<unsigned char>> receiver_chain::process_samples(
   m_frame_detector->input_buffer.swap(samples);
 
   // Unlock the threads
-  for (int x = 0; x < m_wake_sems.size(); x++) sem_post(&m_wake_sems[x]);
+  for (std::size_t x = 0; x < m_wake_sems.size(); x++)
+    sem_post(&m_wake_sems[x]);
 
   // Wait for the threads to finish
-  for (int x = 0; x < m_done_sems.size(); x++) sem_wait(&m_done_sems[x]);
+  for (std::size_t x = 0; x < m_done_sems.size(); x++)
+    sem_wait(&m_done_sems[x]);
 
   // Update the buffers
   m_timing_sync->input_buffer.swap(m_frame_detector->output_buffer);

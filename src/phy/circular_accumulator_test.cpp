@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <numeric>
@@ -22,7 +23,7 @@ TEST(CircularAccumulatorTest, SumsOnlyTheMostRecentSamples) {
   circular_accumulator<int> acc(size);
   std::vector<std::uint8_t> data = test::prbs_bytes(10 * size);
   std::deque<int> window;
-  for (int x = 0; x < data.size(); x++) {
+  for (std::size_t x = 0; x < data.size(); x++) {
     int sample = int(data[x]) - 128;
     acc.add(sample);
     window.push_back(sample);

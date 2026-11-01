@@ -7,6 +7,7 @@
 
 #include "frame_detector.h"
 
+#include <cstddef>
 #include <cstring>
 #include <iostream>
 
@@ -40,7 +41,7 @@ void frame_detector::work() {
   output_buffer.resize(input_buffer.size());
 
   // Step through the samples
-  for (int x = 0; x < input_buffer.size(); x++) {
+  for (std::size_t x = 0; x < input_buffer.size(); x++) {
     output_buffer[x].tag = NONE;
 
     // Get the delayed samples

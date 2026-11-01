@@ -77,7 +77,7 @@ TEST(FftTest, ForwardUndoesInverse) {
   fft f(64);
   int symbols = 3;
   std::vector<std::complex<double>> freq(64 * symbols);
-  for (int x = 0; x < freq.size(); x++)
+  for (std::size_t x = 0; x < freq.size(); x++)
     freq[x] = {std::sin(x * 1.3), std::cos(x * 0.7)};
   std::vector<std::complex<double>> data = freq;
   f.inverse(data);

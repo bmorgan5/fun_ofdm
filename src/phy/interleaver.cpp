@@ -10,6 +10,8 @@
 
 #include "interleaver.h"
 
+#include <cstddef>
+
 namespace fun {
 // Interleave some data
 std::vector<unsigned char> interleaver::interleave(
@@ -18,8 +20,8 @@ std::vector<unsigned char> interleaver::interleave(
   BitInterleave(48, 1).fill(interleave_map, false);
 
   std::vector<unsigned char> data_interleaved(data.size());
-  for (int x = 0; x < data.size(); x += interleave_map.size())
-    for (int y = 0; y < interleave_map.size(); y++)
+  for (std::size_t x = 0; x < data.size(); x += interleave_map.size())
+    for (std::size_t y = 0; y < interleave_map.size(); y++)
       data_interleaved[x + interleave_map[y]] = data[x + y];
   return data_interleaved;
 }
@@ -31,8 +33,8 @@ std::vector<unsigned char> interleaver::deinterleave(
   BitInterleave(48, 1).fill(deinterleave_map, true);
 
   std::vector<unsigned char> data_deinterleaved(data.size());
-  for (int s = 0; s < data.size(); s += deinterleave_map.size())
-    for (int t = 0; t < deinterleave_map.size(); t++)
+  for (std::size_t s = 0; s < data.size(); s += deinterleave_map.size())
+    for (std::size_t t = 0; t < deinterleave_map.size(); t++)
       data_deinterleaved[s + deinterleave_map[t]] = data[s + t];
   return data_deinterleaved;
 }
