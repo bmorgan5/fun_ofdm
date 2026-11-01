@@ -15,6 +15,7 @@
 #include <CLI/CLI.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 
 #include "realtime.h"
@@ -55,19 +56,18 @@ static int run_tx() {
 
   int num_packets = 1000;
   int packet_length = 1500;
-  std::vector<std::vector<unsigned char>> packets(
-      num_packets, std::vector<unsigned char>(packet_length));
+  std::vector<std::vector<std::uint8_t>> packets(
+      num_packets, std::vector<std::uint8_t>(packet_length));
 
   // Build all the packets
   for (int i = 0; i < num_packets; i++) {
     // Insert the known string in the beginning, middle, and end with random
     // data inbetween
     memcpy(&packets[i][0], &known_string[0], known_string.length());
-    for (int j = 100; j < 1000; j++)
-      packets[i][j] = (unsigned char)rand() % 256;
+    for (int j = 100; j < 1000; j++) packets[i][j] = (std::uint8_t)rand() % 256;
     memcpy(&packets[i][1000], &known_string[0], known_string.length());
     for (int j = 1100; j < 1400; j++)
-      packets[i][j] = (unsigned char)rand() % 256;
+      packets[i][j] = (std::uint8_t)rand() % 256;
     memcpy(&packets[i][1400], &known_string[0], known_string.length());
   }
 
@@ -93,7 +93,7 @@ static int rx_count =
  * timestamps of when the packets were received.
  */
 static void process_packets_callback(
-    std::vector<std::vector<unsigned char>> packets) {
+    std::vector<std::vector<std::uint8_t>> packets) {
   rx_count += packets.size();
 
   boost::posix_time::ptime rx_time =
@@ -155,8 +155,8 @@ static int run_sim() {
       "blah blah.....this rhyme sucks!");
   int repeat = 15;
 
-  std::vector<unsigned char> payload(data.length() *
-                                     repeat);  // Payload = 1500 bytes
+  std::vector<std::uint8_t> payload(data.length() *
+                                    repeat);  // Payload = 1500 bytes
   for (int x = 0; x < repeat; x++)
     memcpy(&payload[x * data.length()], &data[0], data.length());
 
@@ -196,7 +196,7 @@ static int run_sim() {
     std::vector<std::complex<double>> chunk(&samples_con[start],
                                             &samples_con[end]);
 
-    std::vector<std::vector<unsigned char>> rec_frames =
+    std::vector<std::vector<std::uint8_t>> rec_frames =
         receiver->process_samples(chunk);
     count += rec_frames.size();
 

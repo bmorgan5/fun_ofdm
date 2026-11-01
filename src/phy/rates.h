@@ -37,6 +37,7 @@
 
 #include <assert.h>
 
+#include <cstdint>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -44,8 +45,8 @@
 namespace fun {
 
 /*! \brief Valid rate field values */
-static std::vector<unsigned char> VALID_RATES = {0xD, 0xE, 0xF, 0x5, 0x6, 0x7,
-                                                 0x9, 0xA, 0xB, 0x1, 0x3};
+static std::vector<std::uint8_t> VALID_RATES = {0xD, 0xE, 0xF, 0x5, 0x6, 0x7,
+                                                0x9, 0xA, 0xB, 0x1, 0x3};
 
 /*! \brief An enum for referencing the different PHY data rates by name.
  *
@@ -75,13 +76,13 @@ enum Rate : int {
  * Parameters for each data rate
  */
 struct RateParams {
-  unsigned char rate_field;  //!< SIGNAL rate field
-  int cbps;                  //!< Coded bits per symbol
-  int dbps;                  //!< Data bits per symbol
-  int bpsc;                  //!< Bits per subcarrier
-  Rate rate;                 //!< Rate enum value
-  double rel_rate;           //!< Relative coding rate (relative to 1/2)
-  std::string name;          //!< Display name
+  std::uint8_t rate_field;  //!< SIGNAL rate field
+  int cbps;                 //!< Coded bits per symbol
+  int dbps;                 //!< Data bits per symbol
+  int bpsc;                 //!< Bits per subcarrier
+  Rate rate;                //!< Rate enum value
+  double rel_rate;          //!< Relative coding rate (relative to 1/2)
+  std::string name;         //!< Display name
 
   /*!
    * \brief RateParams constructor
@@ -228,7 +229,7 @@ struct RateParams {
    * \param rate_field The rate field bits from the packet header
    * \return #RateParams object with the appropriate parameters for that rate
    */
-  static RateParams FromRateField(unsigned char rate_field) {
+  static RateParams FromRateField(std::uint8_t rate_field) {
     switch (rate_field) {
       // 1/2 BPSK
       case 0xD:

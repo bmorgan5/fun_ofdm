@@ -37,6 +37,7 @@
 #define MODULATOR_H
 
 #include <complex>
+#include <cstdint>
 
 #include "rates.h"
 
@@ -63,7 +64,7 @@ class modulator {
    * \return Vector of modulated data as complex doubles.
    */
   static std::vector<std::complex<double>> modulate(
-      std::vector<unsigned char> data, Rate rate);
+      std::vector<std::uint8_t> data, Rate rate);
 
   /*!
    * \brief Demodulates the data.
@@ -72,7 +73,7 @@ class modulator {
    * extracted.
    * \return Vector of demodulated data in bytes.
    */
-  static std::vector<unsigned char> demodulate(
+  static std::vector<std::uint8_t> demodulate(
       std::vector<std::complex<double>> data, Rate rate);
 };
 }  // namespace fun

@@ -50,8 +50,8 @@ std::string sequence_from_seed(std::size_t count) {
 // Scrambling zeros gives the sequence itself: one bit in the lowest bit of
 // each byte, the rest left alone.
 TEST(ScramblerTest, GeneratesTheStandardSequence) {
-  std::vector<unsigned char> scrambled =
-      scrambler::scramble(std::vector<unsigned char>(2 * 127, 0));
+  std::vector<std::uint8_t> scrambled =
+      scrambler::scramble(std::vector<std::uint8_t>(2 * 127, 0));
   std::string sequence = sequence_from_seed(scrambled.size());
   for (std::size_t x = 0; x < scrambled.size(); x++) {
     ASSERT_EQ(scrambled[x], sequence[x] - '0') << "byte " << x;
@@ -72,8 +72,8 @@ TEST(ScramblerTest, ScramblesEveryBitLike80211a) {
   GTEST_SKIP() << "The scrambler steps once per byte, and only flips the "
                   "lowest bit of each byte";
 
-  std::vector<unsigned char> scrambled =
-      scrambler::scramble(std::vector<unsigned char>(16, 0));
+  std::vector<std::uint8_t> scrambled =
+      scrambler::scramble(std::vector<std::uint8_t>(16, 0));
   std::string sequence = sequence_from_seed(8 * scrambled.size());
   for (std::size_t x = 0; x < 8 * scrambled.size(); x++) {
     EXPECT_EQ((scrambled[x / 8] >> (7 - x % 8)) & 1, sequence[x] - '0')

@@ -8,10 +8,12 @@
 
 #include "receiver.h"
 
+#include <cstdint>
+
 namespace fun {
 
 receiver::receiver(
-    void (*callback)(std::vector<std::vector<unsigned char>> packets),
+    void (*callback)(std::vector<std::vector<std::uint8_t>> packets),
     usrp_params params)
     : m_callback(callback),
       m_usrp(params),
@@ -41,7 +43,7 @@ void receiver::receiver_chain_loop() {
 
     m_usrp.get_samples(NUM_RX_SAMPLES, m_samples);
 
-    std::vector<std::vector<unsigned char>> packets =
+    std::vector<std::vector<std::uint8_t>> packets =
         m_rec_chain.process_samples(m_samples);
 
     m_callback(packets);

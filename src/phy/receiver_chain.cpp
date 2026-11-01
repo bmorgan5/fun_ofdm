@@ -12,6 +12,7 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <iostream>
 
@@ -103,7 +104,7 @@ void receiver_chain::run_block(int index, fun::block_base* block) {
  * of the next block in the chain and returns the contents of the Frame
  * Decoder's output buffer.
  */
-std::vector<std::vector<unsigned char>> receiver_chain::process_samples(
+std::vector<std::vector<std::uint8_t>> receiver_chain::process_samples(
     std::vector<std::complex<double>> samples) {
   // samples -> sync short in
   m_frame_detector->input_buffer.swap(samples);

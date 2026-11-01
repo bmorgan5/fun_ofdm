@@ -50,15 +50,16 @@
 #include <stdlib.h>
 #include <xmmintrin.h>
 
+#include <cstdint>
 #include <vector>
 
 #define K 7
 #define RATE 2
 #define POLYS {121, 91}
 #define NUMSTATES 64
-#define DECISIONTYPE unsigned char
+#define DECISIONTYPE std::uint8_t
 #define DECISIONTYPE_BITSIZE 8
-#define COMPUTETYPE unsigned char
+#define COMPUTETYPE std::uint8_t
 
 namespace fun {
 // decision_t is a BIT vector
@@ -68,7 +69,7 @@ typedef union {
   DECISIONTYPE t[NUMSTATES / DECISIONTYPE_BITSIZE];
   unsigned int w[NUMSTATES / 32];
   unsigned short s[NUMSTATES / 16];
-  unsigned char c[NUMSTATES / 8];
+  std::uint8_t c[NUMSTATES / 8];
 } decision_t __attribute__((aligned(16)));
 
 /*! \brief the metric_t attribute */
@@ -98,13 +99,13 @@ class viterbi {
   COMPUTETYPE Branchtab[NUMSTATES / 2 * RATE] __attribute__((aligned(16)));
 
   void viterbi_chainback(struct v* vp,
-                         unsigned char* data, /* Decoded output data */
-                         unsigned int nbits,  /* Number of data bits */
+                         std::uint8_t* data, /* Decoded output data */
+                         unsigned int nbits, /* Number of data bits */
                          unsigned int endstate);
 
-  void FULL_SPIRAL(int nbits, unsigned char* Y, unsigned char* X,
-                   const unsigned char* syms, unsigned char* dec,
-                   unsigned char* Branchtab);
+  void FULL_SPIRAL(int nbits, std::uint8_t* Y, std::uint8_t* X,
+                   const std::uint8_t* syms, std::uint8_t* dec,
+                   std::uint8_t* Branchtab);
 
   /*!
    * \brief Create a new instance of a Viterbi decoder
@@ -136,7 +137,7 @@ class viterbi {
    * FIXME: store nbits in struct v?
    */
   void viterbi_decode(struct v* vp, const COMPUTETYPE* symbols,
-                      unsigned char* data, int nbits);
+                      std::uint8_t* data, int nbits);
 
   /*! \brief set the viterbi decoder to use a specific implementation */
   void viterbi_update_blk_SPIRAL(struct v* vp, const COMPUTETYPE* syms,
@@ -151,7 +152,7 @@ class viterbi {
    * \param data_bits Number of data bits that that should be left after
    * decoding. It must be even, since the decoder handles two bits at a time.
    */
-  void conv_decode(unsigned char* symbols, unsigned char* data, int data_bits);
+  void conv_decode(std::uint8_t* symbols, std::uint8_t* data, int data_bits);
 
   /*!
    * \brief Convolutionally encodeds data.
@@ -159,7 +160,7 @@ class viterbi {
    * \param symbols The coded output symbols.
    * \param data_bits The number of bits in the data input.
    */
-  void conv_encode(unsigned char* data, unsigned char* symbols, int data_bits);
+  void conv_encode(std::uint8_t* data, std::uint8_t* symbols, int data_bits);
 };
 
 }  // namespace fun

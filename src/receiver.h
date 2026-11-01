@@ -11,6 +11,7 @@
 
 #include <semaphore.h>
 
+#include <cstdint>
 #include <vector>
 
 #include "src/phy/receiver_chain.h"
@@ -26,7 +27,7 @@ namespace fun {
  * box.
  *
  *  Usage: To receive packets simply create a receiver object and pass it a
- * callback function that takes a std::vector<std::vector<unsigned char> > as an
+ * callback function that takes a std::vector<std::vector<std::uint8_t> > as an
  * input parameter. The receiver object then automatically creates a separate
  * thread that pulls samples from the USRP and processes them with the receive
  * chain. The received packets (if any) are then passed into the callback
@@ -48,7 +49,7 @@ class receiver {
    * receiver. Defaults to the defaults in #usrp_params. The tx gain and
    * amplitude are irrelevant for the receiver.
    */
-  receiver(void (*callback)(std::vector<std::vector<unsigned char>> packets),
+  receiver(void (*callback)(std::vector<std::vector<std::uint8_t>> packets),
            usrp_params params = usrp_params());
 
   /*!
@@ -66,7 +67,7 @@ class receiver {
   receiver_chain_loop();  //!< Infinite while loop where samples are received
                           //!< from USRP and processed by the receiver_chain
 
-  void (*m_callback)(std::vector<std::vector<unsigned char>>
+  void (*m_callback)(std::vector<std::vector<std::uint8_t>>
                          packets);  //!< Callback function pointer
 
   usrp m_usrp;  //!< The usrp object used to receiver frames over the air

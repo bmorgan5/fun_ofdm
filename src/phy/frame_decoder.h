@@ -14,6 +14,7 @@
 #define FRAME_DECODER_H
 
 #include <complex>
+#include <cstdint>
 #include <deque>
 
 #include "block.h"
@@ -64,7 +65,7 @@ struct FrameData {
  * \brief The frame_decoder block.
  *
  * Inputs tagged_vector<48> from phase_tracker block.
- * Outputs std::vector<unsigned char> back to the receiver chain
+ * Outputs std::vector<std::uint8_t> back to the receiver chain
  *
  * The Frame Decoder block is in charge of decoding the frame header and then
  * the frame body. This includes demodulating, deinterleaving,
@@ -72,10 +73,10 @@ struct FrameData {
  * the header so as to get the correct rate and length of the payload, then the
  * payload must be decoded as well. If the block is succesful in decoding the
  * frame as determined by an IEEE CRC-32 check the payload is passed into the
- * output_buffer as unsigned char's or bytes.
+ * output_buffer as std::uint8_t's or bytes.
  */
 class frame_decoder
-    : public fun::block<tagged_vector<48>, std::vector<unsigned char>> {
+    : public fun::block<tagged_vector<48>, std::vector<std::uint8_t>> {
  public:
   frame_decoder();  //!< Constructor for frame_decoder block.
 

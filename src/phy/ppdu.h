@@ -74,6 +74,7 @@
 #define PPDU_H
 
 #include <complex>
+#include <cstdint>
 #include <vector>
 
 #include "rates.h"
@@ -165,7 +166,7 @@ class ppdu {
    * \param payload The payload/data/MPDU to be transmitted.
    * \param rate The PHY rate for this frame.
    */
-  ppdu(std::vector<unsigned char> payload, Rate rate);
+  ppdu(std::vector<std::uint8_t> payload, Rate rate);
 
   /******************
    * Public Members *
@@ -204,13 +205,13 @@ class ppdu {
   int get_num_symbols() {
     return header.num_symbols;
   }  //!< Get the number of OFDM symbols in this PPDU
-  std::vector<unsigned char> get_payload() {
+  std::vector<std::uint8_t> get_payload() {
     return payload;
   }  //!< Get the payload of this PPDU.
 
  private:
-  plcp_header header;                  //!< This PPDU's header parameters
-  std::vector<unsigned char> payload;  //!< This PPDU's payload
+  plcp_header header;                 //!< This PPDU's header parameters
+  std::vector<std::uint8_t> payload;  //!< This PPDU's payload
 
   /*!
    * \brief Encodes this PPDU's header. The header is always encoded with

@@ -21,6 +21,7 @@
 
 #include <boost/crc.hpp>
 #include <cstddef>
+#include <cstdint>
 
 #include "fft.h"
 #include "interleaver.h"
@@ -54,7 +55,7 @@ frame_builder::frame_builder() : m_ifft(64) {}
  * passed to the usrp block.
  */
 std::vector<std::complex<double>> frame_builder::build_frame(
-    std::vector<unsigned char> payload, Rate rate) {
+    std::vector<std::uint8_t> payload, Rate rate) {
   // Append header, scramble, code, interleave, & modulate
   ppdu ppdu_frame(payload, rate);
   std::vector<std::complex<double>> samples = ppdu_frame.encode();

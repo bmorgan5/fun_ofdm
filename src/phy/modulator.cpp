@@ -12,6 +12,7 @@
 
 #include "modulator.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "qam.h"
@@ -27,7 +28,7 @@ namespace fun {
  *  -64 QAM
  */
 std::vector<std::complex<double>> modulator::modulate(
-    std::vector<unsigned char> data, Rate rate) {
+    std::vector<std::uint8_t> data, Rate rate) {
   // Modualate the data
   int modulated_sample_count = data.size();
   std::vector<double> data_mod_buffer;
@@ -106,13 +107,13 @@ std::vector<std::complex<double>> modulator::modulate(
  *  -16 QAM
  *  -64 QAM
  */
-std::vector<unsigned char> modulator::demodulate(
+std::vector<std::uint8_t> modulator::demodulate(
     std::vector<std::complex<double>> data, Rate rate) {
   RateParams rp = RateParams(rate);
 
   // Demodulate the data
   int coded_bit_count = data.size();
-  std::vector<unsigned char> data_demodulated(coded_bit_count * rp.bpsc, 0);
+  std::vector<std::uint8_t> data_demodulated(coded_bit_count * rp.bpsc, 0);
   switch (rate) {
     // BPSK
     case RATE_1_2_BPSK:

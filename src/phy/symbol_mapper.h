@@ -27,6 +27,7 @@
 #define SYMBOL_MAPPER_H
 
 #include <complex>
+#include <cstdint>
 #include <vector>
 
 namespace fun {
@@ -64,10 +65,10 @@ class symbol_mapper {
    * \brief Gets the current active map of data, pilots, and nulls.
    * \return The current active map.
    */
-  std::vector<unsigned char> get_active_map();
+  std::vector<std::uint8_t> get_active_map();
 
  private:
-  static const std::vector<unsigned char>
+  static const std::vector<std::uint8_t>
       m_active_map;  //!< The current map of data, pilots, and nulls.
 
   static const double POLARITY[127];  //!< The Pilot Polarity Sequence

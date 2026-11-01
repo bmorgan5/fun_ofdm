@@ -12,6 +12,8 @@
 #ifndef PARITY_H
 #define PARITY_H
 
+#include <cstdint>
+
 namespace fun {
 
 /**
@@ -20,7 +22,7 @@ namespace fun {
 
 /* Determine parity of argument: 1 = odd, 0 = even */
 #ifdef __i386__
-static inline int parityb(unsigned char x) {
+static inline int parityb(std::uint8_t x) {
   __asm__ __volatile__("test %1,%1;setpo %0" : "=g"(x) : "r"(x));
   return x;
 }
@@ -34,8 +36,8 @@ void partab_init();
 };
 #endif
 
-static inline int parityb(unsigned char x) {
-  extern unsigned char Partab[256];
+static inline int parityb(std::uint8_t x) {
+  extern std::uint8_t Partab[256];
   extern int Parity_initialized;
   if (!Parity_initialized) {
     partab_init();

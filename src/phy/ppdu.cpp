@@ -13,6 +13,7 @@
 
 #include <boost/crc.hpp>
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 
 #include "interleaver.h"
@@ -47,7 +48,7 @@ ppdu::ppdu(Rate rate, int length) {
 /*!
  * This constructor creates a complete PPDU with header and payload.
  */
-ppdu::ppdu(std::vector<unsigned char> payload, Rate rate) : payload(payload) {
+ppdu::ppdu(std::vector<std::uint8_t> payload, Rate rate) : payload(payload) {
   RateParams rate_params = RateParams(rate);
   int length = payload.size();
   int num_symbols = std::ceil(
@@ -90,20 +91,20 @@ std::vector<std::complex<double>> ppdu::encoder_header() {
   if (parity(header_field) == 1) header_field |= 131072;
   header_field <<= 6;
 
-  // Convert the header to a unsigned char array
-  unsigned char header_bytes[4];
+  // Convert the header to a std::uint8_t array
+  std::uint8_t header_bytes[4];
   unsigned int h = htonl(header_field) >> 8;
   memcpy(header_bytes, &h, 3);
 
   // Convolutionally encode the header
-  std::vector<unsigned char> header_symbols(
+  std::vector<std::uint8_t> header_symbols(
       48 /* header is always a single 1/2 BPSK symbol */);
   viterbi v;
   v.conv_encode(header_bytes, &header_symbols[0],
                 18 /* header is always 18 data bits */);
 
   // Interleave the header
-  std::vector<unsigned char> interleaved =
+  std::vector<std::uint8_t> interleaved =
       interleaver::interleave(header_symbols);
 
   // Modulate the header
@@ -130,7 +131,7 @@ std::vector<std::complex<double>> ppdu::encode_data() {
   unsigned short service_field = 0;
 
   // Concatenate the service and payload
-  std::vector<unsigned char> data(num_data_bytes + 1, 0);
+  std::vector<std::uint8_t> data(num_data_bytes + 1, 0);
   memcpy(&data[0], &service_field, 2);
   memcpy(&data[2], payload.data(), payload.size());
 
@@ -144,16 +145,16 @@ std::vector<std::complex<double>> ppdu::encode_data() {
   data = scrambler::scramble(data);
 
   // Convolutionally encode the data
-  std::vector<unsigned char> data_encoded(num_data_bits * 2, 0);
+  std::vector<std::uint8_t> data_encoded(num_data_bits * 2, 0);
   viterbi v;
   v.conv_encode(&data[0], data_encoded.data(), num_data_bits - 6);
 
   // Puncture the data
-  std::vector<unsigned char> data_punctured =
+  std::vector<std::uint8_t> data_punctured =
       puncturer::puncture(data_encoded, header.rate);
 
   // Interleave the data
-  std::vector<unsigned char> data_interleaved =
+  std::vector<std::uint8_t> data_interleaved =
       interleaver::interleave(data_punctured);
 
   // Modulated the data
@@ -168,15 +169,15 @@ bool ppdu::decode_header(std::vector<std::complex<double>> samples) {
   assert(samples.size() == 48);
 
   // Demodulate the header
-  std::vector<unsigned char> demodulated =
+  std::vector<std::uint8_t> demodulated =
       modulator::demodulate(samples, RATE_1_2_BPSK);
 
   // Deinterleave the header
-  std::vector<unsigned char> deinterleaved =
+  std::vector<std::uint8_t> deinterleaved =
       interleaver::deinterleave(demodulated);
 
   // Convolutionally decode the header
-  std::vector<unsigned char> header_bytes(4);
+  std::vector<std::uint8_t> header_bytes(4);
   viterbi v;
   v.conv_decode(deinterleaved.data(), header_bytes.data(),
                 18 /* header is always 18 data bits */);
@@ -191,7 +192,7 @@ bool ppdu::decode_header(std::vector<std::complex<double>> samples) {
   }
 
   // Get the rate field and length
-  unsigned char rate_field = ((header_field >> 19) & 0xF);
+  std::uint8_t rate_field = ((header_field >> 19) & 0xF);
   unsigned int length = ((header_field >> 6) & 0xFFF);
 
   // Check for a valid rate
@@ -232,15 +233,15 @@ bool ppdu::decode_data(std::vector<std::complex<double>> samples) {
   int num_data_bytes = num_data_bits / 8;
 
   // Demodulate the data
-  std::vector<unsigned char> demodulated =
+  std::vector<std::uint8_t> demodulated =
       modulator::demodulate(samples, header.rate);
 
   // Deinterleave the data
-  std::vector<unsigned char> deinterleaved =
+  std::vector<std::uint8_t> deinterleaved =
       interleaver::deinterleave(demodulated);
 
   // Depuncture the data
-  std::vector<unsigned char> depunctured =
+  std::vector<std::uint8_t> depunctured =
       puncturer::depuncture(deinterleaved, header.rate);
 
   // Convolutionally decode the data
@@ -249,7 +250,7 @@ bool ppdu::decode_data(std::vector<std::complex<double>> samples) {
   int data_bytes = data_bits / 8 + 1;
   data_bits = num_data_bits - 6;
   data_bytes = num_data_bytes;
-  std::vector<unsigned char> decoded(data_bytes);
+  std::vector<std::uint8_t> decoded(data_bytes);
   viterbi v;
   v.conv_decode(&depunctured[0], &decoded[0], data_bits);
 
@@ -270,7 +271,7 @@ bool ppdu::decode_data(std::vector<std::complex<double>> samples) {
     return false;
   } else {
     // Copy the payload
-    //        std::vector<unsigned char> payload(length);
+    //        std::vector<std::uint8_t> payload(length);
     payload.resize(header.length);
     memcpy(&payload[0], &decoded[2 /* skip the service field */],
            header.length);

@@ -9,6 +9,7 @@
 #ifndef TRANSMITTER_H
 #define TRANSMITTER_H
 
+#include <cstdint>
 #include <vector>
 
 #include "src/phy/frame_builder.h"
@@ -47,7 +48,7 @@ class transmitter {
    *  This function uses the usrp::send_burst_sync() function which means that
    * this function blocks until the packet is done transmitting.
    */
-  void send_frame(std::vector<unsigned char> payload,
+  void send_frame(std::vector<std::uint8_t> payload,
                   Rate phy_rate = RATE_1_2_BPSK);
 
  private:

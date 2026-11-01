@@ -36,7 +36,7 @@ int symbol_count(Rate rate, int length) {
 // 127.
 std::vector<std::uint8_t> encoder_input(
     const std::vector<std::complex<double>>& data_points, Rate rate) {
-  std::vector<unsigned char> coded = puncturer::depuncture(
+  std::vector<std::uint8_t> coded = puncturer::depuncture(
       interleaver::deinterleave(modulator::demodulate(data_points, rate)),
       rate);
   const int polys[2] = {121, 91};

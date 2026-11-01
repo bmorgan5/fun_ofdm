@@ -11,6 +11,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 
 namespace fun {
 
@@ -21,8 +22,8 @@ namespace fun {
  *  - 2/3
  *  - 3/4
  */
-std::vector<unsigned char> puncturer::puncture(std::vector<unsigned char> data,
-                                               RateParams rate_params) {
+std::vector<std::uint8_t> puncturer::puncture(std::vector<std::uint8_t> data,
+                                              RateParams rate_params) {
   // Puncture the data
   int count, index;
   switch (rate_params.rate) {
@@ -39,7 +40,7 @@ std::vector<unsigned char> puncturer::puncture(std::vector<unsigned char> data,
     case RATE_3_4_QAM16:
     case RATE_3_4_QAM64: {
       count = round(data.size() * rate_params.rel_rate);
-      std::vector<unsigned char> punc_buff_34(count);
+      std::vector<std::uint8_t> punc_buff_34(count);
       index = 0;
       for (std::size_t x = 0; x < data.size(); x += 6) {
         punc_buff_34[index++] = data[x + 0];
@@ -56,7 +57,7 @@ std::vector<unsigned char> puncturer::puncture(std::vector<unsigned char> data,
     case RATE_2_3_QAM16:
     case RATE_2_3_QAM64: {
       count = round(data.size() * rate_params.rel_rate);
-      std::vector<unsigned char> punc_buff_23(count);
+      std::vector<std::uint8_t> punc_buff_23(count);
       index = 0;
       for (std::size_t x = 0; x < data.size(); x += 4) {
         punc_buff_23[index++] = data[x + 0];
@@ -75,8 +76,8 @@ std::vector<unsigned char> puncturer::puncture(std::vector<unsigned char> data,
  *  - 2/3
  *  - 3/4
  */
-std::vector<unsigned char> puncturer::depuncture(
-    std::vector<unsigned char> data, RateParams rate_params) {
+std::vector<std::uint8_t> puncturer::depuncture(std::vector<std::uint8_t> data,
+                                                RateParams rate_params) {
   int sym_buffer_index = 0;
   int psc = 0;
   switch (rate_params.rate) {
@@ -93,7 +94,7 @@ std::vector<unsigned char> puncturer::depuncture(
     case RATE_3_4_QAM16:
     case RATE_3_4_QAM64: {
       psc = round(data.size() / rate_params.rel_rate);
-      std::vector<unsigned char> sym_buffer34(psc);
+      std::vector<std::uint8_t> sym_buffer34(psc);
       for (std::size_t x = 0; x < data.size(); x += 4) {
         sym_buffer34[sym_buffer_index++] = data[x + 0];
         sym_buffer34[sym_buffer_index++] = data[x + 1];
@@ -112,7 +113,7 @@ std::vector<unsigned char> puncturer::depuncture(
     case RATE_2_3_QAM16:
     case RATE_2_3_QAM64: {
       psc = round(data.size() / rate_params.rel_rate);
-      std::vector<unsigned char> sym_buffer23(psc);
+      std::vector<std::uint8_t> sym_buffer23(psc);
       for (std::size_t x = 0; x < data.size(); x += 3) {
         sym_buffer23[sym_buffer_index++] = data[x + 0];
         sym_buffer23[sym_buffer_index++] = 127;

@@ -30,6 +30,7 @@
 
 #include <semaphore.h>
 
+#include <cstdint>
 #include <thread>
 
 #include "block.h"
@@ -49,7 +50,7 @@ namespace fun {
  * signal.
  *
  *  Outputs vector of correctly received payloads (MPDUs) which are themselves
- * vectors of unsigned chars.
+ * vectors of bytes.
  *
  *  The Receiver Chain class is the main controller for the blocks that are
  *  used to receive and decode PHY layer frames. It holds the instances of each
@@ -69,9 +70,9 @@ class receiver_chain {
    * \param samples A vector of received time-domain samples from the usrp block
    * to pass to the receive chain for signal processing.
    * \return A vector of correctly received payloads where each payload is its
-   * own vector of unsigned chars.
+   * own vector of bytes.
    */
-  std::vector<std::vector<unsigned char>> process_samples(
+  std::vector<std::vector<std::uint8_t>> process_samples(
       std::vector<std::complex<double>> samples);
 
  private:

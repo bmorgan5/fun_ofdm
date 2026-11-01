@@ -11,6 +11,7 @@
 #include <assert.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 namespace fun {
@@ -22,7 +23,7 @@ namespace fun {
  *  + 1 -> data
  *  + 2 -> pilot
  */
-const std::vector<unsigned char> symbol_mapper::m_active_map = {
+const std::vector<std::uint8_t> symbol_mapper::m_active_map = {
     0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0};
@@ -129,7 +130,7 @@ std::vector<std::complex<double>> symbol_mapper::demap(
 }
 
 // Get the active subcarrier map
-std::vector<unsigned char> symbol_mapper::get_active_map() {
+std::vector<std::uint8_t> symbol_mapper::get_active_map() {
   return m_active_map;
 }
 
