@@ -62,6 +62,8 @@ libraries.
   example `bmorgan5/1.1-build-with-bazel`.
 - The PR description says `Closes #N`. PRs are merged by rebase, so every
   commit lands on `main` as it is.
+- CI (`.github/workflows/ci.yml`) runs `bazel test //...` and
+  `bazel run //:format.check` on every PR, so both must pass locally first.
 - If a PR closes an issue, the issue is the unit of work: only the issue goes
   in the GitHub project and the milestone, and the PR shows up on it as a
   linked pull request. A PR with no issue goes in the project and the milestone

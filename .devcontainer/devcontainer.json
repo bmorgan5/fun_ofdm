@@ -33,6 +33,7 @@
             "extensions": [
                 "anthropic.claude-code",
                 "BazelBuild.vscode-bazel",
+                "GitHub.vscode-github-actions",
                 "ms-vscode.cpptools"
             ]
         }

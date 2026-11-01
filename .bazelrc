@@ -12,6 +12,10 @@ build:linux_x86_64 --platforms=//platforms:linux_x86_64
 # TODO(arm64): Enable once the code builds for arm64.
 # build:linux_aarch64 --platforms=//platforms:linux_aarch64
 
+# Named configs for CI's test matrix (.github/workflows/ci.yml). opt is the
+# default build, named so the matrix can list it.
+build:opt --compilation_mode=opt
+
 # Print the log of a failing test.
 test --test_output=errors
 
