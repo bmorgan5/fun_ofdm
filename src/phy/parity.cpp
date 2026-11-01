@@ -6,8 +6,10 @@
 
 #include "parity.h"
 
+#include <cstdint>
+
 namespace fun {
-unsigned char Partab[256];
+std::uint8_t Partab[256];
 int Parity_initialized;
 
 /* Create 256-entry odd-parity lookup table

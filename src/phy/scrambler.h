@@ -32,6 +32,7 @@
 #ifndef SCRAMBLER_H
 #define SCRAMBLER_H
 
+#include <cstdint>
 #include <vector>
 
 namespace fun {
@@ -51,7 +52,7 @@ class scrambler {
    * \param data The bytes to scramble.
    * \return The scrambled bytes, as many as there are in data.
    */
-  static std::vector<unsigned char> scramble(std::vector<unsigned char> data);
+  static std::vector<std::uint8_t> scramble(std::vector<std::uint8_t> data);
 };
 }  // namespace fun
 

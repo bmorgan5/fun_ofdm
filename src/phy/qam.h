@@ -10,6 +10,7 @@
 #define QAM_H
 
 #include <climits>
+#include <cstdint>
 
 namespace fun {
 
@@ -99,7 +100,7 @@ class QAM {
    * \param sym
    * \param bits
    */
-  inline void decode(double sym, unsigned char* bits) {
+  inline void decode(double sym, std::uint8_t* bits) {
     int pt = sym * d_scale_d;
     int flip = 1;  // +1 or -1 -- for gray coding
     int amp = (1 << (NumBits - 1)) << d_gain;

@@ -24,6 +24,8 @@
 #ifndef PUNCTURER_H
 #define PUNCTURER_H
 
+#include <cstdint>
+
 #include "rates.h"
 
 namespace fun {
@@ -45,8 +47,8 @@ class puncturer {
    * rate is extracted.
    * \return Vector of the punctured data.
    */
-  static std::vector<unsigned char> puncture(std::vector<unsigned char> data,
-                                             RateParams rate_params);
+  static std::vector<std::uint8_t> puncture(std::vector<std::uint8_t> data,
+                                            RateParams rate_params);
 
   /*!
    * \brief depunctures the data by inserting 0's in the "puncture holes"
@@ -55,8 +57,8 @@ class puncturer {
    * rate is extracted.
    * \return Vector of the depunctured data.
    */
-  static std::vector<unsigned char> depuncture(std::vector<unsigned char> data,
-                                               RateParams rate_params);
+  static std::vector<std::uint8_t> depuncture(std::vector<std::uint8_t> data,
+                                              RateParams rate_params);
 };
 }  // namespace fun
 

@@ -33,6 +33,7 @@
 #include <stdlib.h>
 
 #include <cassert>
+#include <cstdint>
 #include <vector>
 
 #include "rates.h"
@@ -55,15 +56,14 @@ class interleaver {
    * \param data Vector of data to be interleaved
    * \return Vector of interleaved data
    */
-  static std::vector<unsigned char> interleave(std::vector<unsigned char> data);
+  static std::vector<std::uint8_t> interleave(std::vector<std::uint8_t> data);
 
   /*!
    * \brief deinterleaves the data
    * \param data Vector of data to be deinterleaved
    * \return Vector of deinterleaved data
    */
-  static std::vector<unsigned char> deinterleave(
-      std::vector<unsigned char> data);
+  static std::vector<std::uint8_t> deinterleave(std::vector<std::uint8_t> data);
 };
 
 /*!

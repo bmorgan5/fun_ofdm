@@ -24,6 +24,7 @@
 #define FRAME_BUILDER_H
 
 #include <complex>
+#include <cstdint>
 #include <vector>
 
 #include "fft.h"
@@ -33,7 +34,7 @@ namespace fun {
 /*!
  * \brief The frame_builder class.
  *
- *  Inputs vector of unsigned chars representing the payload (MPDU) and the
+ *  Inputs vector of bytes representing the payload (MPDU) and the
  * transmission PHY transmission rate.
  *
  *  Outputs vector of raw complex samples representing the digital base-band
@@ -70,7 +71,7 @@ class frame_builder {
    * transmission over the air.
    */
   std::vector<std::complex<double>> build_frame(
-      std::vector<unsigned char> payload, Rate rate);
+      std::vector<std::uint8_t> payload, Rate rate);
 
  private:
   fft m_ifft;  //!< The fft instance used to perform the inverse FFT on the OFDM

@@ -20,6 +20,8 @@ data
 #include <unistd.h>
 #include <xmmintrin.h>
 
+#include <cstdint>
+
 #include "parity.h"
 
 namespace fun {
@@ -27,7 +29,7 @@ namespace fun {
 /*!
  *  Main decode function.
  */
-void viterbi::conv_decode(unsigned char* symbols, unsigned char* data,
+void viterbi::conv_decode(std::uint8_t* symbols, std::uint8_t* data,
                           int data_bits) {
   struct v* vp = viterbi_alloc(data_bits);
   viterbi_init(vp, 0);
@@ -35,7 +37,7 @@ void viterbi::conv_decode(unsigned char* symbols, unsigned char* data,
   viterbi_free(vp);
 }
 
-void viterbi::conv_encode(unsigned char* data, unsigned char* symbols,
+void viterbi::conv_encode(std::uint8_t* data, std::uint8_t* symbols,
                           int data_bits) {
   int symbol_count = RATE * (data_bits + 6);
   memset(symbols, 0, symbol_count);
@@ -101,9 +103,9 @@ struct v* viterbi::viterbi_alloc(int len) {
 
 /* Viterbi chainback */
 void viterbi::viterbi_chainback(
-    struct v* vp, unsigned char* data, /* Decoded output data */
-    unsigned int nbits,                /* Number of data bits */
-    unsigned int endstate)             /* Terminal encoder state */
+    struct v* vp, std::uint8_t* data, /* Decoded output data */
+    unsigned int nbits,               /* Number of data bits */
+    unsigned int endstate)            /* Terminal encoder state */
 {
   decision_t* d = vp->decisions;
 
@@ -160,7 +162,7 @@ void viterbi::viterbi_free(struct v* vp) {
  * \param nbits
  */
 void viterbi::viterbi_decode(struct v* vp, const COMPUTETYPE* symbols,
-                             unsigned char* data, int nbits) {
+                             std::uint8_t* data, int nbits) {
   // vp = viterbi decoder
   // data = decoded
   // symbols = signal
@@ -202,14 +204,14 @@ void viterbi::viterbi_update_blk_SPIRAL(struct v* vp, const COMPUTETYPE* syms,
  * \param dec
  * \param Branchtab
  */
-void viterbi::FULL_SPIRAL(int nbits, unsigned char* Y, unsigned char* X,
-                          const unsigned char* syms, unsigned char* dec,
-                          unsigned char* Branchtab) {
+void viterbi::FULL_SPIRAL(int nbits, std::uint8_t* Y, std::uint8_t* X,
+                          const std::uint8_t* syms, std::uint8_t* dec,
+                          std::uint8_t* Branchtab) {
   for (int i9 = 0; i9 <= (nbits / 2 - 1); i9++) {
-    unsigned char a75, a81;
+    std::uint8_t a75, a81;
     int a73, a92;
     short int s20, s21, s26, s27;
-    const unsigned char *a74, *a80, *b6;
+    const std::uint8_t *a74, *a80, *b6;
     short int *a110, *a111, *a91, *a93, *a94;
     __m128i *a102, *a112, *a113, *a71, *a72, *a77, *a83, *a95, *a96, *a97, *a98,
         *a99;
@@ -306,7 +308,7 @@ void viterbi::FULL_SPIRAL(int nbits, unsigned char* Y, unsigned char* X,
     *(a112) = s28;
     a113 = (a95 + 3);
     *(a113) = s29;
-    if ((((unsigned char*)Y)[0] > 210)) {
+    if ((((std::uint8_t*)Y)[0] > 210)) {
       __m128i m5, m6;
       m5 = ((__m128i*)Y)[0];
       m5 = _mm_min_epu8(m5, ((__m128i*)Y)[1]);
@@ -328,10 +330,10 @@ void viterbi::FULL_SPIRAL(int nbits, unsigned char* Y, unsigned char* X,
       ((__m128i*)Y)[2] = _mm_subs_epu8(((__m128i*)Y)[2], m6);
       ((__m128i*)Y)[3] = _mm_subs_epu8(((__m128i*)Y)[3], m6);
     }
-    unsigned char a188, a194;
+    std::uint8_t a188, a194;
     int a186, a205;
     short int s48, s49, s54, s55;
-    const unsigned char *a187, *a193, *b15;
+    const std::uint8_t *a187, *a193, *b15;
     short int *a204, *a206, *a207, *a223, *a224, *b16;
     __m128i *a184, *a185, *a190, *a196, *a208, *a209, *a210, *a211, *a212,
         *a215, *a225, *a226;
@@ -429,7 +431,7 @@ void viterbi::FULL_SPIRAL(int nbits, unsigned char* Y, unsigned char* X,
     *(a225) = s56;
     a226 = (a208 + 3);
     *(a226) = s57;
-    if ((((unsigned char*)X)[0] > 210)) {
+    if ((((std::uint8_t*)X)[0] > 210)) {
       __m128i m12, m13;
       m12 = ((__m128i*)X)[0];
       m12 = _mm_min_epu8(m12, ((__m128i*)X)[1]);
