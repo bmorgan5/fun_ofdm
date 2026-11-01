@@ -61,6 +61,12 @@ RUN arch=$(dpkg --print-architecture) \
     && echo "${sha256}  /usr/local/bin/bazel" | sha256sum --check --strict \
     && chmod 755 /usr/local/bin/bazel
 
+# A fixed output base, instead of Bazel's default (a hash of the workspace
+# path), so the IntelliSense settings in devcontainer.json can name it. Bazel
+# reads /etc/bazel.bazelrc on every run. It's still under ~/.cache/bazel, on
+# the volume that keeps Bazel's cache across rebuilds.
+RUN echo 'startup --output_base=/home/ubuntu/.cache/bazel/fun_ofdm' > /etc/bazel.bazelrc
+
 # buildifier, which formats and lints Bazel files (used by the VS Code Bazel
 # extension, which looks for it on PATH).
 ARG BUILDIFIER_VERSION=10.1.0

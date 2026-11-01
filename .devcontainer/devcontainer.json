@@ -35,7 +35,28 @@
                 "BazelBuild.vscode-bazel",
                 "GitHub.vscode-github-actions",
                 "ms-vscode.cpptools"
-            ]
+            ],
+            "settings": {
+                // IntelliSense with the same compiler and headers as the Bazel
+                // build: the hermetic clang and sysroot, and the external
+                // repos. They're in Bazel's output base, which the Dockerfile
+                // fixes at /home/ubuntu/.cache/bazel/fun_ofdm. Build once
+                // (`bazel build //...`) so they're downloaded.
+                "C_Cpp.default.compilerPath": "/home/ubuntu/.cache/bazel/fun_ofdm/external/toolchains_llvm++llvm+llvm_toolchain_llvm/bin/clang++",
+                "C_Cpp.default.compilerArgs": [
+                    "--target=x86_64-unknown-linux-gnu",
+                    "--sysroot=/home/ubuntu/.cache/bazel/fun_ofdm/external/+sysroot+sysroot_linux_x86_64/sysroot"
+                ],
+                "C_Cpp.default.cppStandard": "c++23",
+                "C_Cpp.default.intelliSenseMode": "linux-clang-x64",
+                "C_Cpp.default.includePath": [
+                    // For includes like "src/phy/frame_builder.h".
+                    "${workspaceFolder}",
+                    "/home/ubuntu/.cache/bazel/fun_ofdm/external/cli11+/include",
+                    "/home/ubuntu/.cache/bazel/fun_ofdm/external/googletest+/googletest/include",
+                    "/home/ubuntu/.cache/bazel/fun_ofdm/external/googletest+/googlemock/include"
+                ]
+            }
         }
     }
 }
