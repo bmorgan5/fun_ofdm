@@ -83,7 +83,7 @@ std::vector<std::complex<double>> ppdu::encode() {
 std::vector<std::complex<double>> ppdu::encoder_header() {
   // Build the header from the rate field and length
   RateParams rate_params = RateParams(header.rate);
-  unsigned int header_field = 0;
+  std::uint32_t header_field = 0;
   header_field =
       ((rate_params.rate_field & 0xF) << 13) | (header.length & 0xFFF);
 
@@ -93,7 +93,7 @@ std::vector<std::complex<double>> ppdu::encoder_header() {
 
   // Convert the header to a std::uint8_t array
   std::uint8_t header_bytes[4];
-  unsigned int h = htonl(header_field) >> 8;
+  std::uint32_t h = htonl(header_field) >> 8;
   memcpy(header_bytes, &h, 3);
 
   // Convolutionally encode the header
@@ -128,7 +128,7 @@ std::vector<std::complex<double>> ppdu::encode_data() {
   std::size_t num_data_bits = num_symbols * rate_params.dbps;
   std::size_t num_data_bytes = num_data_bits / 8;
 
-  unsigned short service_field = 0;
+  std::uint16_t service_field = 0;
 
   // Concatenate the service and payload
   std::vector<std::uint8_t> data(num_data_bytes + 1, 0);
@@ -138,7 +138,7 @@ std::vector<std::complex<double>> ppdu::encode_data() {
   // Calcualate and append the CRC
   boost::crc_32_type crc;
   crc.process_bytes(&data[0], 2 + payload.size());
-  unsigned int calculated_crc = crc.checksum();
+  std::uint32_t calculated_crc = crc.checksum();
   memcpy(&data[2 + payload.size()], &calculated_crc, 4);
 
   // Scramble the data
@@ -183,7 +183,7 @@ bool ppdu::decode_header(std::vector<std::complex<double>> samples) {
                 18 /* header is always 18 data bits */);
 
   // Verify header parity
-  unsigned int header_field;
+  std::uint32_t header_field;
   memcpy(&header_field, &header_bytes[0], 3);
   header_field = htonl(header_field) >> 8;
   int par = parity(header_field);
@@ -260,8 +260,8 @@ bool ppdu::decode_data(std::vector<std::complex<double>> samples) {
   // Calculate the CRC
   boost::crc_32_type crc;
   crc.process_bytes(&decoded[0], 2 + header.length);
-  unsigned int calculated_crc = crc.checksum();
-  unsigned int given_crc = 0;
+  std::uint32_t calculated_crc = crc.checksum();
+  std::uint32_t given_crc = 0;
   memcpy(&given_crc, &decoded[2 + header.length], 4);
 
   // Verify the CRC

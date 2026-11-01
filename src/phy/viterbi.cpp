@@ -106,7 +106,7 @@ struct v* viterbi::viterbi_alloc(int len) {
 void viterbi::viterbi_chainback(
     struct v* vp, std::uint8_t* data, /* Decoded output data */
     std::size_t nbits,                /* Number of data bits */
-    unsigned int endstate)            /* Terminal encoder state */
+    std::uint32_t endstate)           /* Terminal encoder state */
 {
   decision_t* d = vp->decisions;
 
@@ -211,9 +211,9 @@ void viterbi::FULL_SPIRAL(int nbits, std::uint8_t* Y, std::uint8_t* X,
   for (int i9 = 0; i9 <= (nbits / 2 - 1); i9++) {
     std::uint8_t a75, a81;
     int a73, a92;
-    short int s20, s21, s26, s27;
+    std::int16_t s20, s21, s26, s27;
     const std::uint8_t *a74, *a80, *b6;
-    short int *a110, *a111, *a91, *a93, *a94;
+    std::int16_t *a110, *a111, *a91, *a93, *a94;
     __m128i *a102, *a112, *a113, *a71, *a72, *a77, *a83, *a95, *a96, *a97, *a98,
         *a99;
     __m128i a105, a106, a86, a87;
@@ -257,7 +257,7 @@ void viterbi::FULL_SPIRAL(int nbits, std::uint8_t* Y, std::uint8_t* X,
     a90 = _mm_min_epu8(m26, m25);
     d10 = _mm_cmpeq_epi8(a90, m26);
     s20 = _mm_movemask_epi8(_mm_unpacklo_epi8(d9, d10));
-    a91 = ((short int*)dec);
+    a91 = reinterpret_cast<std::int16_t*>(dec);
     a92 = (8 * i9);
     a93 = (a91 + a92);
     *(a93) = s20;
@@ -309,7 +309,7 @@ void viterbi::FULL_SPIRAL(int nbits, std::uint8_t* Y, std::uint8_t* X,
     *(a112) = s28;
     a113 = (a95 + 3);
     *(a113) = s29;
-    if ((((std::uint8_t*)Y)[0] > 210)) {
+    if ((Y[0] > 210)) {
       __m128i m5, m6;
       m5 = ((__m128i*)Y)[0];
       m5 = _mm_min_epu8(m5, ((__m128i*)Y)[1]);
@@ -333,9 +333,9 @@ void viterbi::FULL_SPIRAL(int nbits, std::uint8_t* Y, std::uint8_t* X,
     }
     std::uint8_t a188, a194;
     int a186, a205;
-    short int s48, s49, s54, s55;
+    std::int16_t s48, s49, s54, s55;
     const std::uint8_t *a187, *a193, *b15;
-    short int *a204, *a206, *a207, *a223, *a224, *b16;
+    std::int16_t *a204, *a206, *a207, *a223, *a224, *b16;
     __m128i *a184, *a185, *a190, *a196, *a208, *a209, *a210, *a211, *a212,
         *a215, *a225, *a226;
     __m128i a199, a200, a218, a219;
@@ -379,7 +379,7 @@ void viterbi::FULL_SPIRAL(int nbits, std::uint8_t* Y, std::uint8_t* X,
     a203 = _mm_min_epu8(m42, m41);
     d18 = _mm_cmpeq_epi8(a203, m42);
     s48 = _mm_movemask_epi8(_mm_unpacklo_epi8(d17, d18));
-    a204 = ((short int*)dec);
+    a204 = reinterpret_cast<std::int16_t*>(dec);
     a205 = (8 * i9);
     b16 = (a204 + a205);
     a206 = (b16 + 4);
@@ -432,7 +432,7 @@ void viterbi::FULL_SPIRAL(int nbits, std::uint8_t* Y, std::uint8_t* X,
     *(a225) = s56;
     a226 = (a208 + 3);
     *(a226) = s57;
-    if ((((std::uint8_t*)X)[0] > 210)) {
+    if ((X[0] > 210)) {
       __m128i m12, m13;
       m12 = ((__m128i*)X)[0];
       m12 = _mm_min_epu8(m12, ((__m128i*)X)[1]);

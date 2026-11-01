@@ -49,7 +49,7 @@ class prbs15 {
   }
 
  private:
-  unsigned int m_state = 0x7FFF;  //!< The 15-bit shift register
+  std::uint16_t m_state = 0x7FFF;  //!< The 15-bit shift register
 };
 
 /*!

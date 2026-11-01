@@ -91,7 +91,7 @@ struct plcp_header {
   Rate rate;                //!< The PHY Rate for this frame.
   std::size_t length;       //!< The length of the payload in bytes.
   std::size_t num_symbols;  //!< The number of ofdm symbols in the frame.
-  unsigned short service;   //!< The service field.
+  std::uint16_t service;    //!< The service field.
 
   /*!
    * \brief Constructor for empty plcp_header.

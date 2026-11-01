@@ -54,9 +54,7 @@ class QAM {
    * \param v
    * \return +1 or -1
    */
-  static inline int sign(int v) {
-    return +1 | (v >> (sizeof(int) * CHAR_BIT - 1));
-  }
+  static inline std::int32_t sign(std::int32_t v) { return +1 | (v >> 31); }
 
   /*!
    * \brief clamp
