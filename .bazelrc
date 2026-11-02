@@ -43,4 +43,12 @@ build:tsan --copt=-fsanitize=thread --linkopt=-fsanitize=thread
 # Print the log of a failing test.
 test --test_output=errors
 
+# Coverage: `bazel coverage //...` writes an lcov report, with line, branch
+# and function coverage, to bazel-out/_coverage/_coverage_report.dat.
+# `bazel run coverage` runs it and turns the report into HTML. Clang writes raw
+# profiles, which Bazel only turns into lcov, with the toolchain's
+# llvm-profdata and llvm-cov, when it's asked to.
+coverage --combined_report=lcov
+coverage --experimental_generate_llvm_lcov
+
 try-import %workspace%/user.bazelrc

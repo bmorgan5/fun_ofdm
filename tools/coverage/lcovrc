@@ -1,0 +1,12 @@
+# lcov settings for `bazel run coverage`. See lcovrc(5).
+
+# Report branch coverage as well as line and function coverage.
+branch_coverage = 1
+
+# llvm-cov puts the branches of a macro, like assert(false), on the macro's
+# line even when the line never runs. lcov calls that inconsistent and stops;
+# naming the error twice ignores it without a warning.
+ignore_errors = inconsistent,inconsistent
+
+# Function end lines come from llvm-cov, so lcov doesn't need to work them out.
+derive_function_end_line = 0

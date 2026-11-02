@@ -1,5 +1,6 @@
-# Runs the tests and the format check on every PR. The tests also run on every
-# push to main, which keeps a warm cache for new PR branches to start from.
+# Runs the tests, coverage and the format check on every PR. The tests and
+# coverage also run on every push to main, which keeps a warm cache for new PR
+# branches to start from.
 name: CI
 
 on:
@@ -33,6 +34,120 @@ jobs:
           disk-cache: ${{ matrix.config }}
           repository-cache: true
       - run: bazel test //... --config=${{ matrix.config }}
+
+  # Coverage of the code the tests run, in the job summary and, through
+  # coverage-report, the PR description. main uploads its report. A PR's report
+  # is compared with main's latest, which sorts the lines by how the PR changed
+  # them, for example new code that no test runs (see
+  # tools/coverage/coverage.sh). There's no target yet: the first numbers are
+  # the floor.
+  coverage:
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      # To find and download main's report.
+      actions: read
+    outputs:
+      totals: ${{ steps.report.outputs.totals }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: bazel-contrib/setup-bazel@104e3eea9447cdaa4b00d0fb46191a3985d26ab3 # 0.19.1
+        with:
+          bazelisk-cache: true
+          disk-cache: coverage
+          repository-cache: true
+      # main's latest report, and the commit it's for, which the comparison
+      # diffs against. Only main uploads reports, so the latest is main's. If
+      # there isn't one (none yet, or it expired), the PR's report stands
+      # alone.
+      - name: Download main's coverage report
+        id: baseline
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=coverage" \
+            --jq '[.artifacts[] | select(.expired | not)][0].workflow_run.id // empty')"
+          if [[ -z "$run_id" ]]; then
+            echo "::notice::No coverage report from main to compare with."
+            exit 0
+          fi
+          dir="$RUNNER_TEMP/baseline"
+          gh run download "$run_id" --name coverage --dir "$dir"
+          git fetch --depth=1 origin "$(<"$dir/commit")"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+      - id: report
+        env:
+          BASELINE: ${{ steps.baseline.outputs.dir }}
+        run: |
+          totals="$RUNNER_TEMP/totals.txt"
+          bazel run //:coverage -- ${BASELINE:+--baseline "$BASELINE"} > "$totals"
+          printf '```\n%s\n```\n' "$(<"$totals")" >> "$GITHUB_STEP_SUMMARY"
+          printf 'totals<<TOTALS_END\n%s\nTOTALS_END\n' "$(<"$totals")" >> "$GITHUB_OUTPUT"
+      # The report, with the lcov data and commit a PR compares with. PRs only
+      # need the summary.
+      - if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage
+          path: out/coverage/
+
+  # Puts the coverage totals in the PR description, between the coverage:start
+  # and coverage:end markers from the PR template. pr-commits.yml sets them to
+  # pending on every push. A job of its own, so the job that can edit the PR
+  # doesn't run anything from it.
+  coverage-report:
+    needs: coverage
+    # Not when a newer push cancelled the run: that push's run reports. A fork
+    # PR's token can't edit the PR.
+    if: >-
+      !cancelled() && github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-26.04
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      REPO: ${{ github.repository }}
+      RESULT: ${{ needs.coverage.result }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      SHA: ${{ github.event.pull_request.head.sha }}
+      TOTALS: ${{ needs.coverage.outputs.totals }}
+    steps:
+      # Only GitHub's API: nothing from the PR is checked out or run.
+      - run: |
+          gh api "repos/$REPO/pulls/$PR" > pr.json
+          python3 - <<'EOF'
+          import json
+          import os
+
+          START, END = "<!-- coverage:start -->", "<!-- coverage:end -->"
+
+          # GitHub links a bare commit hash to the commit.
+          sha, run = os.environ["SHA"][:7], os.environ["RUN_URL"]
+          if os.environ["RESULT"] == "success":
+              text = (f"For {sha}, from [this run]({run}):\n\n"
+                      f"```text\n{os.environ['TOTALS'].strip()}\n```")
+          else:
+              text = f"Coverage didn't finish for {sha}: see [the run]({run})."
+          coverage = START + "\n" + text + "\n" + END
+
+          old = json.load(open("pr.json"))["body"] or ""
+          body = old
+          if START in body and END in body:
+              before, _, after = body.partition(START)
+              body = before + coverage + after.partition(END)[2]
+          else:
+              body = body.rstrip() + "\n\n## Coverage\n" + coverage + "\n"
+          # One newline at the end, so edits don't pile them up.
+          body = body.rstrip() + "\n"
+          if body != old:
+              open("new_body.md", "w").write(body)
+          EOF
+          if [[ -f new_body.md ]]; then
+            gh api -X PATCH "repos/$REPO/pulls/$PR" -F body=@new_body.md > /dev/null
+          fi
 
   format:
     # main only gets commits from PRs that passed it.

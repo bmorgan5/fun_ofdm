@@ -42,3 +42,9 @@ alias(
     name = "format.check",
     actual = "//tools/format:check",
 )
+
+# Shorthand for the coverage report in tools/coverage: `bazel run coverage`.
+alias(
+    name = "coverage",
+    actual = "//tools/coverage",
+)
