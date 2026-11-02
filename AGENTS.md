@@ -15,6 +15,8 @@ libraries.
 | Build everything | `bazel build //...` |
 | Build the binary | `bazel build fun-ofdm` |
 | Smoke test (sends and decodes 100 packets) | `bazel run fun-ofdm -- sim` |
+| Coverage: prints the totals and writes an HTML report to `out/coverage/` | `bazel run coverage` |
+| Coverage compared with an earlier `out/coverage/` (a copy of it) | `bazel run coverage -- --baseline <dir>` |
 | Build the API docs (Doxygen) | `bazel build //docs` |
 | Copy the binary to `out/<platform>/bin/` | `bazel run install` |
 | Format the C++ and Starlark files | `bazel run format` |

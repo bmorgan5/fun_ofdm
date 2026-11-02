@@ -1,0 +1,21 @@
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+# Runs `bazel coverage`, writes an HTML report to out/coverage/ with lcov's
+# genhtml and prints the totals: `bazel run coverage`.
+sh_binary(
+    name = "coverage",
+    srcs = ["coverage.sh"],
+    data = [
+        "lcovrc",
+        "summary.awk",
+        "@lcov",
+        "@lcov//:genhtml",
+    ],
+    env = {
+        "GENHTML": "$(rootpath @lcov//:genhtml)",
+        "LCOV": "$(rootpath @lcov)",
+        "LCOVRC": "$(rootpath lcovrc)",
+        "SUMMARY_AWK": "$(rootpath summary.awk)",
+    },
+    visibility = ["//:__pkg__"],
+)

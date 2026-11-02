@@ -9,6 +9,7 @@ RUN apt update && apt install -y --no-install-recommends \
         curl \
         git \
         libarchive-tools \
+        locales \
         python3 \
         sudo \
         vim \
@@ -21,6 +22,11 @@ RUN apt update && apt install -y --no-install-recommends \
 RUN apt update && apt install -y --no-install-recommends \
         libuhd4.9.0 \
     && rm -rf /var/lib/apt/lists/*
+
+# The en_US.UTF-8 locale, which VS Code's terminal sets LANG to. The base image
+# only has C and C.UTF-8, and some programs, such as the perl that runs lcov's
+# genhtml (`bazel run coverage`), warn about a locale that isn't installed.
+RUN locale-gen en_US.UTF-8
 
 # Use bsdtar as `tar`. GNU tar on this release extracts with the openat2
 # syscall, which Rosetta (x86-64 emulation on Apple Silicon) doesn't
