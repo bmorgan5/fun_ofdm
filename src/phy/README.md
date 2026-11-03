@@ -192,7 +192,7 @@ what it does, and on the transmit side, how its inverse undoes it.
 | Equalization | [channel_est.h](channel_est.h) | [channel_est_test.cpp](channel_est_test.cpp) |
 | Pilot phase tracking | [phase_tracker.h](phase_tracker.h) | [phase_tracker_test.cpp](phase_tracker_test.cpp) |
 | Decoding | [frame_decoder.h](frame_decoder.h) | [frame_decoder_test.cpp](frame_decoder_test.cpp) |
-| Whole receiver | [receiver_chain.h](receiver_chain.h), [block.h](block.h), [tagged_vector.h](tagged_vector.h) | |
+| Whole receiver | [receiver_chain.h](receiver_chain.h), [block.h](block.h), [tagged_vector.h](tagged_vector.h) | [receiver_chain_test.cpp](receiver_chain_test.cpp) |
 
 ## Differences from 802.11a
 
