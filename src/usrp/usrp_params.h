@@ -1,10 +1,8 @@
 /*! \file usrp_params.h
- *  \brief Header file for the usrp_params struct.
+ *  \brief The settings a usrp is created with.
  *
- *  The usrp_params struct is a container for holding the necessary parameters
- * for the usrp such as center frequency, sample rate, tx/rx gain, etc.. It
- * doesn't depend on UHD, so code that only builds the parameters (like the
- * command line options) doesn't need UHD.
+ *  It doesn't depend on UHD, so code that only builds the parameters (like the
+ *  command line options) doesn't need UHD.
  */
 
 #ifndef USRP_PARAMS_H
@@ -14,20 +12,22 @@
 
 namespace fun {
 /*!
- * \brief The usrp_params struct which holds parameters for the USRP object such
- * as center frequency, sample rate, tx/rx gain, etc..
+ * \brief The settings a usrp is created with. Both directions share the
+ * frequency and the sample rate.
  */
 struct usrp_params {
-  double freq = 5.72e9;  //!< Center Frequency
-  double rate = 5e6;     //!< Sample Rate
-  double tx_gain = 20;   //!< Transmit Gain in dB (the valid range depends on
-                         //!< the device)
-  double rx_gain = 20;   //!< Receive Gain in dB (the valid range depends on
-                         //!< the device)
-  double tx_amp = 1.0;   //!< Transmit Amplitude - scales all tx samples before
-                         //!< sending to USRP
-  std::string device_addr;  //!< IP Address of USRP as a string - i.e.
-                            //!< "192.168.10.2" or "" to find automatically
+  double freq = 5.72e9;     //!< Center frequency in Hz, for both TX and RX
+  double rate = 5e6;        //!< Sample rate in samples/s, which is also the
+                            //!< channel bandwidth in Hz
+  double tx_gain = 20;      //!< Transmit gain in dB. The valid range depends on
+                            //!< the device.
+  double rx_gain = 20;      //!< Receive gain in dB. The valid range depends on
+                            //!< the device.
+  double tx_amp = 1.0;      //!< Scales each sample before it's sent, for finer
+                            //!< control of the output power than tx_gain
+  std::string device_addr;  //!< UHD device address, e.g.
+                            //!< "addr=192.168.10.2", or "" to use the first
+                            //!< device found
 };
 }  // namespace fun
 
