@@ -32,6 +32,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <stop_token>
 #include <thread>
 
 #include "block.h"
@@ -65,6 +66,14 @@ class receiver_chain {
    * \brief Constructor for receiver_chain
    */
   receiver_chain();
+
+  /*!
+   * \brief Destructor for receiver_chain. Stops and joins the block threads.
+   */
+  ~receiver_chain();
+
+  receiver_chain(const receiver_chain&) = delete;
+  receiver_chain& operator=(const receiver_chain&) = delete;
 
   /*!
    * \brief Processes the raw time domain samples.
@@ -102,14 +111,16 @@ class receiver_chain {
 
   /*!
    * \brief Runs the block by calling its work function
+   * \param stop Stop token which ends the loop once it has been woken up
    * \param index the block's index for referencing the correct semaphores for
    * that block.
    * \param block A pointer to the block used as a handle to access its work()
    * function.
    */
-  void run_block(std::size_t index, fun::block_base* block);
+  void run_block(std::stop_token stop, std::size_t index,
+                 fun::block_base* block);
 
-  std::vector<std::thread>
+  std::vector<std::jthread>
       m_threads;  //!< Vector of threads - one for each block
 
   std::vector<sem_t>

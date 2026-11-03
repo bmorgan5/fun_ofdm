@@ -41,6 +41,11 @@ class block_base {
   block_base(std::string block_name) : name(block_name) {}
 
   /*!
+   * \brief block_base destructor
+   */
+  virtual ~block_base() = default;
+
+  /*!
    * \brief The main work function.
    *
    * The work function is a pure virtual function.
