@@ -131,9 +131,7 @@ The easiest way to test that everything built correctly is to run *fun-ofdm sim*
 >
 > I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!I'm a little tea pot, short and stout.....here is my handle.....blah blah blah.....this rhyme sucks!
 >
-> Received 100 packets
->
-> Time elapsed: 1500.481000
+> Received 100 packets (150000 bytes) in 1.500 s, 800.0 kbit/s
 
 ## Test Tx ##
 
@@ -271,7 +269,9 @@ The full API is available on the funlab website: [fun_ofdm API](http://www.ee.wa
 
 ## Command Line ##
 
-`fun-ofdm <tx|rx|sim> [options]` runs one mode; `fun-ofdm <mode> --help` lists its options. `tx` and `rx` take:
+`fun-ofdm <tx|rx|sim> [options]` runs one mode; `fun-ofdm <mode> --help` lists its options. `rx` runs until you press Ctrl+C. Ctrl+C also stops `tx` and `sim` early, and every mode prints a summary of the packets it sent or received when it finishes; press Ctrl+C a second time to quit immediately.
+
+`tx` and `rx` take:
 
 * `--freq GHZ` or `--channel N` - Center frequency, or an 802.11 channel number (1-14 or 32-177) to convert to one [default: 5.72 GHz]
 * `--bandwidth MHZ` - Channel bandwidth, which is also the sample rate; 802.11a uses 5, 10 or 20 MHz [default: 5]
