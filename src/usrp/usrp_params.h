@@ -20,8 +20,10 @@ namespace fun {
 struct usrp_params {
   double freq = 5.72e9;  //!< Center Frequency
   double rate = 5e6;     //!< Sample Rate
-  double tx_gain = 20;   //!< Transmit Gain (0-35 for USRP N210)
-  double rx_gain = 20;   //!< Receive Gain  (0-35 for USRP N210)
+  double tx_gain = 20;   //!< Transmit Gain in dB (the valid range depends on
+                         //!< the device)
+  double rx_gain = 20;   //!< Receive Gain in dB (the valid range depends on
+                         //!< the device)
   double tx_amp = 1.0;   //!< Transmit Amplitude - scales all tx samples before
                          //!< sending to USRP
   std::string device_addr;  //!< IP Address of USRP as a string - i.e.

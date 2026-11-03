@@ -1,18 +1,59 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+# The parts of the tool that use the USRP. Everything else is in :tools.
+_BINARY_SRCS = [
+    "main.cpp",
+    "realtime.cpp",
+    "realtime.h",
+    "receiver.cpp",
+    "receiver.h",
+    "transmitter.cpp",
+    "transmitter.h",
+]
 
 cc_binary(
     name = "fun-ofdm",
-    srcs = glob([
-        "*.cpp",
-        "*.h",
-    ]),
+    srcs = _BINARY_SRCS,
     visibility = [
         "//:__pkg__",
         "//docs:__pkg__",
     ],
     deps = [
+        ":tools",
         "//src/phy",
         "//src/usrp",
         "@cli11",
     ],
 )
+
+# The rest of the tool. It doesn't depend on UHD, so the tests can use it
+# without a USRP.
+cc_library(
+    name = "tools",
+    srcs = glob(
+        ["*.cpp"],
+        exclude = _BINARY_SRCS + ["*_test.cpp"],
+    ),
+    hdrs = glob(
+        ["*.h"],
+        exclude = _BINARY_SRCS,
+    ),
+    deps = [
+        "//src/phy",
+        "//src/usrp:usrp_params",
+        "@cli11",
+    ],
+)
+
+# One test per *_test.cpp file, named after it.
+[cc_test(
+    name = src.removesuffix(".cpp"),
+    size = "small",
+    srcs = [src],
+    deps = [
+        ":tools",
+        "@googletest//:gtest_main",
+    ],
+) for src in glob(["*_test.cpp"])]
