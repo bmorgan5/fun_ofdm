@@ -1,11 +1,6 @@
 /*! \file usrp.cpp
- *  \brief C++ file for the usrp class.
- *
- *  The usrp class is a wrapper class for the UHD API. It provides a simple
- * interface for transmitting and receiving samples to/from the USRP.
- *
- *  The usrp_params class is a container for holding the necessary parameters
- * for the usrp such as center frequency, sample rate, tx/rx gain, etc..
+ *  \brief Sends and receives baseband samples with a USRP, through UHD. See
+ *  usrp.h.
  */
 
 #include "usrp.h"
@@ -125,7 +120,8 @@ void usrp::send_burst_sync(std::vector<std::complex<double>> samples) {
   tx_metadata.has_time_spec = false;
   m_tx_streamer->send(&samples[0], samples.size(), tx_metadata);
 
-  // Wait for the end of burst ACK followed by an underflow
+  // Wait for the end of burst ACK. The underflow check never fires (see the
+  // bug in usrp.h).
   bool got_ack = false;
   bool got_underflow = false;
   uhd::async_metadata_t async_metadata;
