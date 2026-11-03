@@ -23,6 +23,14 @@
  *
  *  The blocks keep state between calls, so a frame can span chunks. They mark
  *  the frame's parts with tags on the samples (see tagged_vector.h).
+ *
+ *  \bug A block that gets an empty batch returns without clearing its output
+ *  buffer. The swap left the next block's input from the call before there,
+ *  which the next block has already processed, so it gets the same input
+ *  again. Blocks get empty batches when process_samples() is given no
+ *  samples, and in calls where fft_symbols completes no symbol, as with
+ *  batches shorter than 80 samples. frame_decoder likewise outputs its old
+ *  payloads again when it gets an empty batch.
  */
 
 #ifndef RECEIVER_CHAIN_H
