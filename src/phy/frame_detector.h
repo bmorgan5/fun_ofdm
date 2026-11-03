@@ -25,6 +25,10 @@
  *
  *  All samples pass through. The block only adds the tags, which tell
  *  timing_sync where to look for the long training sequence.
+ *
+ *  \bug A batch shorter than 16 samples makes work() read before the start of
+ *  input_buffer. It keeps the batch's last 16 samples to compare the next
+ *  batch with, and copies them from 16 samples before the batch's end.
  */
 
 #ifndef FRAME_DETECTOR_H

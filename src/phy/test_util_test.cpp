@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <complex>
 #include <cstddef>
 #include <cstdint>
 #include <set>
@@ -53,6 +54,19 @@ TEST(Prbs15Test, PacksBytesMsbFirst) {
   // Bits 8 to 31 of the sequence: 00000010 00000000 00001100.
   EXPECT_EQ(test::prbs_bytes(3, 8),
             std::vector<std::uint8_t>({0x02, 0x00, 0x0C}));
+}
+
+// Bits 0 to 31 of the sequence, two per sample: 1 is +amplitude, and 0 is
+// -amplitude.
+TEST(Prbs15Test, MakesNoiseFromPairsOfBits) {
+  std::vector<std::complex<double>> noise = test::prbs_noise(16, 0.5);
+  EXPECT_EQ(noise[0], std::complex<double>(-0.5, -0.5));
+  EXPECT_EQ(noise[7], std::complex<double>(0.5, -0.5));
+  EXPECT_EQ(noise[14], std::complex<double>(0.5, 0.5));
+  EXPECT_EQ(noise[15], std::complex<double>(-0.5, -0.5));
+  EXPECT_EQ(
+      test::prbs_noise(4, 0.5, 2),
+      std::vector<std::complex<double>>(noise.begin() + 1, noise.begin() + 5));
 }
 }  // namespace
 }  // namespace fun

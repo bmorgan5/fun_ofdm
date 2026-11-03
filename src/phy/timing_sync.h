@@ -29,6 +29,19 @@
  *  \bug The loop that compares the two LTS copies never runs, so the
  *  estimated offset is always 0, and only a constant phase is applied.
  *  channel_est and phase_tracker correct some of the offset instead.
+ *
+ *  \bug work() asserts that a batch has more than 160 samples, though
+ *  block.h allows any size, so a debug build aborts on a shorter one. An
+ *  optimized build leaves the assert out, and handles short batches apart
+ *  from the next bug.
+ *
+ *  \bug Each call works on the 160 samples held back from the call before,
+ *  then the batch, and counts positions from the first of them. A frame
+ *  whose LTS cyclic prefix starts before that sample gets a negative
+ *  position, and is dropped. The prefix starts 1 to 32 samples before
+ *  STS_END, so this happens when STS_END is one of the first samples a call
+ *  looks at: now and then in long batches, and for every frame in 1-sample
+ *  batches.
  */
 
 #ifndef TIMING_SYNC_H

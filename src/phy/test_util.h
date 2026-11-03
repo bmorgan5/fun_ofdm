@@ -7,11 +7,14 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <complex>
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
 
+#include "block.h"
 #include "rates.h"
 
 namespace fun::test {
@@ -76,6 +79,40 @@ inline std::vector<std::uint8_t> prbs_bytes(std::size_t count,
   for (std::size_t x = 0; x < bits.size(); x++)
     bytes[x / 8] |= bits[x] << (7 - x % 8);
   return bytes;
+}
+
+/*!
+ * \brief Returns count samples of low-level noise: QPSK points of the given
+ * amplitude on each axis, from PRBS-15 starting offset bits into the sequence.
+ */
+inline std::vector<std::complex<double>> prbs_noise(std::size_t count,
+                                                    double amplitude,
+                                                    std::size_t offset = 0) {
+  std::vector<std::uint8_t> bits = prbs_bits(2 * count, offset);
+  std::vector<std::complex<double>> noise(count);
+  for (std::size_t x = 0; x < count; x++) {
+    noise[x] = {bits[2 * x] ? amplitude : -amplitude,
+                bits[2 * x + 1] ? amplitude : -amplitude};
+  }
+  return noise;
+}
+
+/*!
+ * \brief Runs a receiver block on input, batch items per call to work(), and
+ * returns its outputs from every call, in order. The last batch can be
+ * shorter.
+ */
+template <typename I, typename O>
+std::vector<O> run_block(block<I, O>& b, const std::vector<I>& input,
+                         std::size_t batch) {
+  std::vector<O> output;
+  for (std::size_t x = 0; x < input.size(); x += batch) {
+    std::size_t end = std::min(input.size(), x + batch);
+    b.input_buffer.assign(input.begin() + x, input.begin() + end);
+    b.work();
+    output.insert(output.end(), b.output_buffer.begin(), b.output_buffer.end());
+  }
+  return output;
 }
 }  // namespace fun::test
 
