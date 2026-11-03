@@ -167,8 +167,8 @@ deinterleave, depuncture, Viterbi decode, descramble, check the CRC.
 
 ## Reading order
 
-Follow the transmit chain; each block's test shows what it does and how its
-inverse undoes it.
+Follow the transmit chain, then the receive chain. Each block's test shows
+what it does, and on the transmit side, how its inverse undoes it.
 
 | Block | Header | Test |
 |---|---|---|
@@ -186,8 +186,13 @@ inverse undoes it.
 | Preamble | [preamble.h](preamble.h) | |
 | Whole transmitter | [frame_builder.h](frame_builder.h) | [frame_builder_test.cpp](frame_builder_test.cpp) |
 | Moving sum | [circular_accumulator.h](circular_accumulator.h) | [circular_accumulator_test.cpp](circular_accumulator_test.cpp) |
-| Receiver | [receiver_chain.h](receiver_chain.h), [block.h](block.h), [tagged_vector.h](tagged_vector.h) | |
-| Receiver blocks | [frame_detector.h](frame_detector.h), [timing_sync.h](timing_sync.h), [fft_symbols.h](fft_symbols.h), [channel_est.h](channel_est.h), [phase_tracker.h](phase_tracker.h), [frame_decoder.h](frame_decoder.h) | |
+| Finding frames | [frame_detector.h](frame_detector.h) | [frame_detector_test.cpp](frame_detector_test.cpp) |
+| Timing and frequency offset | [timing_sync.h](timing_sync.h) | [timing_sync_test.cpp](timing_sync_test.cpp) |
+| Cutting symbols, FFT | [fft_symbols.h](fft_symbols.h) | [fft_symbols_test.cpp](fft_symbols_test.cpp) |
+| Equalization | [channel_est.h](channel_est.h) | [channel_est_test.cpp](channel_est_test.cpp) |
+| Pilot phase tracking | [phase_tracker.h](phase_tracker.h) | [phase_tracker_test.cpp](phase_tracker_test.cpp) |
+| Decoding | [frame_decoder.h](frame_decoder.h) | [frame_decoder_test.cpp](frame_decoder_test.cpp) |
+| Whole receiver | [receiver_chain.h](receiver_chain.h), [block.h](block.h), [tagged_vector.h](tagged_vector.h) | |
 
 ## Differences from 802.11a
 
