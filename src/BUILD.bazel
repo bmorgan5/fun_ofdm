@@ -2,6 +2,9 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
+# The overview of fun-ofdm, for the API documentation.
+exports_files(["README.md"])
+
 # The parts of the tool that use the USRP. Everything else is in :tools.
 _BINARY_SRCS = [
     "main.cpp",

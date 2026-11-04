@@ -1,4 +1,4 @@
-/*! \file receiver.h
+/*! \file receiver.cpp
  *  \brief C++ file for the receiver class.
  *
  *  The receiver class is the public interface for the fun_ofdm receiver.
