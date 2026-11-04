@@ -2,11 +2,15 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <CLI/CLI.hpp>
+
+#include "framing.h"
 
 namespace fun {
 namespace {
@@ -108,6 +112,59 @@ TEST(OptionsTest, SetsOnlyTheGainForTheModesDirection) {
   usrp_params rx_params = to_usrp_params(rx_opts);
   EXPECT_DOUBLE_EQ(rx_params.rx_gain, 12);
   EXPECT_DOUBLE_EQ(rx_params.tx_gain, defaults.tx_gain);
+}
+
+TEST(DataOptionsTest, HasNoLimitWithoutAnOption) {
+  CLI::App app;
+  tx_options opts;
+  add_options(&app, opts);
+  app.parse("", false);
+  EXPECT_EQ(opts.data.limit(), std::nullopt);
+}
+
+TEST(DataOptionsTest, SendsFullPacketsForPackets) {
+  CLI::App app;
+  tx_options opts;
+  add_options(&app, opts);
+  app.parse("--packets 3", false);
+  EXPECT_EQ(opts.data.limit(), 3 * FRAME_DATA_SIZE);
+}
+
+TEST(DataOptionsTest, ParsesSizesForBytes) {
+  const std::vector<std::pair<std::string, std::uint64_t>> SIZES = {
+      {"1", 1},           {"1500", 1500}, {"64KiB", 64 * 1024},
+      {"10MB", 10000000}, {"1kb", 1000},  {"2MiB", 2 * 1024 * 1024},
+      {"1GB", 1000000000}};
+  for (const auto& [size, bytes] : SIZES) {
+    CLI::App app;
+    sim_options opts;
+    add_options(&app, opts);
+    app.parse("--bytes " + size, false);
+    EXPECT_EQ(opts.data.limit(), bytes) << size;
+  }
+}
+
+TEST(DataOptionsTest, RejectsZero) {
+  for (const std::string& option : {"--packets 0", "--bytes 0"}) {
+    CLI::App app;
+    sim_options opts;
+    add_options(&app, opts);
+    EXPECT_THROW(app.parse(option, false), CLI::ValidationError) << option;
+  }
+}
+
+TEST(DataOptionsTest, RejectsBothPacketsAndBytes) {
+  CLI::App app;
+  sim_options opts;
+  add_options(&app, opts);
+  EXPECT_THROW(app.parse("--packets 3 --bytes 1MB", false), CLI::ExcludesError);
+}
+
+TEST(DataOptionsTest, AreOnlyForTheModesThatSend) {
+  CLI::App app;
+  rx_options opts;
+  add_options(&app, opts);
+  EXPECT_THROW(app.parse("--packets 3", false), CLI::ExtrasError);
 }
 }  // namespace
 }  // namespace fun

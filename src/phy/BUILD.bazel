@@ -34,6 +34,7 @@ cc_library(
     name = "test_util",
     testonly = True,
     hdrs = ["test_util.h"],
+    visibility = ["//src:__subpackages__"],
     deps = [
         ":phy",
         "@googletest//:gtest",
