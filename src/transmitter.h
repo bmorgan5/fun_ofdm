@@ -1,9 +1,12 @@
 /*! \file transmitter.h
- *  \brief Header file for transmitter class.
+ * \brief Sends frames over the air with a USRP.
  *
- *  The transmitter class is the public interface for the fun_ofdm transmit
- * chain. This is the easiest way to start transmitting 802.11a OFDM frames out
- * of the box.
+ * This is the simplest way to transmit: it builds each frame with the PHY's
+ * frame_builder and sends its samples with a usrp, as one burst:
+ *
+ * ~~~
+ * payload → frame_builder → samples → usrp::send_burst_sync() → air
+ * ~~~
  */
 
 #ifndef TRANSMITTER_H
@@ -19,44 +22,40 @@
 namespace fun {
 
 /*!
- * \brief The transmitter class is the public interface for the fun_ofdm
- * transmit chain. This is the easiest way to start transmitting 802.11a OFDM
- * frames out of the box.
+ * \brief Sends frames over the air with one USRP, one frame at a time.
  *
- *  Usage: Create a transmitter object with the desired USRP parameters (center
- * frequency, sample rate, transmitter gain, and amplitude). Then to send a
- * packet simply call the transmitter::send_frame() function passing it the
- * desired packet to be transmitted and the desired Physical Layer rate (PHY
- * Rate) to transmit it.
+ * Usage: create a transmitter with the USRP's parameters (center frequency,
+ * sample rate, transmit gain and amplitude), then call send_frame() with each
+ * payload and the PHY rate to send it at.
  */
 class transmitter {
  public:
   /*!
-   * \brief Constructor for the transmitter
-   * \param params [Optional] The usrp parameters you want to use for this
-   * transmitter. Defaults to the defaults in #usrp_params. The rx gain is
-   * irrelevant for the transmitter.
+   * \brief Opens the USRP.
+   * \param params The USRP's parameters. Defaults to the defaults in
+   * #usrp_params. The receive gain isn't used.
+   * \throws Whatever usrp::usrp() throws, if the device can't be opened or a
+   * gain is out of range.
    */
   transmitter(usrp_params params = usrp_params());
 
   /*!
-   * \brief Send a single PHY frame at the given PHY Rate
-   * \param payload The data to be transmitted (i.e. the MPDU)
-   * \param phy_rate [Optional] The PHY data rate to transmit at - defaults to
-   * 1/2 BPSK
+   * \brief Sends one frame, and blocks until it has gone out.
+   * \param payload The frame's payload (the PSDU), up to 4095 bytes. The PHY
+   * adds its own CRC-32 to it.
+   * \param phy_rate The PHY rate to send the payload at. The SIGNAL field is
+   * always sent at 1/2 BPSK.
    *
-   *  This function uses the usrp::send_burst_sync() function which means that
-   * this function blocks until the packet is done transmitting.
+   * It blocks for as long as usrp::send_burst_sync() does: until the device
+   * reports the end of the burst.
    */
   void send_frame(std::vector<std::uint8_t> payload,
                   Rate phy_rate = RATE_1_2_BPSK);
 
  private:
-  usrp m_usrp;  //!< The usrp object used to send the generated frames over the
-                //!< air
+  usrp m_usrp;  //!< Sends each frame's samples
 
-  frame_builder m_frame_builder;  //!< The frame builder object used to generate
-                                  //!< the frames
+  frame_builder m_frame_builder;  //!< Builds each frame's samples
 };
 
 }  // namespace fun

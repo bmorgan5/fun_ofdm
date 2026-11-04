@@ -6,7 +6,7 @@ This project is an 802.11a OFDM PHY layer implementation written in C++ for use 
 
 The [Official FUN OFDM API can be found here!](http://www.ee.washington.edu/research/funlab/fun_ofdm/index.html)
 
-For how the PHY works, with diagrams of the frame and the transmit and receive pipelines, see [src/phy/README.md](src/phy/README.md).
+For how the PHY works, with diagrams of the frame and the transmit and receive pipelines, see [src/phy/README.md](src/phy/README.md). For how `fun-ofdm`'s modes work and what they send, see [src/README.md](src/README.md).
 
 # Getting Set Up #
 

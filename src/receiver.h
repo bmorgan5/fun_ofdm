@@ -1,9 +1,13 @@
 /*! \file receiver.h
- *  \brief Header file for the receiver class.
+ * \brief Receives frames over the air with a USRP.
  *
- *  The receiver class is the public interface for the fun_ofdm receiver.
- *  This is the easiest way to start receiving 802.11a OFDM frames out of the
- * box.
+ * This is the simplest way to receive: it reads samples from a usrp and runs
+ * them through the PHY's receiver_chain, which passes the payloads it decodes
+ * to a callback:
+ *
+ * ~~~
+ * air → usrp::get_samples() → receiver_chain → callback(payloads)
+ * ~~~
  */
 
 #ifndef RECEIVER_H
@@ -16,32 +20,41 @@
 #include "src/phy/receiver_chain.h"
 #include "src/usrp/usrp.h"
 
+/*!
+ * \brief The number of samples receiver::run() reads from the USRP at a time.
+ */
 #define NUM_RX_SAMPLES 4096
 
 namespace fun {
 
 /*!
- * \brief The receiver class is the public interface for the fun_ofdm receiver.
- *  This is the easiest way to start receiving 802.11a OFDM frames out of the
- * box.
+ * \brief Receives frames over the air with one USRP, and passes their payloads
+ * to a callback.
  *
- *  Usage: To receive packets simply create a receiver object, passing it a
- * callback function that takes a std::vector<std::vector<std::uint8_t> > as an
- * input parameter, and then call receiver::run(). run() pulls samples from the
- * USRP and processes them with the receive chain on the calling thread. The
- * received packets (if any) are passed into the callback function where the
- * user is able to process them further. run() returns once a stop is requested
- * on the std::stop_token passed to it.
+ * Usage: create a receiver with a callback and the USRP's parameters, then
+ * call run(). It reads samples from the USRP and runs them through the receiver
+ * chain on the calling thread, and calls the callback with the payloads
+ * decoded from each batch of samples. It returns once a stop is requested on
+ * the std::stop_token passed to it.
+ *
+ * The callback runs on the same thread that reads from the USRP, so a slow
+ * callback delays the next read, and the USRP can overflow and drop samples.
  */
 class receiver {
  public:
   /*!
-   * \brief Constructor for the receiver
-   * \param callback Function pointer to the callback function where received
-   * packets are passed
-   * \param params [Optional] The usrp parameters you want to use for this
-   * receiver. Defaults to the defaults in #usrp_params. The tx gain and
-   * amplitude are irrelevant for the receiver.
+   * \brief Opens the USRP, which starts its RX stream, and starts the receiver
+   * chain's threads.
+   * \param callback Called with the payloads decoded from each batch of
+   * samples, which passed their CRC-32. It's called after every batch, with an
+   * empty vector if none were decoded.
+   * \param params The USRP's parameters. Defaults to the defaults in
+   * #usrp_params. The transmit gain and amplitude aren't used.
+   * \throws Whatever usrp::usrp() throws, if the device can't be opened or a
+   * gain is out of range.
+   *
+   * Call run() soon after: the RX stream is already running, and the USRP
+   * overflows if its samples aren't read.
    */
   receiver(void (*callback)(std::vector<std::vector<std::uint8_t>> packets),
            usrp_params params = usrp_params());
@@ -55,17 +68,15 @@ class receiver {
   void run(std::stop_token stop);
 
  private:
-  void (*m_callback)(std::vector<std::vector<std::uint8_t>>
-                         packets);  //!< Callback function pointer
+  //! Called with the payloads decoded from each batch of samples
+  void (*m_callback)(std::vector<std::vector<std::uint8_t>> packets);
 
-  usrp m_usrp;  //!< The usrp object used to receiver frames over the air
+  usrp m_usrp;  //!< Reads the samples from the air
 
-  receiver_chain m_rec_chain;  //!< The receiver chain object used to detect &
-                               //!< decode incoming frames
+  receiver_chain m_rec_chain;  //!< Detects and decodes frames in the samples
 
-  std::vector<std::complex<double>>
-      m_samples;  //!< Vector to hold the raw samples received from the USRP and
-                  //!< passed into the receiver_chain
+  //! The latest batch of samples read from the USRP
+  std::vector<std::complex<double>> m_samples;
 };
 
 }  // namespace fun

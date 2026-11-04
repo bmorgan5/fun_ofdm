@@ -34,7 +34,8 @@ libraries.
 
 ## Layout
 
-- `src/`: the PHY blocks and the `fun-ofdm` tool (`main.cpp`).
+- `src/`: `fun-ofdm` (`main.cpp`). The PHY blocks are in `src/phy/`, and the
+  USRP wrapper is in `src/usrp/`.
 - `third_party/`: Bazel targets for FFTW and UHD, from the sysroot.
 - `bazel/sysroot/`: builds the sysroot from Ubuntu packages.
 - `platforms/`: the target platforms.

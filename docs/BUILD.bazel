@@ -8,6 +8,7 @@ doxygen(
     name = "docs",
     srcs = [
         "//:README.md",
+        "//src:README.md",
         "//src/phy:README.md",
     ],
     always_detailed_sec = True,
