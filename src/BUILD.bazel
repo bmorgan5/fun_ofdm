@@ -54,6 +54,7 @@ cc_library(
     srcs = [src],
     deps = [
         ":tools",
+        "//src/phy:test_util",
         "@googletest//:gtest_main",
     ],
 ) for src in glob(["*_test.cpp"])]
