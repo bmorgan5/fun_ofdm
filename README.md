@@ -18,7 +18,7 @@ and run the latest release from
 [releases](https://github.com/bmorgan5/fun_ofdm/releases):
 
 ```bash
-RELEASE=TODO
+RELEASE=2.0.0
 ARCHIVE=fun-ofdm-v$RELEASE-linux-x86_64
 gh release download "v$RELEASE" --repo bmorgan5/fun_ofdm --pattern "$ARCHIVE.tar.gz"
 gh attestation verify "$ARCHIVE.tar.gz" --repo bmorgan5/fun_ofdm
