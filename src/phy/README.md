@@ -28,7 +28,7 @@ each of them at the same time. Each group of 64 points is one OFDM *symbol*.
   making 80 samples. Echoes of the previous symbol die out inside this copy, so
   they don't corrupt the 64 samples the receiver actually uses.
 
-The sample rate is the channel bandwidth, which `fun-ofdm` sets to 5 MHz.
+The sample rate is the channel bandwidth (`--bandwidth`, 5 MHz by default).
 802.11a's standard 20 MHz gives 312.5 kHz subcarriers and 4 µs symbols; at
 5 MHz everything takes four times as long.
 
@@ -41,9 +41,9 @@ On the air, it's a burst of complex baseband samples, in time order. Each sample
 is one complex number, I + jQ, which the USRP turns into the radio signal around
 the centre frequency, and there's one per cycle of the sample rate. This is
 the standard's figure 110, in samples, with the times at 802.11a's 20 MHz (four
-times as long at `fun-ofdm`'s 5 MHz):
+times as long at the default 5 MHz):
 
-```
+```text
  ┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬─────┬──────┬──────┬────┬────────┬────┬────────┬─────
  │ t1│ t2│ t3│ t4│ t5│ t6│ t7│ t8│ t9│t10│ GI2 │  T1  │  T2  │ GI │ SIGNAL │ GI │ Data 1 │ ...
  └───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴─────┴──────┴──────┴────┴────────┴────┴────────┴─────
@@ -66,7 +66,7 @@ times as long at `fun-ofdm`'s 5 MHz):
 Before coding, those symbols carry these bits. This is the standard's figure
 107, with sizes in bits:
 
-```
+```text
              ├─────────────────── PLCP header ────────────────────┤
              ┌──────┬──────────┬────────┬────────┬──────┬─────────┬────────────┬──────┬─────┐
              │ RATE │ Reserved │ LENGTH │ Parity │ Tail │ SERVICE │ PSDU       │ Tail │ Pad │
@@ -99,7 +99,7 @@ Before coding, those symbols carry these bits. This is the standard's figure
 
 The sizes follow from LENGTH and the rate's data bits per symbol (`dbps`):
 
-```
+```text
 DATA bits  = SERVICE + PSDU                + Tail
            = 16      + 8 × (LENGTH + 4)    + 6
 N          = ceil(DATA bits / dbps)
@@ -110,7 +110,7 @@ samples    = preamble + SIGNAL + DATA
 
 For example, a 100-byte payload at 3/4 16-QAM, where `dbps = 144`:
 
-```
+```text
 DATA bits  = 16 + 8 × (100 + 4) + 6   = 854
 N          = ceil(854 / 144)          = 6
 Pad bits   = 6 × 144 − 854            = 10
