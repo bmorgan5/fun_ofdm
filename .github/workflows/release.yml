@@ -1,0 +1,102 @@
+# Turns a pushed v* tag into a draft release, with the release notes from
+# docs/releases/<tag>.md, an archive of the binaries for each architecture,
+# SHA256SUMS and a build provenance attestation for each archive. Read the
+# draft on GitHub, then publish it.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.arch }})
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-26.04
+          # TODO(arm64): Add once the code builds for arm64.
+          # - arch: aarch64
+          #   runner: ubuntu-26.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      # For the provenance attestation.
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Its own disk cache, so a release never builds from a PR's outputs.
+      - uses: bazel-contrib/setup-bazel@104e3eea9447cdaa4b00d0fb46191a3985d26ab3 # 0.19.1
+        with:
+          bazelisk-cache: true
+          disk-cache: release-${{ matrix.arch }}
+          repository-cache: true
+      # The version lives in MODULE.bazel, and the binary's --version comes
+      # from it, so the tag must match it.
+      - name: Check the tag matches the version and has release notes
+        run: |
+          version=$(sed -n 's/^ *version = "\([^"]*\)".*/\1/p' MODULE.bazel | head -1)
+          if [[ "v$version" != "$GITHUB_REF_NAME" ]]; then
+            echo "::error::The tag $GITHUB_REF_NAME doesn't match the version in MODULE.bazel ($version)."
+            exit 1
+          fi
+          notes="docs/releases/$GITHUB_REF_NAME.md"
+          if [[ ! -f "$notes" ]]; then
+            echo "::error::There are no release notes: $notes is missing."
+            exit 1
+          fi
+          # The heading is the release's title, so it must name the version.
+          title=$(sed -n 's/^# *//p' "$notes" | head -1)
+          if [[ "$title" != "$GITHUB_REF_NAME "* ]]; then
+            echo "::error::The first heading of $notes must start with $GITHUB_REF_NAME: it's \"$title\"."
+            exit 1
+          fi
+      - run: bazel test //...
+      - run: bazel run //:install
+      - name: Package
+        run: |
+          name=fun-ofdm-$GITHUB_REF_NAME-linux-${{ matrix.arch }}
+          mkdir -p dist/$name
+          cp -r out/linux_${{ matrix.arch }}/. dist/$name/
+          cp LICENSE dist/$name/
+          tar -C dist -czf dist/$name.tar.gz $name
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/*.tar.gz
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-${{ matrix.arch }}
+          path: dist/*.tar.gz
+
+  # A job of its own, so the job that can write to the repo doesn't build or
+  # run anything from it.
+  release:
+    needs: build
+    runs-on: ubuntu-26.04
+    permissions:
+      # To create the release.
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      # The title is the notes' first heading, i.e. "v2.0.0 Modernize".
+      - name: Create a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="docs/releases/$GITHUB_REF_NAME.md"
+          (cd dist && sha256sum *.tar.gz > SHA256SUMS)
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --draft --verify-tag \
+            --title "$(sed -n 's/^# *//p' "$notes" | head -1)" \
+            --notes-file "$notes"
