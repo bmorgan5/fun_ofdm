@@ -178,7 +178,7 @@ Lost packets are counted from sequence number 0, so start the receiver before th
 
 # Usage #
 
-This project was developed as a library for furthering wireless communications research in the Fundamentals of Networking lab (FUNLAB) at the University of Washington and is released under GPL V2 for anybody to use/modify however they like.
+This project was developed as a library for furthering wireless communications research in the Fundamentals of Networking lab (FUNLAB) at the University of Washington and is released under the [GNU GPL version 3](LICENSE) or later (`GPL-3.0-or-later`).
 
 The full API is available on the funlab website: [fun_ofdm API](http://www.ee.washington.edu/research/funlab/fun_ofdm/index.html).
 
