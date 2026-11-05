@@ -70,6 +70,12 @@ libraries.
     always fits, and `static_cast` otherwise. Better still, pick types that
     don't need a cast.
 - **Moving files.** Use `git mv`, so history follows the file.
+- **Docs.** Markdown follows Google's
+  [Markdown style guide](https://google.github.io/styleguide/docguide/style.html):
+  80 columns, except for links, tables, headings and code blocks. Docs follow
+  its [minimum viable documentation](https://google.github.io/styleguide/docguide/best_practices.html#minimum-viable-documentation)
+  principle: keep them short and current, and link to the code, `--help` or
+  another doc instead of repeating it.
 
 ## Workflow
 
