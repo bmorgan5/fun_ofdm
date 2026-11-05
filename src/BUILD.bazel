@@ -19,6 +19,9 @@ _BINARY_SRCS = [
 cc_binary(
     name = "fun-ofdm",
     srcs = _BINARY_SRCS,
+    # For --version: the version in MODULE.bazel, which is the only place it's
+    # written.
+    local_defines = ['FUN_OFDM_VERSION=\\"%s\\"' % module_version()],
     visibility = [
         "//:__pkg__",
         "//docs:__pkg__",

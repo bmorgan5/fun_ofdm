@@ -311,7 +311,7 @@ static std::jthread stop_on_signals(std::stop_source stop) {
 
 int main(int argc, char* argv[]) {
   CLI::App app("802.11a OFDM PHY for Ettus USRPs", "fun-ofdm");
-  app.set_version_flag("--version", "2.0.0");  // Keep in step with MODULE.bazel
+  app.set_version_flag("--version", FUN_OFDM_VERSION);  // From src/BUILD.bazel
   app.require_subcommand(1);
 
   tx_options tx_opts;

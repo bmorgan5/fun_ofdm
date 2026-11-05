@@ -22,7 +22,7 @@ doxygen(
     inline_sources = True,
     project_brief = "802.11a Physical Layer for USRP",
     project_name = "fun_ofdm",
-    project_number = "2.0.0",
+    project_number = module_version(),
     referenced_by_relation = True,
     references_relation = True,
     source_browser = True,
