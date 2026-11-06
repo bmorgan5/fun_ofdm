@@ -12,6 +12,8 @@ doxygen(
         "//src/phy:README.md",
     ],
     always_detailed_sec = True,
+    # Doxygen only runs on x86_64: it has no aarch64 Linux release.
+    exec_compatible_with = ["@platforms//cpu:x86_64"],
     extract_all = True,
     extract_local_methods = True,
     extract_package = True,

@@ -17,11 +17,10 @@ jobs:
     strategy:
       matrix:
         include:
+          - arch: aarch64
+            runner: ubuntu-26.04-arm
           - arch: x86_64
             runner: ubuntu-26.04
-          # TODO(arm64): Add once the code builds for arm64.
-          # - arch: aarch64
-          #   runner: ubuntu-26.04-arm
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read

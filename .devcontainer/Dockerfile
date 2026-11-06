@@ -29,7 +29,7 @@ RUN apt update && apt install -y --no-install-recommends \
 RUN locale-gen en_US.UTF-8
 
 # Use bsdtar as `tar`. GNU tar on this release extracts with the openat2
-# syscall, which Rosetta (x86-64 emulation on Apple Silicon) doesn't
+# syscall, which Rosetta (x86_64 emulation on Apple Silicon) doesn't
 # implement, so every extraction fails with "Function not implemented".
 # That breaks VS Code, which unpacks its server with `tar` whenever VS Code
 # updates. /usr/local/bin comes before /usr/bin on PATH.
@@ -72,6 +72,13 @@ RUN arch=$(dpkg --print-architecture) \
 # reads /etc/bazel.bazelrc on every run. It's still under ~/.cache/bazel, on
 # the volume that keeps Bazel's cache across rebuilds.
 RUN echo 'startup --output_base=/home/ubuntu/.cache/bazel/fun_ofdm' > /etc/bazel.bazelrc
+
+# A link to Bazel's sysroot (not the system's) for the container's
+# architecture, for IntelliSense in devcontainer.json. It dangles until the
+# first build downloads the sysroot.
+RUN mkdir -p /usr/local/share/fun_ofdm \
+    && ln -s "/home/ubuntu/.cache/bazel/fun_ofdm/external/+sysroot+sysroot_linux_$(uname -m)/sysroot" \
+        /usr/local/share/fun_ofdm/bazel_sysroot
 
 # buildifier, which formats and lints Bazel files (used by the VS Code Bazel
 # extension, which looks for it on PATH).

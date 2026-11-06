@@ -19,6 +19,7 @@ find "$sysroot" ! -type d \
     ! -path "$sysroot/usr/include/*" \
     ! -path "$sysroot/usr/lib/$multiarch/*" \
     ! -path "$sysroot/usr/lib/gcc/$multiarch/*" \
+    ! -path "$sysroot/usr/lib/ld-linux-*" \
     ! -path "$sysroot/usr/lib64/*" \
     -delete
 find "$sysroot" -mindepth 1 -depth -type d -empty -delete

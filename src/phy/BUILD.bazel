@@ -17,7 +17,7 @@ cc_library(
         ["*.h"],
         exclude = ["test_util.h"],
     ),
-    # The Viterbi decoder uses SSE intrinsics.
+    # The Viterbi decoder uses SSE intrinsics, through sse2neon on aarch64.
     copts = select({
         "@platforms//cpu:x86_64": [
             "-mssse3",
@@ -26,7 +26,10 @@ cc_library(
         "//conditions:default": [],
     }),
     visibility = ["//src:__subpackages__"],
-    deps = ["//third_party:fftw3"],
+    deps = ["//third_party:fftw3"] + select({
+        "@platforms//cpu:aarch64": ["@sse2neon"],
+        "//conditions:default": [],
+    }),
 )
 
 # Helpers shared by the tests.

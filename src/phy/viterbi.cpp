@@ -8,11 +8,21 @@ data
 
 #include "viterbi.h"
 
+#include <stdlib.h>  // posix_memalign, which isn't in <cstdlib>
+
+#if defined(__aarch64__)
+// The SSE intrinsics, on NEON. sse2neon warns that optimized builds can
+// change floating-point results, but the decoder only uses integers.
+#define SSE2NEON_SUPPRESS_WARNINGS
+#include "sse2neon.h"
+#elif defined(__x86_64__)
 #include <emmintrin.h>
 #include <mmintrin.h>
 #include <pmmintrin.h>
-#include <stdlib.h>  // posix_memalign, which isn't in <cstdlib>
 #include <xmmintrin.h>
+#else
+#error "The Viterbi decoder needs NEON (aarch64) or SSE (x86_64)."
+#endif
 
 #include <cstddef>
 #include <cstdint>

@@ -165,6 +165,10 @@ flowchart TD
 Decoding the data is the transmit coding in reverse: demodulate (to soft bits),
 deinterleave, depuncture, Viterbi decode, descramble, check the CRC.
 
+The Viterbi decoder is SSE code. On aarch64,
+[sse2neon](https://github.com/DLTcollab/sse2neon) translates it to NEON.
+**TODO:** port it to NEON.
+
 ## Reading order
 
 Follow the transmit chain, then the receive chain. Each block's test shows

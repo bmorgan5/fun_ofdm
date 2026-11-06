@@ -1,11 +1,9 @@
 {
     "name": "fun_ofdm",
     "build": {
-        "dockerfile": "Dockerfile",
-        "options": ["--platform=linux/amd64"]
+        "dockerfile": "Dockerfile"
     },
     "runArgs": [
-        "--platform=linux/amd64",
         // No seccomp filter, so ThreadSanitizer (`--config=tsan`) can start.
         // On a kernel with high mmap randomization, TSan re-runs itself with
         // randomization off, through personality(), which Docker's default
@@ -45,22 +43,21 @@
                 "ms-vscode.cpptools"
             ],
             "settings": {
-                // IntelliSense with the same compiler and headers as the Bazel
-                // build: the hermetic clang and sysroot, and the external
-                // repos. They're in Bazel's output base, which the Dockerfile
-                // fixes at /home/ubuntu/.cache/bazel/fun_ofdm. Build once
-                // (`bazel build //...`) so they're downloaded.
+                // IntelliSense uses the same clang, sysroot and external repos
+                // as a Bazel build for the container's architecture. They're
+                // all in Bazel's output base, so run `bazel build //...` once
+                // to download them.
                 "C_Cpp.default.compilerPath": "/home/ubuntu/.cache/bazel/fun_ofdm/external/toolchains_llvm++llvm+llvm_toolchain_llvm/bin/clang++",
                 "C_Cpp.default.compilerArgs": [
-                    "--target=x86_64-unknown-linux-gnu",
-                    "--sysroot=/home/ubuntu/.cache/bazel/fun_ofdm/external/+sysroot+sysroot_linux_x86_64/sysroot"
+                    // Bazel's sysroot, through a link the Dockerfile makes.
+                    "--sysroot=/usr/local/share/fun_ofdm/bazel_sysroot"
                 ],
                 "C_Cpp.default.cppStandard": "c++23",
-                "C_Cpp.default.intelliSenseMode": "linux-clang-x64",
                 "C_Cpp.default.includePath": [
                     // For includes like "src/phy/frame_builder.h".
                     "${workspaceFolder}",
                     "/home/ubuntu/.cache/bazel/fun_ofdm/external/cli11+/include",
+                    "/home/ubuntu/.cache/bazel/fun_ofdm/external/sse2neon+", // aarch64 only.
                     "/home/ubuntu/.cache/bazel/fun_ofdm/external/googletest+/googletest/include",
                     "/home/ubuntu/.cache/bazel/fun_ofdm/external/googletest+/googlemock/include"
                 ]

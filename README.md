@@ -40,7 +40,8 @@ It exits with status 0 on PASS and 1 on FAIL.
 
 ## Requirements
 
-`fun-ofdm` runs on x86-64 Ubuntu 26.04 with Ettus's UHD library:
+`fun-ofdm` requires an aarch64 or x86_64 machine running ubuntu 26.04 (older
+versions not tested) with Ettus's UHD library installed.
 
 ```bash
 sudo apt install libuhd4.9.0
@@ -87,13 +88,14 @@ bazel run fun-ofdm -- sim  # Builds the binary and runs sim
 bazel run coverage         # Coverage, with an HTML report in out/coverage/
 bazel run format           # Formats the C++ and Bazel files
 bazel run install          # Copies the binary to out/<platform>/bin/
-bazel build //docs         # The API docs, in bazel-bin/docs/html/
+bazel build //docs         # The API docs, in bazel-bin/docs/html/ (x86_64 only)
 ```
 
 Every build is a cross compile against an Ubuntu 26.04 sysroot, built from a
 dated snapshot of the Ubuntu archive (`UBUNTU_SNAPSHOT` in `MODULE.bazel`),
-so the build never uses the host's compiler or libraries. Only x86-64 builds
-for now, because the code uses SSE intrinsics.
+so the build never uses the host's compiler or libraries. Builds target the
+host's architecture by default; `--config=aarch64` or `--config=x86_64` cross
+compiles from either.
 
 Outside the dev container, running the binary needs the
 [requirements](#requirements) above, though the build doesn't. Also enable the
