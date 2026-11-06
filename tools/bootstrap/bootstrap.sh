@@ -113,14 +113,16 @@ fi
 # The programs to install in /usr/local/bin, each downloaded from its URL and
 # checked against its SHA-256 for this architecture.
 programs=()
-declare -A program_version program_url program_sha256
+declare -A program_version program_url program_sha256 program_files
 
-# Adds program $1, version $2, from URL $3 with SHA-256 $4.
+# Adds program $1, version $2, from URL $3 with SHA-256 $4. The download is
+# the program itself, or a .tar.gz with the files named after that.
 add_program() {
     programs+=("$1")
     program_version[$1]=$2
     program_url[$1]=$3
     program_sha256[$1]=$4
+    program_files[$1]=${*:5}
 }
 
 # Bazel, through bazelisk, which runs the version in .bazelversion.
@@ -145,13 +147,31 @@ add_program buildifier "$BUILDIFIER_VERSION" \
     "https://github.com/bazelbuild/buildtools/releases/download/v$BUILDIFIER_VERSION/buildifier-linux-$arch" \
     "${BUILDIFIER_SHA256[$arch]}"
 
-# Installs program $1, unless the file in /usr/local/bin already has the
-# expected SHA-256 and this isn't --reinstall.
+# uv, which installs Python and the Python tools' packages (pyproject.toml).
+# Keep the version in step with the python job in .github/workflows/ci.yml.
+UV_VERSION=0.13.7
+declare -A UV_ARCH=([amd64]=x86_64 [arm64]=aarch64)
+declare -A UV_SHA256=(
+    [amd64]=c5221ff41b7892bfc223543883600125f6a47fe845093e0f5bdff4f359196d83
+    [arm64]=71279f8d3c67241e807b9d8db872d1bf541579fb9f08b7d1eb1682196d1e57dc
+)
+add_program uv "$UV_VERSION" \
+    "https://github.com/astral-sh/uv/releases/download/$UV_VERSION/uv-${UV_ARCH[$arch]}-unknown-linux-gnu.tar.gz" \
+    "${UV_SHA256[$arch]}" uv uvx
+
+# Installs program $1, unless it's already the pinned version and this isn't
+# --reinstall. A program downloaded as itself is the pinned version if it has
+# the expected SHA-256. One from a .tar.gz, whose SHA-256 is the archive's,
+# is if its --version says so.
 install_program() {
-    local name=$1 dest=/usr/local/bin/$1 installed=false tmp
+    local name=$1 dest=/usr/local/bin/$1 installed=false tmp file
     local version=${program_version[$1]} url=${program_url[$1]}
-    local sha256=${program_sha256[$1]}
-    if [[ -f "$dest" ]] && echo "$sha256  $dest" | sha256sum --check --status; then
+    local sha256=${program_sha256[$1]} files=${program_files[$1]}
+    if [[ -z "$files" ]]; then
+        if [[ -f "$dest" ]] && echo "$sha256  $dest" | sha256sum --check --status; then
+            installed=true
+        fi
+    elif [[ -x "$dest" && "$("$dest" --version 2>/dev/null)" == "$name $version "* ]]; then
         installed=true
     fi
     if $installed && ! $reinstall; then
@@ -168,13 +188,23 @@ install_program() {
         fi
         echo "  Download: $url"
         echo "  Expected SHA-256 of the download: $sha256"
+        if [[ -n "$files" ]]; then
+            echo "  Files from the download: $files"
+        fi
         return
     fi
-    tmp=$(mktemp)
-    curl -fsSL -o "$tmp" "$url"
-    echo "$sha256  $tmp" | sha256sum --check --strict --quiet
-    install -m 755 "$tmp" "$dest"
-    rm "$tmp"
+    tmp=$(mktemp -d)
+    curl -fsSL -o "$tmp/download" "$url"
+    echo "$sha256  $tmp/download" | sha256sum --check --strict --quiet
+    if [[ -z "$files" ]]; then
+        install -m 755 "$tmp/download" "$dest"
+    else
+        tar -xzf "$tmp/download" -C "$tmp" --strip-components=1
+        for file in $files; do
+            install -m 755 "$tmp/$file" /usr/local/bin/
+        done
+    fi
+    rm -r "$tmp"
     echo "Installed $name ($version)."
 }
 

@@ -29,14 +29,26 @@
         "source=fun_ofdm-bazel-cache,target=/home/ubuntu/.cache/bazel,type=volume"
     ],
     "containerEnv": {
-        "CLAUDE_CONFIG_DIR": "/home/ubuntu/.claude"
+        "CLAUDE_CONFIG_DIR": "/home/ubuntu/.claude",
+        // Where `uv sync` puts the Python tools' venv. By default that's .venv
+        // in the checkout, which the host shares, but a venv only works with
+        // the Python it was made with. So the container keeps its own here,
+        // and the host keeps .venv.
+        "UV_PROJECT_ENVIRONMENT": "/home/ubuntu/.venv"
     },
 
     "remoteUser": "ubuntu",
 
-    // Enable the pre-commit hook and have git blame skip the reformat commit.
-    // This writes to .git/config, so it applies to the host's checkout too.
-    "postCreateCommand": "git config core.hooksPath tools/githooks && git config blame.ignoreRevsFile .git-blame-ignore-revs",
+    // Each command runs in parallel with the others.
+    "postCreateCommand": {
+        // Enable the pre-commit hook and have git blame skip the reformat
+        // commit. This writes to .git/config, so it applies to the host's
+        // checkout too. One command, since two git configs at once would
+        // race for .git/config's lock.
+        "git": "git config core.hooksPath tools/githooks && git config blame.ignoreRevsFile .git-blame-ignore-revs",
+        // Install Python and the Python tools' packages, from uv.lock.
+        "uv": "uv sync"
+    },
 
     // git authenticates to GitHub through the GitHub CLI; point out a missing login
     "postStartCommand": "gh auth status --hostname github.com >/dev/null 2>&1 || echo \"Not logged in to GitHub, so git push/pull won't work. Run 'gh auth login' to log in.\"",
@@ -45,11 +57,17 @@
         "vscode": {
             "extensions": [
                 "anthropic.claude-code",
+                "astral-sh.ty",
                 "BazelBuild.vscode-bazel",
+                "charliermarsh.ruff",
                 "GitHub.vscode-github-actions",
+                "ms-python.python",
                 "ms-vscode.cpptools"
             ],
             "settings": {
+                // The Python tools' environment, which `uv sync` makes outside
+                // the checkout (UV_PROJECT_ENVIRONMENT, above).
+                "python.defaultInterpreterPath": "/home/ubuntu/.venv/bin/python",
                 // IntelliSense uses the same clang, sysroot and external repos
                 // as a Bazel build for the container's architecture. They're
                 // all in Bazel's output base, so run `bazel build //...` once

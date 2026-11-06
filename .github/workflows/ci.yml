@@ -166,3 +166,20 @@ jobs:
           bazelisk-cache: true
           repository-cache: true
       - run: bazel run //:format.check
+
+  # The Python tools (pyproject.toml): formatting, lint, types and their own
+  # tests. --locked fails if uv.lock is out of date.
+  python-tools:
+    # main only gets commits from PRs that passed it.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          # Keep in step with tools/bootstrap/bootstrap.sh.
+          version: 0.13.7
+      - run: uv run --locked ruff format --check
+      - run: uv run --locked ruff check
+      - run: uv run --locked ty check
+      - run: uv run --locked pytest

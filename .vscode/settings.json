@@ -10,6 +10,28 @@
     "editor.formatOnSave": true
   },
 
+  // Format Python on save, and sort its imports, with ruff, and check types
+  // with ty instead of Pylance. Both from uv.lock, in the project's
+  // environment, so they match CI.
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "ruff.importStrategy": "fromEnvironment",
+  "ty.importStrategy": "fromEnvironment",
+  "python.languageServer": "None",
+
+  // Don't activate the venv in new terminals, which also puts its name in the
+  // prompt. Commands run in it through `uv run` instead.
+  "python.terminal.activateEnvironment": false,
+
+  // pytest finds the tests from pyproject.toml.
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+
   // Only index our own code. The bazel-* symlinks lead to Bazel's whole
   // output base, which is huge.
   "C_Cpp.default.browse.path": ["${workspaceFolder}/src"],
