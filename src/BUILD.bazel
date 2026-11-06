@@ -19,6 +19,8 @@ _BINARY_SRCS = [
 cc_binary(
     name = "fun-ofdm",
     srcs = _BINARY_SRCS,
+    # For running under qemu (tools/qemu).
+    data = ["//third_party:sysroot"],
     # For --version: the version in MODULE.bazel, which is the only place it's
     # written.
     local_defines = ['FUN_OFDM_VERSION=\\"%s\\"' % module_version()],
@@ -58,6 +60,8 @@ cc_library(
     name = src.removesuffix(".cpp"),
     size = "small",
     srcs = [src],
+    # For running under qemu (tools/qemu).
+    data = ["//third_party:sysroot"],
     deps = [
         ":tools",
         "//src/phy:test_util",

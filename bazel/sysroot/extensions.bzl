@@ -58,10 +58,12 @@ def _parse_index(
 
 def _excluded(name: str, patterns: list[str]) -> bool:
     for pattern in patterns:
-        if pattern.endswith("*"):
-            if name.startswith(pattern[:-1]):
+        prefix, star, suffix = pattern.partition("*")
+        if not star:
+            if name == pattern:
                 return True
-        elif name == pattern:
+        elif (len(name) >= len(prefix) + len(suffix) and
+              name.startswith(prefix) and name.endswith(suffix)):
             return True
     return False
 
@@ -188,7 +190,7 @@ _deb = tag_class(
             doc = "Archive components to take packages from.",
         ),
         "exclude_packages": attr.string_list(
-            doc = "Packages whose files and dependencies are left out. A trailing `*` matches a prefix.",
+            doc = "Packages whose files and dependencies are left out. One `*` in a pattern matches any characters.",
         ),
         "mirror": attr.string(
             mandatory = True,

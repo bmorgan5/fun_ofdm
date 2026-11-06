@@ -51,9 +51,12 @@ SYSROOT_PACKAGES = [
 ]
 
 # Dependencies of libuhd-dev that nothing here compiles or links against.
+# libpython itself stays: libuhd loads it, so binaries need it to run under
+# qemu (tools/qemu), with the sysroot as their root. Its standard library
+# doesn't.
 SYSROOT_EXCLUDE_PACKAGES = [
     "libboost-python*",
-    "libpython*",
+    "libpython*-stdlib",
     "python*",
 ]
 

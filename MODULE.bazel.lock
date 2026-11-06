@@ -265,8 +265,8 @@
   "moduleExtensions": {
     "//bazel/sysroot:extensions.bzl%sysroot": {
       "general": {
-        "bzlTransitiveDigest": "RP4J77qRxvkJjatFfQ+/9JBYSN/rLhaektoBFkF6AJk=",
-        "usagesDigest": "8vnYhHB/apvkWBzwmDzxWBJHxwA6Thp6Z3vKjNR/jUI=",
+        "bzlTransitiveDigest": "LpKWhh9PGTnQCr4Saa9k5YtcSknvjIgNHjaImSVt40E=",
+        "usagesDigest": "0ZUOSwtKSIjI3HTXRoAZ/L0ZuXGPJEbkrzqBzH50QHs=",
         "recordedInputs": [],
         "generatedRepoSpecs": {
           "sysroot_linux_aarch64": {
@@ -315,6 +315,7 @@
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/glibc/libc-gconv-modules-extra_2.43-2ubuntu2.4_arm64.deb": "9d4d8cfb9e75eb6c7324c5d9c548eb5eaa4ea584fe27627069a9bdad35818eda",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/glibc/libc6_2.43-2ubuntu2.4_arm64.deb": "1652597c8c3419b298d8a87dd3d8eea1fdc5a1abd9bccb5a66b928f92ec463c9",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/glibc/libc6-dev_2.43-2ubuntu2.4_arm64.deb": "f6f7705d3e6bb982c173a42cc5b2516eddebe2d846c4861ee7d7c9d66ebee916",
+                "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/e/expat/libexpat1_2.7.4-1ubuntu0.2_arm64.deb": "c553cf5827f937f92b65fcea86c1b19c18224ff0533bc30305e0dbfd32c197ff",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/f/fftw3/libfftw3-bin_3.3.10-2fakesync1build3_arm64.deb": "fc93b43f6ae162a7c3779326ca5c7403fc9b1fb7efde71916414cf4d001d5a15",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/f/fftw3/libfftw3-dev_3.3.10-2fakesync1build3_arm64.deb": "c5f0520845d2b1ccdec9b3ba6f7a94a90c11b29d905ad6d2f33735b10a1739c5",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/f/fftw3/libfftw3-double3_3.3.10-2fakesync1build3_arm64.deb": "5e8528a56a99c63d2f368e3b1b4315c3052338da0f3a4268ef3365d35abca4f0",
@@ -326,6 +327,7 @@
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/gcc-16/libhwasan0_16-20260322-1ubuntu1_arm64.deb": "1ebe901005e414249d062eb0cee54b1d0b17f777913c28d321a3dfd648561583",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/gcc-16/libitm1_16-20260322-1ubuntu1_arm64.deb": "190e0d37e04565c1ccd34869b3eb7af6600c9196689c102d43046ad370aef49c",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/gcc-16/liblsan0_16-20260322-1ubuntu1_arm64.deb": "b969830163936911594c3f60e1c525171ac78e46760e3734aa8197e13dfc6d74",
+                "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/p/python3.14/libpython3.14_3.14.4-1ubuntu0.2_arm64.deb": "a449408c4497f010bda98928d31e00d133fff5be22832d0551c521b3d4de4842",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/gcc-15/libstdc++-15-dev_15.2.0-16ubuntu1_arm64.deb": "f3a53cb1834a15fda5b509332a0f473ca4f1f0dd9a04da355c939df449914f9b",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/gcc-16/libstdc++6_16-20260322-1ubuntu1_arm64.deb": "4ec527bc695f4221b97aee9ac0c2f4f068b514a810db5d18465a8636dc5b2948",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/gcc-16/libtsan2_16-20260322-1ubuntu1_arm64.deb": "ad3d232427bf5c2c3ba8e048db2d083f5eca14c9ef813630df0073b7f9fc8904",
@@ -335,7 +337,8 @@
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/universe/u/uhd/libuhd4.9.0_4.9.0.1-1ubuntu1_arm64.deb": "cf769e111c736f999e27dbaf8aebbaf7553a0d19b0df764e9f09e926a4cb4544",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/libu/libusb-1.0/libusb-1.0-0_1.0.29-2build1_arm64.deb": "e55b309b6d7d530d5609e59d63425347294e3041863d6aca274843533ed9c3f7",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/l/linux/linux-libc-dev_7.0.0-38.38_arm64.deb": "217f6c4a5c6cb56b985cbf05a8f276dda69bc2c47f7849363633fed1c44985b7",
-                "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/r/rpcsvc-proto/rpcsvc-proto_1.4.3-1build1_arm64.deb": "1d9b9424baee119a4c654e5c9d4a35638468996c74a6b493d07ad44693bf6f33"
+                "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/r/rpcsvc-proto/rpcsvc-proto_1.4.3-1build1_arm64.deb": "1d9b9424baee119a4c654e5c9d4a35638468996c74a6b493d07ad44693bf6f33",
+                "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/z/zlib/zlib1g_1.3.dfsg+really1.3.1-1ubuntu3.2_arm64.deb": "b9b5ce1528ac7f885c8ff7dc2314c89c2ba5dd973c2a793dc4cf5d02d74b3810"
               }
             }
           },
@@ -385,6 +388,7 @@
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/glibc/libc-gconv-modules-extra_2.43-2ubuntu2.4_amd64.deb": "c2194b87c7f628722036bbe9f9bbdf20c1ebdb05ecd68b7a3a52dd1a76f3c5d6",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/glibc/libc6_2.43-2ubuntu2.4_amd64.deb": "a613b457f3ff9c84ebd28af8a05afdec22605ad9aed87c71e3a6ae5170aeb9ca",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/glibc/libc6-dev_2.43-2ubuntu2.4_amd64.deb": "17bb816a65a25c3416854eef7e9cc6d9a3761f45bad0d44e49bc676b7bab1769",
+                "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/e/expat/libexpat1_2.7.4-1ubuntu0.2_amd64.deb": "0063e68d742facfd3c46d7d7df9eb0d85f13e0fc294908a4f138d45557607837",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/f/fftw3/libfftw3-bin_3.3.10-2fakesync1build3_amd64.deb": "95e7578d5fbed305f8a845b6d70c75166c692bee485ff729bc398c5c63c5ecef",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/f/fftw3/libfftw3-dev_3.3.10-2fakesync1build3_amd64.deb": "6cc74000944d3e8b0da9349ff49024e47996770745d194b2419eed43c59ce300",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/f/fftw3/libfftw3-double3_3.3.10-2fakesync1build3_amd64.deb": "a4d8d0682aecb3a9414d8938518f48d4d7433239172b7fc1458eb9690b75a323",
@@ -397,6 +401,7 @@
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/gcc-16/libhwasan0_16-20260322-1ubuntu1_amd64.deb": "6bd25c936289463c6472290d3b4377edf8dd4f5e3a07f356fb0adf2de04a8055",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/gcc-16/libitm1_16-20260322-1ubuntu1_amd64.deb": "ef841c269b5e9f324e38b1069f712a13c29237051f037847d1de79441dc3a9a2",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/gcc-16/liblsan0_16-20260322-1ubuntu1_amd64.deb": "c90895d3b6cd164fcb54def68c7dff74419f869c837fa607e3f54c1a0e742263",
+                "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/p/python3.14/libpython3.14_3.14.4-1ubuntu0.2_amd64.deb": "76c12c7936d7a2e898f972b8b40ec74f3b58f1a534e67e256e1aa9d28c6c43d8",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/gcc-16/libquadmath0_16-20260322-1ubuntu1_amd64.deb": "420e777fef436f397a85ddedde53fbb44f92c7ca8e87d581f9d86573859e1aa4",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/gcc-15/libstdc++-15-dev_15.2.0-16ubuntu1_amd64.deb": "9a400597b1db45cf51238c9eb556e211ec092d363cfb7ebebac627750ba56433",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/g/gcc-16/libstdc++6_16-20260322-1ubuntu1_amd64.deb": "a32b9ad585e39bdc7bd15d1eae6293461e6d466859a1dd2f7862d1e40f89b9d8",
@@ -407,7 +412,8 @@
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/universe/u/uhd/libuhd4.9.0_4.9.0.1-1ubuntu1_amd64.deb": "e30eb1df8ed25f249181c471896305fbd4eb45ae1c8c5149556786ca61ceaff2",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/libu/libusb-1.0/libusb-1.0-0_1.0.29-2build1_amd64.deb": "0f3f167c22d00994276b6425a306d1c0b6047e2ea2eb850afbdaf00968330484",
                 "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/l/linux/linux-libc-dev_7.0.0-38.38_amd64.deb": "0498bc9510149ef06abd6c09b8932e43c5bc71b68634b4b8f84488b2e0a20e82",
-                "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/r/rpcsvc-proto/rpcsvc-proto_1.4.3-1build1_amd64.deb": "d7102b9d3fd35fd7a66d94ba0765a9c8e87b2b80e3633ef4af401dd0c952bafd"
+                "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/r/rpcsvc-proto/rpcsvc-proto_1.4.3-1build1_amd64.deb": "d7102b9d3fd35fd7a66d94ba0765a9c8e87b2b80e3633ef4af401dd0c952bafd",
+                "https://snapshot.ubuntu.com/ubuntu/20261027T000000Z/pool/main/z/zlib/zlib1g_1.3.dfsg+really1.3.1-1ubuntu3.2_amd64.deb": "10084666f747247550c3e82f9a12cbfd9184c19241a42eb34d8893ecb8e03b35"
               }
             }
           }

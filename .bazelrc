@@ -19,10 +19,20 @@ build:aarch64 --platforms=//platforms:linux_aarch64
 build:x86_64 --platforms=//platforms:linux_x86_64
 
 # Bazel normally only builds a test for a machine it can run the test on, so a
-# cross build would fail on the tests. The test toolchain flag turns that off.
-# The tests then build, but only run on a machine of the target architecture.
+# cross build would fail on the tests. The test toolchain flag turns that off,
+# and qemu (below) runs them.
 build:aarch64 --@bazel_tools//tools/test:incompatible_use_default_test_toolchain=false
 build:x86_64 --@bazel_tools//tools/test:incompatible_use_default_test_toolchain=false
+
+# Tests and `bazel run` for the other architecture run under qemu
+# (tools/qemu), which needs qemu-user installed. The sanitizers only work in
+# native builds: the toolchain only has their runtimes for the host's
+# architecture.
+test:aarch64 --run_under=//tools/qemu
+test:x86_64 --run_under=//tools/qemu
+
+run:aarch64 --run_under=//tools/qemu
+run:x86_64 --run_under=//tools/qemu
 
 # Named configs for CI's test matrix (.github/workflows/ci.yml). opt is the
 # default build, named so the matrix can list it.

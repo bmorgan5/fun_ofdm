@@ -5,12 +5,14 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 # Development tools.
 RUN apt update && apt install -y --no-install-recommends \
+        binutils \
         ca-certificates \
         curl \
         git \
         libarchive-tools \
         locales \
         python3 \
+        qemu-user \
         sudo \
         vim \
     && rm -rf /var/lib/apt/lists/*
