@@ -22,17 +22,24 @@ libraries.
 | Copy the binary to `out/<platform>/bin/` | `bazel run install` |
 | Format the C++ and Starlark files | `bazel run format` |
 | Check formatting, changing nothing | `bazel run format.check` |
+| Install Python and the Python tools' packages | `uv sync` |
+| Test the Python tools (not the hardware tests) | `uv run pytest` |
+| Format and lint the Python tools | `uv run ruff format` and `uv run ruff check` |
+| Check the Python tools' types | `uv run ty check` |
+| Add a Python package | `uv add <package>` (`--dev` if only for development) |
 
 - Format before proposing a commit: `bazel run format.check` must pass. Run
   from the repo root, `bazel run format` formats every file;
-  `bazel run format -- <files>` formats only those.
+  `bazel run format -- <files>` formats only those. For Python files,
+  `uv run ruff format --check`, `uv run ruff check` and `uv run ty check`
+  must pass too.
 - Builds are optimized by default. Use `-c dbg` for a debug build.
 - Builds target the host's architecture by default. `--config=aarch64` and
   `--config=x86_64` cross compile from either host, and `bazel test` and
   `bazel run` then run the other architecture's binaries under qemu.
 - `rx` and `tx` need a USRP. Use `sim` to check a change end to end.
 - If a change touches `MODULE.bazel`, commit the updated `MODULE.bazel.lock`
-  with it.
+  with it. Likewise `pyproject.toml` and `uv.lock`.
 
 ## Layout
 
@@ -42,12 +49,15 @@ libraries.
 - `bazel/sysroot/`: builds the sysroot from Ubuntu packages.
 - `platforms/`: the target platforms.
 - `docs/`: the Doxygen build.
+- `tools/`: `bootstrap/`, the tools that Bazel runs (`coverage/`, `format/`,
+  `qemu/`), and the Python tools (`pyproject.toml`).
 
 ## Conventions
 
 - **Scope.** The project implements the OFDM PHYs: 802.11a, and later 802.11g.
 - **Dependencies.** Keep them minimal. Add one only when the alternative is
-  writing a lot of code, and fetch it through Bazel (`MODULE.bazel`). What
+  writing a lot of code. Build dependencies go through Bazel
+  (`MODULE.bazel`), and the Python tools' through uv (`pyproject.toml`). What
   the host needs, like apt packages or Bazel itself, goes in
   `tools/bootstrap/bootstrap.sh`, which the dev container runs too.
 - **Tests.** No randomness. Test data comes from a PRBS sequence, known

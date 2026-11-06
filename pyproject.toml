@@ -1,0 +1,48 @@
+# The Python tools and hardware tests, which run outside Bazel. uv installs
+# Python and these packages, with the versions pinned in uv.lock: `uv sync`.
+# Each package is added by the first tool that needs it.
+[project]
+name = "fun-ofdm-tools"
+version = "0.0.0"
+requires-python = ">=3.14"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2",
+    "ruff>=0.17.4",
+    "ty>=0.0.99",
+]
+
+[tool.uv]
+# Scripts and tests, not a package to build and install.
+package = false
+
+[tool.ruff]
+line-length = 80
+# Python files only: ruff also formats the code blocks in Markdown files.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+# On top of the defaults (pycodestyle errors and pyflakes): bugbear (B),
+# docstrings (D), import sorting (I), pytest style (PT), ruff's own rules
+# (RUF), simplifications (SIM) and pyupgrade (UP).
+extend-select = ["B", "D", "I", "PT", "RUF", "SIM", "UP"]
+
+[tool.ruff.lint.pydocstyle]
+# Google's style, like the rest of the repo.
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# A test's name says what it tests, so tests don't need docstrings. Fixtures
+# in conftest.py still do: `pytest --fixtures` shows them.
+"**/test_*.py" = ["D"]
+
+[tool.ty.terminal]
+# Warnings fail the check too, so CI catches them.
+error-on-warning = true
+
+[tool.pytest.ini_options]
+# The tools' own tests. Hardware tests need devices, so they only run when
+# named.
+testpaths = ["tools"]

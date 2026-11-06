@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Stops a commit if any staged C++ or Starlark file needs formatting. Enable it
-# once per clone:
+# Stops a commit if any staged C++, Starlark or Python file needs formatting.
+# Enable it once per clone:
 #
 #   git config core.hooksPath tools/githooks
 #
@@ -14,4 +14,13 @@ mapfile -d '' -t files < <(git diff --cached --name-only --diff-filter=ACMR -z)
 ((${#files[@]} > 0)) || exit 0
 
 # format.sh skips files that aren't C++ or Starlark.
-exec bazel run --noshow_progress --ui_event_filters=-info --show_result=0 //:format.check -- "${files[@]}"
+bazel run --noshow_progress --ui_event_filters=-info --show_result=0 //:format.check -- "${files[@]}"
+
+# The Python files, with the ruff from uv.lock.
+python_files=()
+for file in "${files[@]}"; do
+    [[ "$file" != *.py ]] || python_files+=("$file")
+done
+if ((${#python_files[@]} > 0)); then
+    uv run --locked --quiet ruff format --check --quiet -- "${python_files[@]}"
+fi

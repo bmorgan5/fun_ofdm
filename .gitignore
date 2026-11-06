@@ -4,3 +4,4 @@ user.bazelrc
 # Personal VS Code settings, except the shared ones.
 /.vscode/*
 !/.vscode/settings.json
+__pycache__/
