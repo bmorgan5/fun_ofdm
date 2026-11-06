@@ -65,6 +65,8 @@ _SANITIZER_ENV = {
     srcs = [src],
     data = [
         "lsan_suppressions.txt",
+        # For running under qemu (tools/qemu).
+        "//third_party:sysroot",
         "@llvm_toolchain_llvm//:symbolizer",
     ],
     env = _SANITIZER_ENV,

@@ -95,7 +95,9 @@ Every build is a cross compile against an Ubuntu 26.04 sysroot, built from a
 dated snapshot of the Ubuntu archive (`UBUNTU_SNAPSHOT` in `MODULE.bazel`),
 so the build never uses the host's compiler or libraries. Builds target the
 host's architecture by default; `--config=aarch64` or `--config=x86_64` cross
-compiles from either.
+compiles from either. With them, `bazel test` and `bazel run` run the other
+architecture's binaries under qemu, which needs `qemu-user` and `binutils`
+outside the dev container. The sanitizer configs only work in native builds.
 
 Outside the dev container, running the binary needs the
 [requirements](#requirements) above, though the build doesn't. Also enable the

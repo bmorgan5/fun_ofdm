@@ -1,0 +1,11 @@
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+# Runs binaries for either architecture under qemu: the --run_under of the
+# cross configs in .bazelrc. Bazel doesn't give a --run_under target its
+# runfiles, so the binaries it runs carry the sysroot, as
+# //third_party:sysroot.
+sh_binary(
+    name = "qemu",
+    srcs = ["run.sh"],
+    visibility = ["//visibility:public"],
+)

@@ -27,7 +27,8 @@ libraries.
   `bazel run format -- <files>` formats only those.
 - Builds are optimized by default. Use `-c dbg` for a debug build.
 - Builds target the host's architecture by default. `--config=aarch64` and
-  `--config=x86_64` cross compile from either host.
+  `--config=x86_64` cross compile from either host, and `bazel test` and
+  `bazel run` then run the other architecture's binaries under qemu.
 - `rx` and `tx` need a USRP. Use `sim` to check a change end to end.
 - If a change touches `MODULE.bazel`, commit the updated `MODULE.bazel.lock`
   with it.
