@@ -1,7 +1,14 @@
 {
     "name": "fun_ofdm",
     "build": {
-        "dockerfile": "Dockerfile"
+        "dockerfile": "Dockerfile",
+        // tools/bootstrap/, which the Dockerfile copies bootstrap.sh from, as
+        // the build context named "bootstrap". An absolute path: Docker would
+        // resolve a relative one from wherever the build runs, not from here.
+        "options": [
+            "--build-context",
+            "bootstrap=${localWorkspaceFolder}/tools/bootstrap"
+        ]
     },
     "runArgs": [
         // No seccomp filter, so ThreadSanitizer (`--config=tsan`) can start.

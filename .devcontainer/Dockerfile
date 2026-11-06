@@ -3,26 +3,21 @@ FROM ubuntu:26.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-# Development tools.
-RUN apt update && apt install -y --no-install-recommends \
-        binutils \
-        ca-certificates \
-        curl \
-        git \
-        libarchive-tools \
-        locales \
-        python3 \
-        qemu-user \
-        sudo \
-        vim \
+# What running, building and developing fun-ofdm need, from the same script
+# as a host uses. "bootstrap" is tools/bootstrap/, a second build context that
+# devcontainer.json adds.
+COPY --from=bootstrap bootstrap.sh /tmp/bootstrap.sh
+RUN /tmp/bootstrap.sh \
+    && rm /tmp/bootstrap.sh \
     && rm -rf /var/lib/apt/lists/*
 
-# Runtime libraries for running the binaries built here. Builds link against
-# the sysroot (see MODULE.bazel), but libuhd is linked dynamically, so the
-# binaries load it from the system at run time. Keep the version in step with
-# the libuhd in the sysroot.
+# Tools for the container only: bsdtar for `tar` (below), locales, sudo for
+# installing packages in a running container, and an editor.
 RUN apt update && apt install -y --no-install-recommends \
-        libuhd4.9.0 \
+        libarchive-tools \
+        locales \
+        sudo \
+        vim \
     && rm -rf /var/lib/apt/lists/*
 
 # The en_US.UTF-8 locale, which VS Code's terminal sets LANG to. The base image
@@ -55,20 +50,6 @@ COPY git-editor /usr/local/bin/git-editor
 RUN chmod 755 /usr/local/bin/git-editor
 ENV GIT_EDITOR=git-editor
 
-# Bazel, through bazelisk, which runs the version in .bazelversion.
-ARG BAZELISK_VERSION=1.30.0
-ARG BAZELISK_SHA256_AMD64=a248ae2b2b62b5baebb748f6fba7203bff1a27e5d01b55399a8406744cb539e8
-ARG BAZELISK_SHA256_ARM64=b2bcc040c213b44586b121bda6d983c35df121b917c3a7a66fb16f2fa0df1a4f
-RUN arch=$(dpkg --print-architecture) \
-    && case $arch in \
-        amd64) sha256=$BAZELISK_SHA256_AMD64 ;; \
-        arm64) sha256=$BAZELISK_SHA256_ARM64 ;; \
-    esac \
-    && curl -fsSL -o /usr/local/bin/bazel \
-        "https://github.com/bazelbuild/bazelisk/releases/download/v${BAZELISK_VERSION}/bazelisk-linux-${arch}" \
-    && echo "${sha256}  /usr/local/bin/bazel" | sha256sum --check --strict \
-    && chmod 755 /usr/local/bin/bazel
-
 # A fixed output base, instead of Bazel's default (a hash of the workspace
 # path), so the IntelliSense settings in devcontainer.json can name it. Bazel
 # reads /etc/bazel.bazelrc on every run. It's still under ~/.cache/bazel, on
@@ -81,21 +62,6 @@ RUN echo 'startup --output_base=/home/ubuntu/.cache/bazel/fun_ofdm' > /etc/bazel
 RUN mkdir -p /usr/local/share/fun_ofdm \
     && ln -s "/home/ubuntu/.cache/bazel/fun_ofdm/external/+sysroot+sysroot_linux_$(uname -m)/sysroot" \
         /usr/local/share/fun_ofdm/bazel_sysroot
-
-# buildifier, which formats and lints Bazel files (used by the VS Code Bazel
-# extension, which looks for it on PATH).
-ARG BUILDIFIER_VERSION=10.1.0
-ARG BUILDIFIER_SHA256_AMD64=31b6a8aa1e5c746696788f428729701770ad91925873d8256cb885c60e12c77e
-ARG BUILDIFIER_SHA256_ARM64=38d2ed845f560b4a16ddee41de906508a95f8dc85b04e0851b0a71e3a70d3890
-RUN arch=$(dpkg --print-architecture) \
-    && case $arch in \
-        amd64) sha256=$BUILDIFIER_SHA256_AMD64 ;; \
-        arm64) sha256=$BUILDIFIER_SHA256_ARM64 ;; \
-    esac \
-    && curl -fsSL -o /usr/local/bin/buildifier \
-        "https://github.com/bazelbuild/buildtools/releases/download/v${BUILDIFIER_VERSION}/buildifier-linux-${arch}" \
-    && echo "${sha256}  /usr/local/bin/buildifier" | sha256sum --check --strict \
-    && chmod 755 /usr/local/bin/buildifier
 
 # Run as the base image's built-in non-root "ubuntu" user. On Linux hosts
 # VS Code remaps its UID/GID to match the host user. The user gets

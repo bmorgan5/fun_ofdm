@@ -19,10 +19,11 @@ and run the latest release from
 
 ```bash
 RELEASE=2.0.0
-ARCHIVE=fun-ofdm-v$RELEASE-linux-x86_64
+ARCHIVE=fun-ofdm-v$RELEASE-linux-$(uname -m)
 gh release download "v$RELEASE" --repo bmorgan5/fun_ofdm --pattern "$ARCHIVE.tar.gz"
 gh attestation verify "$ARCHIVE.tar.gz" --repo bmorgan5/fun_ofdm
 tar -xzf "$ARCHIVE.tar.gz"
+sudo "$ARCHIVE/bootstrap.sh" --runtime
 "$ARCHIVE/bin/fun-ofdm" sim
 ```
 
@@ -40,15 +41,12 @@ It exits with status 0 on PASS and 1 on FAIL.
 
 ## Requirements
 
-`fun-ofdm` requires an aarch64 or x86_64 machine running ubuntu 26.04 (older
-versions not tested) with Ettus's UHD library installed.
-
-```bash
-sudo apt install libuhd4.9.0
-```
-
-`tx` and `rx` also need a USRP N210, each with its own gigabit Ethernet port.
-The code was tested with XCVR2450 daughterboards.
+- An aarch64 or x86_64 machine running Ubuntu 26.04.
+- Ettus's UHD library. See [bootstrap.sh](tools/bootstrap/bootstrap.sh), or
+  run `bootstrap.sh [--runtime] --simulate`, for the full list of
+  dependencies.
+- The `fun-ofdm tx` and `fun-ofdm rx` each need a USRP N210 with its own gigabit
+  Ethernet port. The code was tested with XCVR2450 daughterboards.
 
 ## Usage
 
@@ -77,7 +75,8 @@ sudo fun-ofdm tx --channel 36 --bandwidth 20 --gain 25 --phy-rate qam16-1/2
 ## Development
 
 To build from source, open the repo in its dev container (VS Code's "Dev
-Containers: Reopen in Container"), or install
+Containers: Reopen in Container"), or run `sudo tools/bootstrap/bootstrap.sh`,
+which installs the same tools as the dev container, including
 [bazelisk](https://github.com/bazelbuild/bazelisk) as `bazel`. Bazel downloads
 the compiler and the libraries itself. Common build commands:
 
@@ -96,13 +95,11 @@ dated snapshot of the Ubuntu archive (`UBUNTU_SNAPSHOT` in `MODULE.bazel`),
 so the build never uses the host's compiler or libraries. Builds target the
 host's architecture by default; `--config=aarch64` or `--config=x86_64` cross
 compiles from either. With them, `bazel test` and `bazel run` run the other
-architecture's binaries under qemu, which needs `qemu-user` and `binutils`
-outside the dev container. The sanitizer configs only work in native builds.
+architecture's binaries under qemu. The sanitizer configs only work in native
+builds.
 
-Outside the dev container, running the binary needs the
-[requirements](#requirements) above, though the build doesn't. Also enable the
-pre-commit hook, which checks formatting, and have `git blame` skip the
-reformat commit:
+Outside the dev container, also enable the pre-commit hook, which checks
+formatting, and have `git blame` skip the reformat commit:
 
 ```bash
 git config core.hooksPath tools/githooks
