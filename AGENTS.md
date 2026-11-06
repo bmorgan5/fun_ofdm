@@ -12,6 +12,7 @@ libraries.
 
 | Task | Command |
 |---|---|
+| Install the tools (as the dev container has them) on an Ubuntu 26.04 host | `sudo tools/bootstrap/bootstrap.sh` |
 | Build everything | `bazel build //...` |
 | Build the binary | `bazel build fun-ofdm` |
 | Smoke test (sends and decodes 100 packets) | `bazel run fun-ofdm -- sim` |
@@ -46,7 +47,9 @@ libraries.
 
 - **Scope.** The project implements the OFDM PHYs: 802.11a, and later 802.11g.
 - **Dependencies.** Keep them minimal. Add one only when the alternative is
-  writing a lot of code, and fetch it through Bazel (`MODULE.bazel`).
+  writing a lot of code, and fetch it through Bazel (`MODULE.bazel`). What
+  the host needs, like apt packages or Bazel itself, goes in
+  `tools/bootstrap/bootstrap.sh`, which the dev container runs too.
 - **Tests.** No randomness. Test data comes from a PRBS sequence, known
   vectors, or every possible input.
 - **Bugs before fixes.** Don't change behaviour without a test. For a known bug,

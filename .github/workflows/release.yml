@@ -1,7 +1,8 @@
 # Turns a pushed v* tag into a draft release, with the release notes from
-# docs/releases/<tag>.md, an archive of the binaries for each architecture,
-# SHA256SUMS and a build provenance attestation for each archive. Read the
-# draft on GitHub, then publish it.
+# docs/releases/<tag>.md, an archive for each architecture (the binaries, and
+# bootstrap.sh, which installs what they need to run), SHA256SUMS and a build
+# provenance attestation for each archive. Read the draft on GitHub, then
+# publish it.
 name: Release
 
 on:
@@ -64,6 +65,7 @@ jobs:
           mkdir -p dist/$name
           cp -r out/linux_${{ matrix.arch }}/. dist/$name/
           cp LICENSE dist/$name/
+          cp tools/bootstrap/bootstrap.sh dist/$name/
           tar -C dist -czf dist/$name.tar.gz $name
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
