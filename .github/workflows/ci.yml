@@ -18,20 +18,26 @@ concurrency:
 
 jobs:
   test:
-    name: test (${{ matrix.config }})
-    runs-on: ubuntu-26.04
+    name: test-${{ matrix.arch }} (${{ matrix.config }})
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
+        arch: [aarch64, x86_64]
         config: [opt, asan, ubsan, tsan]
+        include:
+          - arch: aarch64
+            runner: ubuntu-26.04-arm
+          - arch: x86_64
+            runner: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Installs Bazel and saves its caches between runs: the Bazel binary,
-      # downloaded dependencies, and build outputs, one cache per config.
+      # downloaded dependencies, and build outputs, one cache per job.
       - uses: bazel-contrib/setup-bazel@104e3eea9447cdaa4b00d0fb46191a3985d26ab3 # 0.19.1
         with:
           bazelisk-cache: true
-          disk-cache: ${{ matrix.config }}
+          disk-cache: ${{ matrix.arch }}-${{ matrix.config }}
           repository-cache: true
       - run: bazel test //... --config=${{ matrix.config }}
 

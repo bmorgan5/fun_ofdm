@@ -131,6 +131,8 @@ def _deb_sysroot_impl(rctx: repository_ctx) -> None:
         rctx.delete(deb)
     rctx.delete("debs")
 
+    # Watched, so a change to the script rebuilds the sysroot.
+    rctx.watch(rctx.attr._fixup)
     result = rctx.execute([rctx.path(rctx.attr._fixup), "sysroot", multiarch])
     if result.return_code:
         fail("Fixing up sysroot failed: " + result.stderr)

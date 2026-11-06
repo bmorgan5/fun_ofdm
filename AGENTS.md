@@ -26,8 +26,8 @@ libraries.
   from the repo root, `bazel run format` formats every file;
   `bazel run format -- <files>` formats only those.
 - Builds are optimized by default. Use `-c dbg` for a debug build.
-- Only x86-64 builds for now: the code uses SSE intrinsics. arm64 is stubbed
-  out under `TODO(arm64)` comments.
+- Builds target the host's architecture by default. `--config=aarch64` and
+  `--config=x86_64` cross compile from either host.
 - `rx` and `tx` need a USRP. Use `sim` to check a change end to end.
 - If a change touches `MODULE.bazel`, commit the updated `MODULE.bazel.lock`
   with it.

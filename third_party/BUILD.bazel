@@ -6,9 +6,8 @@ package(default_visibility = ["//visibility:public"])
     alias(
         name = lib,
         actual = select({
+            "@platforms//cpu:aarch64": "@sysroot_linux_aarch64//:" + lib,
             "@platforms//cpu:x86_64": "@sysroot_linux_x86_64//:" + lib,
-            # TODO(arm64): Enable once the code builds for arm64.
-            # "@platforms//cpu:aarch64": "@sysroot_linux_aarch64//:" + lib,
         }),
     )
     for lib in [

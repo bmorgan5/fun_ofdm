@@ -10,17 +10,23 @@ build --compilation_mode=opt
 # that isn't a warning.
 build --per_file_copt=^src/@-Wall,-Wextra,-Werror,-Wno-missing-designated-field-initializers
 
-# Target platforms. Every build targets an explicit platform (and sysroot),
-# even the host's.
-build --config=linux_x86_64
-build:linux_x86_64 --platforms=//platforms:linux_x86_64
-# TODO(arm64): Enable once the code builds for arm64.
-# build:linux_aarch64 --platforms=//platforms:linux_aarch64
+# Name each output directory after its platform, so native and cross builds
+# don't share one and overwrite each other's outputs.
+build --experimental_platform_in_output_dir=yes
+
+# Platform specific configs
+build:aarch64 --platforms=//platforms:linux_aarch64
+build:x86_64 --platforms=//platforms:linux_x86_64
+
+# Bazel normally only builds a test for a machine it can run the test on, so a
+# cross build would fail on the tests. The test toolchain flag turns that off.
+# The tests then build, but only run on a machine of the target architecture.
+build:aarch64 --@bazel_tools//tools/test:incompatible_use_default_test_toolchain=false
+build:x86_64 --@bazel_tools//tools/test:incompatible_use_default_test_toolchain=false
 
 # Named configs for CI's test matrix (.github/workflows/ci.yml). opt is the
 # default build, named so the matrix can list it.
 build:opt --compilation_mode=opt
-
 # Sanitizers: `bazel test //... --config=asan`. Each builds on the optimized
 # build, with debug info so reports have file names and line numbers, and
 # fails the test on any error it finds.
