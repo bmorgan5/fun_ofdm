@@ -74,6 +74,45 @@ static void add_phy_rate_option(CLI::App* app, Rate& phy_rate) {
       ->default_str(default_name);
 }
 
+std::string rate_name(Rate phy_rate) {
+  for (const auto& name : RATE_NAMES) {
+    if (name.second == phy_rate) return name.first;
+  }
+  return "";
+}
+
+/*!
+ * \brief Adds the --seed option.
+ * \param app The subcommand to add the option to
+ * \param seed Where to store the seed
+ * \param what What the seed seeds, for the help text
+ */
+static void add_seed_option(CLI::App* app, std::optional<std::uint64_t>& seed,
+                            const std::string& what) {
+  app->add_option("--seed", seed,
+                  "Seed for " + what +
+                      ", to repeat a run (default: a random seed, which is "
+                      "printed)");
+}
+
+/*!
+ * \brief Adds the --json option.
+ *
+ * CLI11 leaves an optional unset when it's given an empty string, so an empty
+ * file name is rejected instead of silently writing nothing.
+ */
+static void add_json_option(CLI::App* app,
+                            std::optional<std::string>& json_file) {
+  app->add_option("--json", json_file,
+                  "Also write the run summary to this file, as JSON")
+      ->type_name("FILE")
+      ->check(CLI::Validator(
+          [](const std::string& value) -> std::string {
+            return value.empty() ? "The file name is empty" : "";
+          },
+          ""));
+}
+
 /*!
  * \brief Adds the options shared by the modes that use a USRP.
  */
@@ -138,15 +177,20 @@ void add_options(CLI::App* app, tx_options& opts) {
       ->capture_default_str();
   add_phy_rate_option(app, opts.phy_rate);
   add_data_options(app, opts.data, "send until Ctrl+C");
+  add_seed_option(app, opts.seed, "the random data");
+  add_json_option(app, opts.json_file);
 }
 
 void add_options(CLI::App* app, rx_options& opts) {
   add_radio_options(app, opts.radio);
+  add_json_option(app, opts.json_file);
 }
 
 void add_options(CLI::App* app, sim_options& opts) {
   add_phy_rate_option(app, opts.phy_rate);
   add_data_options(app, opts.data, std::to_string(SIM_DEFAULT_PACKETS));
+  add_seed_option(app, opts.seed, "everything random in the simulation");
+  add_json_option(app, opts.json_file);
 }
 
 /*!
