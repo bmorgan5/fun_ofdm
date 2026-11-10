@@ -9,6 +9,7 @@ doxygen(
     srcs = [
         "//:README.md",
         "//src:README.md",
+        "//src/bench:README.md",
         "//src/phy:README.md",
     ],
     always_detailed_sec = True,
@@ -34,6 +35,7 @@ doxygen(
     # Documents the sources of these targets and their dependencies.
     deps = [
         "//src:fun-ofdm",
+        "//src/bench:fun-ofdm-bench",
     ],
 )
 

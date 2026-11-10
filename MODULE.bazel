@@ -4,6 +4,10 @@ module(
 )
 
 bazel_dep(name = "cli11", version = "2.7.2")
+
+# Benchmarks: fun-ofdm-bench, which ships with fun-ofdm, so it's not a dev
+# dependency.
+bazel_dep(name = "google_benchmark", version = "1.10.0")
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "rules_cc", version = "0.2.26")
 bazel_dep(name = "rules_doxygen", version = "2.7.0")

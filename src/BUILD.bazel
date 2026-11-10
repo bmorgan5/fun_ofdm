@@ -48,6 +48,7 @@ cc_library(
         ["*.h"],
         exclude = _BINARY_SRCS,
     ),
+    visibility = ["//src:__subpackages__"],
     deps = [
         "//src/phy",
         "//src/usrp:usrp_params",
