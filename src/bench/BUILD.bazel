@@ -1,0 +1,87 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//bazel/sanitizers:sanitizers.bzl", "SANITIZER_DATA", "SANITIZER_ENV")
+
+# The overview of the benchmarks, for the API documentation.
+exports_files(["README.md"])
+
+# The standard workloads, and the receiver's blocks without its threads.
+cc_library(
+    name = "workload",
+    srcs = ["workload.cpp"],
+    hdrs = [
+        "pipeline.h",
+        "workload.h",
+    ],
+    deps = [
+        "//src:tools",
+        "//src/phy",
+    ],
+)
+
+# What the benchmarks record about the machine they run on.
+cc_library(
+    name = "host_info",
+    srcs = ["host_info.cpp"],
+    hdrs = ["host_info.h"],
+)
+
+# The benchmarks. A binary of their own, since google_benchmark brings its own
+# flags, which `bazel run install` copies next to fun-ofdm, so it's built and
+# shipped like the binary it measures.
+cc_binary(
+    name = "fun-ofdm-bench",
+    srcs = ["bench.cpp"],
+    # For running under qemu (tools/qemu).
+    data = ["//third_party:sysroot"],
+    # For the JSON output's context: the version in MODULE.bazel.
+    local_defines = ['FUN_OFDM_VERSION=\\"%s\\"' % module_version()],
+    visibility = [
+        "//:__pkg__",
+        "//docs:__pkg__",
+    ],
+    deps = [
+        ":host_info",
+        ":workload",
+        "//src:tools",
+        "//src/phy",
+        "@google_benchmark//:benchmark",
+    ],
+)
+
+# One test per *_test.cpp file, named after it.
+[cc_test(
+    name = src.removesuffix(".cpp"),
+    size = "small",
+    srcs = [src],
+    # The sysroot is for running under qemu (tools/qemu).
+    data = ["//third_party:sysroot"] + SANITIZER_DATA,
+    env = SANITIZER_ENV,
+    deps = [
+        ":host_info",
+        ":workload",
+        "//src:tools",
+        "//src/phy",
+        "@googletest//:gtest_main",
+    ],
+) for src in glob(["*_test.cpp"])]
+
+# Runs every benchmark once, on short workloads: a smoke test, not a
+# measurement. It runs the binary through tools/qemu, which runs a binary for
+# the other architecture under qemu, and one for the host's directly.
+sh_test(
+    name = "bench_smoke_test",
+    size = "small",
+    srcs = ["bench-smoke-test.sh"],
+    args = [
+        "$(rootpath //tools/qemu)",
+        "$(rootpath :fun-ofdm-bench)",
+    ],
+    data = [
+        ":fun-ofdm-bench",
+        "//tools/qemu",
+    ] + SANITIZER_DATA,
+    env = SANITIZER_ENV,
+)

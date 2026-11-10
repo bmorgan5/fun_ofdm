@@ -10,10 +10,17 @@ alias(
     actual = "//src:fun-ofdm",
 )
 
+# Likewise `bazel run fun-ofdm-bench`.
+alias(
+    name = "fun-ofdm-bench",
+    actual = "//src/bench:fun-ofdm-bench",
+)
+
 pkg_files(
     name = "binaries",
     srcs = [
         ":fun-ofdm",
+        ":fun-ofdm-bench",
     ],
     attributes = pkg_attributes(mode = "0755"),
     prefix = "bin",

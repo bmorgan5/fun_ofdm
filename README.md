@@ -94,9 +94,10 @@ the compiler and the libraries itself. Common build commands:
 bazel build fun-ofdm       # The binary, in bazel-bin/src/fun-ofdm
 bazel test //...           # The tests
 bazel run fun-ofdm -- sim  # Builds the binary and runs sim
+bazel run fun-ofdm-bench   # The benchmarks (see src/bench/README.md)
 bazel run coverage         # Coverage, with an HTML report in out/coverage/
 bazel run format           # Formats the C++ and Bazel files
-bazel run install          # Copies the binary to out/<platform>/bin/
+bazel run install          # Copies the binaries to out/<platform>/bin/
 bazel build //docs         # The API docs, in bazel-bin/docs/html/ (x86_64 only)
 ```
 
