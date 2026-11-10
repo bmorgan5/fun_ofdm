@@ -1,0 +1,55 @@
+# A Perfetto config that records fun-ofdm's receiver with the kernel's
+# scheduler events: with traced and traced-probes running, run fun-ofdm with
+# --trace-system while
+#   sudo perfetto --txt -c tools/trace/fun-ofdm.pbtxt -o trace.pftrace
+# runs. See src/metrics/README.md.
+
+# Stops after 60 s; Ctrl+C stops it sooner.
+duration_ms: 60000
+
+# Written to the file as it goes, so the buffers only hold the last second.
+write_into_file: true
+file_write_period_ms: 1000
+
+buffers {
+  size_kb: 131072
+  fill_policy: DISCARD
+}
+
+# fun-ofdm's own events (src/metrics/tracing.h).
+data_sources {
+  config {
+    name: "track_event"
+    track_event_config {
+      enabled_categories: "fun_ofdm"
+      disabled_categories: "*"
+    }
+  }
+}
+
+# The kernel's: which thread ran on which CPU and when, what woke it, when it
+# moved between CPUs, and each CPU's frequency. They need root.
+data_sources {
+  config {
+    name: "linux.ftrace"
+    ftrace_config {
+      ftrace_events: "sched/sched_switch"
+      ftrace_events: "sched/sched_wakeup"
+      ftrace_events: "sched/sched_wakeup_new"
+      ftrace_events: "sched/sched_waking"
+      ftrace_events: "sched/sched_migrate_task"
+      ftrace_events: "power/cpu_frequency"
+      ftrace_events: "power/cpu_idle"
+    }
+  }
+}
+
+# The names of processes and threads, for the scheduler's events.
+data_sources {
+  config {
+    name: "linux.process_stats"
+    process_stats_config {
+      scan_all_processes_on_start: true
+    }
+  }
+}

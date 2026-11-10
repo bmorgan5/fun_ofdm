@@ -10,6 +10,7 @@ doxygen(
         "//:README.md",
         "//src:README.md",
         "//src/bench:README.md",
+        "//src/metrics:README.md",
         "//src/phy:README.md",
     ],
     always_detailed_sec = True,

@@ -17,6 +17,7 @@ libraries.
 | Build the binary | `bazel build fun-ofdm` |
 | Smoke test (sends and decodes 100 packets) | `bazel run fun-ofdm -- sim` |
 | Benchmarks (about 1.5 min; see `src/bench/README.md`) | `bazel run fun-ofdm-bench` |
+| Build without the metrics, to measure their cost | `--config=no_metrics` |
 | Coverage: prints the totals and writes an HTML report to `out/coverage/` | `bazel run coverage` |
 | Coverage compared with an earlier `out/coverage/` (a copy of it) | `bazel run coverage -- --baseline <dir>` |
 | Build the API docs (Doxygen) | `bazel build //docs` |
@@ -45,14 +46,17 @@ libraries.
 ## Layout
 
 - `src/`: `fun-ofdm` (`main.cpp`). The PHY blocks are in `src/phy/`, the
-  USRP wrapper is in `src/usrp/`, and `fun-ofdm-bench` is in `src/bench/`.
-- `third_party/`: Bazel targets for FFTW and UHD, from the sysroot.
+  USRP wrapper is in `src/usrp/`, `fun-ofdm-bench` is in `src/bench/`, and
+  the receiver's histograms and traces are in `src/metrics/`.
+- `third_party/`: Bazel targets for FFTW and UHD, from the sysroot, and BUILD
+  files for HdrHistogram_c and the Perfetto SDK.
 - `bazel/sysroot/`: builds the sysroot from Ubuntu packages.
 - `bazel/sanitizers/`: the sanitizer configs' runtime options, for the tests.
 - `platforms/`: the target platforms.
 - `docs/`: the Doxygen build.
 - `tools/`: `bootstrap/`, the tools that Bazel runs (`coverage/`, `format/`,
-  `qemu/`), and the Python tools (`pyproject.toml`).
+  `qemu/`), the Perfetto config for system traces (`trace/`), and the Python
+  tools (`pyproject.toml`).
 
 ## Conventions
 

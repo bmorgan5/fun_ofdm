@@ -13,6 +13,8 @@
 #include <string>
 
 #include "options.h"
+#include "src/metrics/histogram.h"
+#include "src/phy/receiver_chain.h"
 #include "stats.h"
 
 namespace fun {
@@ -28,9 +30,12 @@ struct tx_result {
  * \brief What an rx run did. rx runs until it's stopped.
  */
 struct rx_result {
-  transfer_totals received;      //!< The packets received, without duplicates
-  std::uint64_t lost = 0;        //!< Packets found to be lost
-  std::uint64_t duplicates = 0;  //!< Duplicate packets received
+  transfer_totals received;       //!< The packets received, without duplicates
+  std::uint64_t lost = 0;         //!< Packets found to be lost
+  std::uint64_t duplicates = 0;   //!< Duplicate packets received
+  chain_metrics metrics;          //!< What the receiver chain measured
+  std::uint64_t overflows = 0;    //!< receiver::overflows()
+  metrics::histogram recv_delay;  //!< receiver::recv_delay()
 };
 
 /*!
@@ -56,6 +61,7 @@ struct sim_result {
   //! The check of the received data, or std::nullopt if the run was stopped
   //! before it
   std::optional<sim_check> check;
+  chain_metrics metrics;  //!< What the receiver chain measured
 };
 
 /*!
@@ -82,6 +88,20 @@ struct sim_result {
  * - `lost` and `duplicates` (rx, and sim unless it was stopped).
  * - `mismatched_bytes` and `passed` (sim, unless it was stopped). A stopped sim
  *   run doesn't check the data it received.
+ * - `metrics` (rx and sim): what the receiver chain measured
+ *   (receiver_chain.h).
+ *   - `enabled`: false in a build without metrics (`--config=no_metrics`),
+ *     whose histograms are empty.
+ *   - `frames`: `detected`, `sync_lost`, `signal_failed`, and `crc_ok` and
+ *     `crc_failed`, each an object with a count per `--phy-rate` name.
+ *   - `overflows` (rx): the USRP's.
+ *   - Histograms of times in nanoseconds: `arrival_interval`, `recv_delay`
+ *     (rx), `latency`, and `blocks`, an object with a member per block, in
+ *     the chain's order, each with `wait`, `processing`, `start_interval` and
+ *     `lag`. Each histogram is `count`, `p50`, `p99`, `p99_9` and `max`, then
+ *     `buckets`: an array of [value, count] pairs, one per bucket that holds
+ *     any values, where value is the bucket's largest, so scripts can add
+ *     runs together.
  */
 std::string to_json(const std::string& version, const tx_options& opts,
                     const tx_result& result);

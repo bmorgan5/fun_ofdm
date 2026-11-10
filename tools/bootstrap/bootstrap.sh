@@ -53,9 +53,11 @@ fi
 
 # What running fun-ofdm needs. It links libuhd dynamically, so it loads it at
 # run time. Keep the version in step with the libuhd in the build's sysroot
-# (MODULE.bazel).
+# (MODULE.bazel). Perfetto's traced and perfetto record system traces with
+# --trace-system (src/metrics/README.md); fun-ofdm has the SDK built in.
 runtime_packages=(
     libuhd4.9.0
+    perfetto
 )
 
 # What building and developing need: tools/qemu runs cross-compiled binaries

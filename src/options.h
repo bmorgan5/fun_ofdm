@@ -46,6 +46,16 @@ struct data_options {
 };
 
 /*!
+ * \brief Options for tracing the receiver (src/metrics/tracing.h).
+ */
+struct trace_options {
+  //! --trace: the file to record a trace into, or std::nullopt for none
+  std::optional<std::string> file;
+  //! --trace-system: let the system's traced service record the receiver
+  bool system = false;
+};
+
+/*!
  * \brief Options for the tx mode.
  */
 struct tx_options {
@@ -63,6 +73,7 @@ struct tx_options {
 struct rx_options {
   radio_options radio;
   std::optional<std::string> json_file;
+  trace_options trace;
 };
 
 /*!
@@ -76,6 +87,7 @@ struct sim_options {
 
   std::optional<std::uint64_t> seed;
   std::optional<std::string> json_file;
+  trace_options trace;
 };
 
 /*!

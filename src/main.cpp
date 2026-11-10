@@ -37,6 +37,7 @@
 #include "payload.h"
 #include "realtime.h"
 #include "receiver.h"
+#include "src/metrics/tracing.h"
 #include "src/phy/frame_builder.h"
 #include "src/phy/receiver_chain.h"
 #include "stats.h"
@@ -58,6 +59,18 @@ static void print_losses(std::uint64_t received, std::uint64_t lost,
   std::cout << "Lost " << lost << " packets (" << std::fixed
             << std::setprecision(1) << percent << "%), " << duplicates
             << " duplicates" << std::defaultfloat << std::endl;
+}
+
+/*!
+ * \brief Prints the frames' latency, if any were measured.
+ */
+static void print_latency(const metrics::histogram& latency) {
+  if (!latency.count()) return;
+  auto us = [](std::int64_t ns) { return ns / 1e3; };
+  std::cout << "Latency: p50 " << std::fixed << std::setprecision(1)
+            << us(latency.percentile(50)) << " us, p99 "
+            << us(latency.percentile(99)) << " us, max " << us(latency.max())
+            << " us" << std::defaultfloat << std::endl;
 }
 
 /*!
@@ -158,9 +171,16 @@ static rx_result run_rx(const rx_options& opts, std::stop_token stop) {
 
   rx_result result = {.received = rx_state->stats.totals(),
                       .lost = rx_state->frames.lost(),
-                      .duplicates = rx_state->frames.duplicates()};
+                      .duplicates = rx_state->frames.duplicates(),
+                      .metrics = rx.metrics(),
+                      .overflows = rx.overflows(),
+                      .recv_delay = rx.recv_delay()};
   result.received.print("Received");
   print_losses(result.received.packets, result.lost, result.duplicates);
+  print_latency(result.metrics.latency);
+  if (result.overflows)
+    std::cout << "The USRP overflowed " << result.overflows << " times"
+              << std::endl;
 
   return result;
 }
@@ -285,7 +305,9 @@ static sim_result run_sim(const sim_options& opts, std::stop_token stop) {
   receive(air.idle(FLUSH_SIZE));
 
   result.received = stats.totals();
+  result.metrics = chain.metrics();
   result.received.print("Received");
+  print_latency(result.metrics.latency);
 
   if (stop.stop_requested()) {
     std::cout << "Stopped early, so not checking the received data"
@@ -410,6 +432,9 @@ class stdout_to_stderr {
  *
  * For "-", the summary goes to stdout, and everything else the mode writes to
  * std::cout goes to stderr, so that stdout is only JSON.
+ *
+ * It also starts the mode's traces, if it has any, and stops them when it
+ * ends.
  */
 template <typename Options, std::invocable<const Options&, std::stop_token> Run>
 static int run_mode(Run run, const Options& opts, std::stop_token stop) {
@@ -420,6 +445,15 @@ static int run_mode(Run run, const Options& opts, std::stop_token stop) {
   } else if (opts.json_file) {
     json_file.open(*opts.json_file);
     if (!json_file) throw std::runtime_error("Can't open " + *opts.json_file);
+  }
+
+  // Traces end when the mode does, even if it throws
+  struct trace_stopper {
+    ~trace_stopper() { trace::stop(); }
+  } stopper;
+  if constexpr (requires { opts.trace; }) {
+    if (opts.trace.system) trace::start_system();
+    if (opts.trace.file) trace::start_file(*opts.trace.file);
   }
 
   std::invoke_result_t<Run, const Options&, std::stop_token> result =

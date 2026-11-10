@@ -43,6 +43,9 @@
 
 #include <semaphore.h>
 
+#include <cstdint>
+#include <optional>
+
 #include <uhd/convert.hpp>
 #include <uhd/stream.hpp>
 #include <uhd/usrp/multi_usrp.hpp>
@@ -50,6 +53,19 @@
 #include "usrp_params.h"
 
 namespace fun {
+/*!
+ * \brief What UHD said about a batch of received samples.
+ */
+struct rx_metadata {
+  //! The device dropped samples before this batch, because they weren't read
+  //! fast enough
+  bool overflow = false;
+
+  //! When the batch's first sample was taken, in nanoseconds on the device's
+  //! clock, if UHD gave the time
+  std::optional<std::int64_t> device_time;
+};
+
 /*!
  * \brief Sends and receives baseband samples with one USRP.
  */
@@ -95,8 +111,11 @@ class usrp {
    *
    *  Blocks until the samples arrive, or until UHD's receive timeout (0.1 s)
    *  runs out.
+   *
+   * \return Whether the device overflowed, and the batch's time.
    */
-  void get_samples(int num_samples, std::vector<std::complex<double>>& buffer);
+  rx_metadata get_samples(int num_samples,
+                          std::vector<std::complex<double>>& buffer);
 
  private:
   usrp_params m_params;  //!< The parameters it was created with

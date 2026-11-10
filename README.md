@@ -77,6 +77,10 @@ sudo fun-ofdm tx --channel 36 --bandwidth 20 --gain 25 --phy-rate qam16-1/2
 
 `--no-realtime` runs without real time priority, and so without root.
 
+`rx` and `sim` also measure the receiver: latency, jitter and frame outcomes,
+in the `--json` summary, and a trace with `--trace FILE`
+([src/metrics](src/metrics/README.md)).
+
 `tx` and `sim` print the seed of their random data: `--seed` repeats a run.
 `--json FILE` also writes the run summary to `FILE` as JSON, for scripts.
 Without `FILE` it goes to stdout, and the rest of the output to stderr:
