@@ -194,6 +194,20 @@ static void add_json_option(CLI::App* app,
 }
 
 /*!
+ * \brief Adds the options for tracing the receiver.
+ */
+static void add_trace_options(CLI::App* app, trace_options& opts) {
+  app->add_option("--trace", opts.file,
+                  "Record a trace of the receiver to FILE, for "
+                  "https://ui.perfetto.dev")
+      ->type_name("FILE");
+  app->add_flag("--trace-system", opts.system,
+                "Let the system's Perfetto service (traced) record the "
+                "receiver, with the kernel's scheduler events (see "
+                "src/metrics/README.md)");
+}
+
+/*!
  * \brief Adds the options shared by the modes that use a USRP.
  */
 static void add_radio_options(CLI::App* app, radio_options& opts) {
@@ -264,6 +278,7 @@ void add_options(CLI::App* app, tx_options& opts) {
 void add_options(CLI::App* app, rx_options& opts) {
   add_radio_options(app, opts.radio);
   add_json_option(app, opts.json_file);
+  add_trace_options(app, opts.trace);
 }
 
 /*!
@@ -302,6 +317,7 @@ void add_options(CLI::App* app, sim_options& opts) {
   add_channel_options(app, opts.bandwidth_mhz, opts.channel);
   add_seed_option(app, opts.seed, "everything random in the simulation");
   add_json_option(app, opts.json_file);
+  add_trace_options(app, opts.trace);
 }
 
 /*!

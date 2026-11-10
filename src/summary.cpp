@@ -59,6 +59,66 @@ static json::object totals_json(const transfer_totals& totals) {
 }
 
 /*!
+ * \brief A histogram of times: its percentiles, and its buckets.
+ */
+static json::object histogram_json(const metrics::histogram& h) {
+  json::array buckets;
+  for (const metrics::histogram::bucket& b : h.buckets())
+    buckets.push_back(json::array{b.value, b.count});
+  return {
+      {"count", h.count()},      {"p50", h.percentile(50)},
+      {"p99", h.percentile(99)}, {"p99_9", h.percentile(99.9)},
+      {"max", h.max()},          {"buckets", std::move(buckets)},
+  };
+}
+
+/*!
+ * \brief A count per rate, by its --phy-rate name.
+ */
+static json::object per_rate_json(
+    const std::array<std::uint64_t, RATE_COUNT>& counts) {
+  json::object result;
+  for (std::size_t rate = 0; rate < RATE_COUNT; rate++)
+    result[rate_name(static_cast<Rate>(rate))] = counts[rate];
+  return result;
+}
+
+/*!
+ * \brief What a receiver chain measured.
+ * \param m The chain's metrics
+ * \param rx rx's result, for its own metrics, or nullptr for sim
+ */
+static json::object metrics_json(const chain_metrics& m,
+                                 const rx_result* rx = nullptr) {
+  json::object blocks;
+  for (const block_metrics& block : m.blocks) {
+    blocks[block.name] = {
+        {"wait", histogram_json(block.wait)},
+        {"processing", histogram_json(block.processing)},
+        {"start_interval", histogram_json(block.start_interval)},
+        {"lag", histogram_json(block.lag)},
+    };
+  }
+  json::object result = {
+      {"enabled", metrics::ENABLED},
+      {"frames",
+       {
+           {"detected", m.frames_detected},
+           {"sync_lost", m.sync_lost},
+           {"signal_failed", m.signal_failed},
+           {"crc_ok", per_rate_json(m.crc_ok)},
+           {"crc_failed", per_rate_json(m.crc_failed)},
+       }},
+  };
+  if (rx) result["overflows"] = rx->overflows;
+  result["arrival_interval"] = histogram_json(m.arrival_interval);
+  if (rx) result["recv_delay"] = histogram_json(rx->recv_delay);
+  result["latency"] = histogram_json(m.latency);
+  result["blocks"] = std::move(blocks);
+  return result;
+}
+
+/*!
  * \brief Starts a summary with the members every mode has.
  */
 static json::object start(const std::string& version, const std::string& mode,
@@ -99,8 +159,8 @@ static void write_double(std::string& out, double value) {
  * \param value The value
  * \param depth How deeply nested the value is
  *
- * Boost.JSON only writes JSON on one line. The summary has no arrays, so they
- * stay on one line.
+ * Boost.JSON only writes JSON on one line. Arrays, like the histograms'
+ * buckets, stay on one line.
  */
 static void write_pretty(std::string& out, const json::value& value,
                          int depth) {
@@ -155,6 +215,7 @@ std::string to_json(const std::string& version, const rx_options& opts,
   summary["received"] = totals_json(result.received);
   summary["lost"] = result.lost;
   summary["duplicates"] = result.duplicates;
+  summary["metrics"] = metrics_json(result.metrics, &result);
   return write_pretty(summary);
 }
 
@@ -184,6 +245,7 @@ std::string to_json(const std::string& version, const sim_options& opts,
     summary["mismatched_bytes"] = result.check->mismatched_bytes;
     summary["passed"] = result.check->passed();
   }
+  summary["metrics"] = metrics_json(result.metrics);
   return write_pretty(summary);
 }
 }  // namespace fun

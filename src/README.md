@@ -27,6 +27,11 @@ sim:  random_source → fragmenter → frame_builder → channel → receiver_ch
   against what it sent. The channel is perfect unless options add noise, a
   frequency offset, a delay or multipath.
 
+`rx` and `sim` measure the receiver as they run, and `--json` writes what they
+measured: each block's times, the frames' latency, and what happened to the
+frames. `--trace FILE` also records a trace. See
+[metrics/README.md](metrics/README.md).
+
 `tx` and `rx` first ask for real time thread priority
 ([realtime.h](realtime.h)). A thread waits for SIGINT and SIGTERM
 (`stop_on_signals()`): the first one requests a stop on a `std::stop_token`
@@ -73,3 +78,5 @@ Each is flagged with `\bug` where it is:
   thread that reads from the USRP.
 - **Short reads:** after an overflow, `rx` processes the end of the previous
   batch of samples again (see [usrp/usrp.h](usrp/usrp.h)).
+- **Clock drift:** `rx`'s `recv_delay` drifts with the USRP's clock against
+  the host's, over a long run (see [receiver.h](receiver.h)).

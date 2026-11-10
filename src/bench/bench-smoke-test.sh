@@ -10,9 +10,12 @@ run="$1"
 bench="$2"
 out="${TEST_TMPDIR:-$(mktemp -d)}/bench.json"
 
-# JSON to a file: frame_decoder prints to stdout.
+# JSON to a file: frame_decoder prints to stdout. With a trace, which is
+# checked below.
+trace="${TEST_TMPDIR:-$(dirname "$out")}/bench.pftrace"
 "$run" "$bench" --workload_seconds=0.05 --stage_seconds=0.02 \
-  --benchmark_min_time=1x --benchmark_out="$out" --benchmark_out_format=json
+  --benchmark_min_time=1x --benchmark_out="$out" --benchmark_out_format=json \
+  --trace="$trace"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -43,4 +46,17 @@ for workload in W-6 W-54; do
   awk -v n="${frames:-0}" 'BEGIN { exit !(n > 0) }' ||
     fail "receiver_chain/$workload decoded no frames: ${frames:-none}"
 done
+# Every receiver_chain benchmark counts the frames it detects
+[[ $(grep -c '"frames_detected":' "$out") == 3 ]] ||
+  fail "no frames_detected counters"
+
+# In a build with metrics, the trace has every block's slices. Its strings,
+# like their names, are plain text in the protobuf.
+if grep -q '"metrics": "on"' "$out"; then
+  [[ -s "$trace" ]] || fail "no trace"
+  for block in frame_detector timing_sync fft_symbols channel_est \
+    phase_tracker frame_decoder; do
+    grep -q "$block" "$trace" || fail "no $block in the trace"
+  done
+fi
 echo PASS

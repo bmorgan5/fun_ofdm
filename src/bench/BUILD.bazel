@@ -46,6 +46,7 @@ cc_binary(
         ":host_info",
         ":workload",
         "//src:tools",
+        "//src/metrics",
         "//src/phy",
         "@google_benchmark//:benchmark",
     ],

@@ -14,9 +14,12 @@
 #define RECEIVER_H
 
 #include <cstdint>
+#include <optional>
 #include <stop_token>
 #include <vector>
 
+#include "src/metrics/histogram.h"
+#include "src/metrics/metrics.h"
 #include "src/phy/receiver_chain.h"
 #include "src/usrp/usrp.h"
 
@@ -67,6 +70,25 @@ class receiver {
    */
   void run(std::stop_token stop);
 
+  //! What the receiver chain measured (receiver_chain::metrics())
+  chain_metrics metrics() const { return m_rec_chain.metrics(); }
+
+  //! The number of times the USRP overflowed and dropped samples
+  std::uint64_t overflows() const { return m_overflows; }
+
+  /*!
+   * \brief How late each batch reached the host, in nanoseconds: its arrival
+   * on the host's clock minus its time on the device's, less the smallest
+   * such difference so far, so that the clocks' offset cancels out. It's the
+   * USB or Ethernet and driver's delay above the quickest batch's.
+   *
+   * \bug The two clocks drift apart by up to tens of parts per million, which
+   * builds up over a long run: 20 ppm is 72 ms an hour. The delay grows with
+   * the drift, or, if the device's clock runs fast, the smallest difference
+   * keeps falling, and the delay is too small.
+   */
+  const metrics::histogram& recv_delay() const { return m_recv_delay; }
+
  private:
   //! Called with the payloads decoded from each batch of samples
   void (*m_callback)(std::vector<std::vector<std::uint8_t>> packets);
@@ -77,6 +99,11 @@ class receiver {
 
   //! The latest batch of samples read from the USRP
   std::vector<std::complex<double>> m_samples;
+
+  std::uint64_t m_overflows = 0;    //!< See overflows()
+  metrics::histogram m_recv_delay;  //!< See recv_delay()
+  //! The smallest host time minus device time so far, for recv_delay()
+  std::optional<std::int64_t> m_min_offset;
 };
 
 }  // namespace fun

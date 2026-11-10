@@ -145,11 +145,18 @@ void usrp::send_burst_sync(std::vector<std::complex<double>> samples) {
  * to ettus' website</a> for more details.
  *
  */
-void usrp::get_samples(int num_samples,
-                       std::vector<std::complex<double>>& buffer) {
+rx_metadata usrp::get_samples(int num_samples,
+                              std::vector<std::complex<double>>& buffer) {
   // Get some samples
   uhd::rx_metadata_t rx_meta;
   m_rx_streamer->recv(&buffer[0], num_samples, rx_meta);
+
+  rx_metadata result;
+  result.overflow =
+      rx_meta.error_code == uhd::rx_metadata_t::ERROR_CODE_OVERFLOW;
+  if (rx_meta.has_time_spec)
+    result.device_time = rx_meta.time_spec.to_ticks(1e9);
+  return result;
 }
 
 }  // namespace fun

@@ -30,6 +30,7 @@ cc_binary(
     ],
     deps = [
         ":tools",
+        "//src/metrics",
         "//src/phy",
         "//src/usrp",
         "@cli11",
@@ -50,6 +51,7 @@ cc_library(
     ),
     visibility = ["//src:__subpackages__"],
     deps = [
+        "//src/metrics",
         "//src/phy",
         "//src/usrp:usrp_params",
         "@cli11",

@@ -342,5 +342,34 @@ TEST(JsonOptionTest, SetsTheFileInEveryMode) {
   EXPECT_EQ(sim_opts.json_file, "sim.json");
 }
 
+TEST(TraceOptionsTest, AreOffWithoutTheOptions) {
+  CLI::App app;
+  sim_options opts;
+  add_options(&app, opts);
+  app.parse("", false);
+  EXPECT_EQ(opts.trace.file, std::nullopt);
+  EXPECT_FALSE(opts.trace.system);
+}
+
+TEST(TraceOptionsTest, AreForTheModesThatReceive) {
+  CLI::App rx_app;
+  rx_options rx_opts;
+  add_options(&rx_app, rx_opts);
+  rx_app.parse("--trace rx.pftrace --trace-system", false);
+  EXPECT_EQ(rx_opts.trace.file, "rx.pftrace");
+  EXPECT_TRUE(rx_opts.trace.system);
+
+  CLI::App sim_app;
+  sim_options sim_opts;
+  add_options(&sim_app, sim_opts);
+  sim_app.parse("--trace sim.pftrace", false);
+  EXPECT_EQ(sim_opts.trace.file, "sim.pftrace");
+
+  CLI::App tx_app;
+  tx_options tx_opts;
+  add_options(&tx_app, tx_opts);
+  EXPECT_THROW(tx_app.parse("--trace tx.pftrace", false), CLI::ExtrasError);
+}
+
 }  // namespace
 }  // namespace fun

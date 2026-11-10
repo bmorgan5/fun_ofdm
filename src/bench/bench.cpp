@@ -17,7 +17,8 @@
  * workload's samples, so a block's numbers compare directly with the chain's,
  * even for the blocks after fft_symbols, whose inputs are symbols.
  * receiver_chain also reports `frames_sent` and `frames_received`, so a
- * benchmark of a receiver that has stopped decoding doesn't go unnoticed.
+ * benchmark of a receiver that has stopped decoding doesn't go unnoticed, and
+ * `frames_detected`, which on W-idle are all false alarms.
  *
  * google_benchmark's flags work as usual, e.g. `--benchmark_filter=W-54`,
  * `--benchmark_repetitions=20` or `--benchmark_out=FILE` with
@@ -47,6 +48,8 @@
 #include "host_info.h"
 #include "pipeline.h"
 #include "src/framing.h"
+#include "src/metrics/metrics.h"
+#include "src/metrics/tracing.h"
 #include "src/phy/receiver_chain.h"
 #include "workload.h"
 
@@ -73,6 +76,9 @@ struct flags {
 
   //! --stage_seconds: how much of each workload the blocks' benchmarks use
   double stage_seconds = DEFAULT_STAGE_SECONDS;
+
+  //! --trace: the file to record a trace of every benchmark into, if any
+  std::optional<std::string> trace_file;
 };
 
 void print_help() {
@@ -84,7 +90,10 @@ void print_help() {
       "      receiver_chain benchmarks receive all of it.\n"
       "  [--stage_seconds=<seconds>]\n"
       "      How much of the start of each workload the blocks' benchmarks\n"
-      "      use, repeating it as often as they need (default: %g s).\n",
+      "      use, repeating it as often as they need (default: %g s).\n"
+      "  [--trace=<file>]\n"
+      "      Record a trace of the benchmarks into the file, for\n"
+      "      https://ui.perfetto.dev, and to measure what tracing costs.\n",
       DEFAULT_STAGE_SECONDS);
 }
 
@@ -116,6 +125,7 @@ std::optional<double> parse_seconds(std::string_view arg,
 std::optional<flags> parse_flags(int* argc, char** argv) {
   const std::string_view WORKLOAD = "--workload_seconds=";
   const std::string_view STAGE = "--stage_seconds=";
+  const std::string_view TRACE = "--trace=";
 
   flags parsed;
   int kept = 1;
@@ -129,6 +139,8 @@ std::optional<flags> parse_flags(int* argc, char** argv) {
           parse_seconds(arg, arg.substr(STAGE.size()));
       if (!seconds) return std::nullopt;
       parsed.stage_seconds = *seconds;
+    } else if (arg.starts_with(TRACE) && arg.size() > TRACE.size()) {
+      parsed.trace_file = std::string(arg.substr(TRACE.size()));
     } else {
       argv[kept++] = argv[i];
     }
@@ -189,6 +201,7 @@ void report_samples(benchmark::State& state, double samples) {
 void bench_chain(benchmark::State& state, const workload& spec) {
   double frames_sent = 0;
   double frames_received = 0;
+  double frames_detected = 0;
   for (auto _ : state) {
     state.PauseTiming();
     workload_source source(spec);
@@ -224,6 +237,7 @@ void bench_chain(benchmark::State& state, const workload& spec) {
     for (int i = 0; i < 6; i++)
       receive(std::vector<std::complex<double>>(BATCH_SAMPLES));
     frames_sent += static_cast<double>(source.whole_frames());
+    frames_detected += static_cast<double>(chain->metrics().frames_detected);
     chain.reset();
     state.ResumeTiming();
   }
@@ -232,6 +246,7 @@ void bench_chain(benchmark::State& state, const workload& spec) {
   report_samples(state, iterations * static_cast<double>(spec.samples()));
   state.counters["frames_sent"] = frames_sent / iterations;
   state.counters["frames_received"] = frames_received / iterations;
+  state.counters["frames_detected"] = frames_detected / iterations;
 }
 
 //! The type of a block's input batches
@@ -364,7 +379,13 @@ int main(int argc, char** argv) {
         ->Unit(benchmark::kMillisecond);
   }
 
+  // What the build and run record, which changes what they cost
+  benchmark::AddCustomContext("metrics", metrics::ENABLED ? "on" : "off");
+  benchmark::AddCustomContext("trace", parsed->trace_file ? "on" : "off");
+  if (parsed->trace_file) trace::start_file(*parsed->trace_file);
+
   benchmark::RunSpecifiedBenchmarks();
+  trace::stop();
   benchmark::Shutdown();
   return 0;
 }
