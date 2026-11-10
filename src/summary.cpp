@@ -167,6 +167,12 @@ std::string to_json(const std::string& version, const sim_options& opts,
       {"packets", data_given ? unless_zero(opts.data.packets)
                              : json::value(SIM_DEFAULT_PACKETS)},
       {"bytes", unless_zero(opts.data.bytes)},
+      {"bandwidth", opts.bandwidth_mhz},
+      {"snr",
+       opts.channel.snr_db ? json::value(*opts.channel.snr_db) : json::value()},
+      {"cfo", opts.channel.cfo_hz},
+      {"timing_offset", opts.channel.timing_offset},
+      {"delay_spread", opts.channel.delay_spread_ns},
   };
 
   json::object summary = start(version, "sim", std::move(options));

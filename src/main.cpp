@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
+#include <format>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -30,6 +31,7 @@
 
 #include <CLI/CLI.hpp>
 
+#include "channel.h"
 #include "framing.h"
 #include "options.h"
 #include "payload.h"
@@ -183,6 +185,33 @@ static std::uint64_t count_mismatches(
 }
 
 /*!
+ * \brief Prints sim's channel impairments, if it has any.
+ */
+static void print_channel(const sim_options& opts) {
+  const channel_params& params = opts.channel;
+  std::vector<std::string> impairments;
+  if (params.snr_db)
+    impairments.push_back(std::format("{} dB SNR", *params.snr_db));
+  if (params.cfo_hz != 0)
+    impairments.push_back(std::format("{} Hz CFO", params.cfo_hz));
+  if (params.timing_offset != 0) {
+    impairments.push_back(
+        std::format("{} sample timing offset", params.timing_offset));
+  }
+  if (params.delay_spread_ns != 0) {
+    impairments.push_back(
+        std::format("{} ns delay spread", params.delay_spread_ns));
+  }
+  if (impairments.empty()) return;
+
+  std::string line = "Channel at " + std::format("{}", opts.bandwidth_mhz) +
+                     " MHz: " + impairments[0];
+  for (std::size_t i = 1; i < impairments.size(); i++)
+    line += ", " + impairments[i];
+  std::cout << line << std::endl;
+}
+
+/*!
  * \brief Builds frames and runs them through the receiver chain in software.
  * \param opts The sim options
  * \param stop Stops the simulation after the current chunk of samples
@@ -190,9 +219,10 @@ static std::uint64_t count_mismatches(
  * received data.
  *
  * This function sends random data, split into frames with sequence numbers, by
- * building each frame's samples with the frame builder and passing them
- * straight to the receiver chain. It then checks the data received against the
- * data sent. This function does NOT use the transmitter and receiver classes.
+ * building each frame's samples with the frame builder and passing them through
+ * the channel to the receiver chain. It then checks the data received against
+ * the data sent. This function does NOT use the transmitter and receiver
+ * classes.
  *
  * It keeps a copy of every frame's data to check against, so its memory grows
  * with the amount of data sent.
@@ -211,6 +241,7 @@ static sim_result run_sim(const sim_options& opts, std::stop_token stop) {
   fragmenter frames(source);
 
   frame_builder builder;
+  channel air(opts.channel, opts.bandwidth_mhz * 1e6, result.seed);
   receiver_chain chain;
   reassembler received;
   // Each frame's data, by sequence number
@@ -243,14 +274,15 @@ static sim_result run_sim(const sim_options& opts, std::stop_token stop) {
 
   std::cout << "Simulating at " << RateParams(opts.phy_rate).name
             << " with seed " << result.seed << std::endl;
+  print_channel(opts);
   while (!stop.stop_requested()) {
     std::vector<std::uint8_t> payload = frames.next_frame();
     if (payload.empty()) break;
 
     sent.emplace_back(payload.begin() + FRAME_HEADER_SIZE, payload.end());
-    receive(builder.build_frame(payload, opts.phy_rate));
+    receive(air.transmit(builder.build_frame(payload, opts.phy_rate)));
   }
-  receive(std::vector<std::complex<double>>(FLUSH_SIZE));
+  receive(air.idle(FLUSH_SIZE));
 
   result.received = stats.totals();
   result.received.print("Received");

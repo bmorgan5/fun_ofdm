@@ -39,6 +39,11 @@ PASS: all 100 packets received intact
 
 It exits with status 0 on PASS and 1 on FAIL.
 
+By default the channel between them is perfect. `--snr`, `--cfo`,
+`--timing-offset` and `--delay-spread` add noise, a carrier frequency offset, a
+delay and multipath fading ([channel.h](src/channel.h)), for example
+`fun-ofdm sim --snr 20 --cfo 2.5kHz`.
+
 ## Requirements
 
 - An aarch64 or x86_64 machine running Ubuntu 26.04.
