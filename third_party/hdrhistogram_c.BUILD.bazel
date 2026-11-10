@@ -1,0 +1,20 @@
+# HdrHistogram_c's histogram, from its release, for src/metrics. Only the
+# histogram itself: not its log format, which needs zlib, or its interval
+# recorder.
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "hdrhistogram_c",
+    srcs = [
+        "src/hdr_atomic.h",
+        "src/hdr_histogram.c",
+        "src/hdr_malloc.h",
+        "src/hdr_tests.h",
+    ],
+    hdrs = ["include/hdr/hdr_histogram.h"],
+    # It's third-party code, with warnings of its own.
+    copts = ["-w"],
+    includes = ["include"],
+    linkopts = ["-lm"],
+    visibility = ["//visibility:public"],
+)

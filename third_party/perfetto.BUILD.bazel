@@ -1,0 +1,14 @@
+# The Perfetto SDK's amalgamation (perfetto.h and perfetto.cc), from its
+# release, for src/metrics.
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "perfetto",
+    srcs = ["perfetto.cc"],
+    hdrs = ["perfetto.h"],
+    # It's third-party code, with warnings of its own.
+    copts = ["-w"],
+    includes = ["."],
+    linkopts = ["-lpthread"],
+    visibility = ["//visibility:public"],
+)
