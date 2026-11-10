@@ -2,6 +2,13 @@
 # release, for src/metrics.
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
+# `--config=tsan` (.bazelrc), which Perfetto's own build marks with
+# THREAD_SANITIZER.
+config_setting(
+    name = "tsan",
+    values = {"copt": "-fsanitize=thread"},
+)
+
 cc_library(
     name = "perfetto",
     srcs = ["perfetto.cc"],
@@ -10,5 +17,12 @@ cc_library(
     copts = ["-w"],
     includes = ["."],
     linkopts = ["-lpthread"],
+    # Under TSan, THREAD_SANITIZER turns on Perfetto's annotations of its
+    # benign races, like its service copying trace buffers that threads may
+    # still be writing, which it validates before using.
+    local_defines = select({
+        ":tsan": ["THREAD_SANITIZER"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
 )

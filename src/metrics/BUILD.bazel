@@ -1,0 +1,52 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel/sanitizers:sanitizers.bzl", "SANITIZER_DATA", "SANITIZER_ENV")
+
+# The overview of the metrics, for the API documentation.
+exports_files(["README.md"])
+
+# `--config=no_metrics` (.bazelrc) builds without the timestamps, histograms
+# and traces, to measure what they cost.
+config_setting(
+    name = "no_metrics",
+    define_values = {"metrics": "off"},
+)
+
+# The receiver's clock, histograms and traces.
+cc_library(
+    name = "metrics",
+    srcs = [
+        "histogram.cpp",
+        "tracing.cpp",
+    ],
+    hdrs = [
+        "histogram.h",
+        "metrics.h",
+        "tracing.h",
+    ],
+    # `defines`, not `local_defines`, so that everything that includes the
+    # headers agrees.
+    defines = select({
+        ":no_metrics": ["FUN_OFDM_METRICS=0"],
+        "//conditions:default": ["FUN_OFDM_METRICS=1"],
+    }),
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "@hdrhistogram_c",
+        "@perfetto_sdk//:perfetto",
+    ],
+)
+
+# One test per *_test.cpp file, named after it.
+[cc_test(
+    name = src.removesuffix(".cpp"),
+    size = "small",
+    srcs = [src],
+    # The sysroot is for running under qemu (tools/qemu).
+    data = ["//third_party:sysroot"] + SANITIZER_DATA,
+    env = SANITIZER_ENV,
+    deps = [
+        ":metrics",
+        "@googletest//:gtest_main",
+    ],
+) for src in glob(["*_test.cpp"])]

@@ -67,4 +67,8 @@ test --test_output=errors
 coverage --combined_report=lcov
 coverage --experimental_generate_llvm_lcov
 
+# Builds without the receiver's timestamps, histograms and traces
+# (src/metrics), to measure what they cost: `--config=no_metrics`.
+build:no_metrics --define=metrics=off
+
 try-import %workspace%/user.bazelrc
