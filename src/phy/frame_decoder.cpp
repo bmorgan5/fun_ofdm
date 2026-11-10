@@ -47,6 +47,7 @@ frame_decoder::frame_decoder()
 void frame_decoder::work() {
   if (input_buffer.size() == 0) return;
   output_buffer.resize(0);
+  frame_ends.resize(0);
 
   // Step through each 48 sample symbol
   for (std::size_t x = 0; x < input_buffer.size(); x++) {
@@ -56,6 +57,7 @@ void frame_decoder::work() {
                   &input_buffer[x].samples[0],
                   48 * sizeof(std::complex<double>));
       m_current_frame.samples_copied += 48;
+      m_current_frame.last_sample = input_buffer[x].last_sample;
     }
 
     // Decode the frame if possible
@@ -63,8 +65,13 @@ void frame_decoder::work() {
         m_current_frame.sample_count != 0) {
       ppdu frame =
           ppdu(m_current_frame.rate_params.rate, m_current_frame.length);
+      Rate rate = m_current_frame.rate_params.rate;
       if (frame.decode_data(m_current_frame.samples)) {
         output_buffer.push_back(frame.get_payload());
+        frame_ends.push_back(m_current_frame.last_sample);
+        m_crc_ok[rate]++;
+      } else {
+        m_crc_failed[rate]++;
       }
       m_current_frame.sample_count = 0;
     }
@@ -76,7 +83,10 @@ void frame_decoder::work() {
       std::vector<std::complex<double>> header_samples(48);
       std::memcpy(header_samples.data(), input_buffer[x].samples,
                   48 * sizeof(std::complex<double>));
-      if (!h.decode_header(header_samples)) continue;
+      if (!h.decode_header(header_samples)) {
+        m_signal_failed++;
+        continue;
+      }
 
       // Calculate the frame sample count
       std::size_t length = h.get_length();

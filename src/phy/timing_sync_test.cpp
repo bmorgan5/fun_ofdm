@@ -170,5 +170,22 @@ TEST(TimingSyncTest, CorrectsTheFrequencyOffset) {
     EXPECT_NEAR(std::arg(corr), 0, 1e-3) << offset << " radians per sample";
   }
 }
+TEST(TimingSyncTest, LosesNoFrameItFindsTheLongTrainingSymbolsOf) {
+  std::vector<tagged_sample> input = tagged_frame(170);
+  timing_sync sync;
+  test::run_block(sync, input, input.size());
+  EXPECT_EQ(sync.sync_lost(), 0u);
+}
+
+// An STS_END with only zeros after it: a frame_detector false alarm.
+TEST(TimingSyncTest, CountsAFrameWithoutLongTrainingSymbolsAsLost) {
+  std::vector<tagged_sample> input(2000);
+  for (tagged_sample& s : input) s.sample = 0;
+  input[500].tag = STS_END;
+  timing_sync sync;
+  test::run_block(sync, input, input.size());
+  EXPECT_EQ(sync.sync_lost(), 1u);
+}
+
 }  // namespace
 }  // namespace fun

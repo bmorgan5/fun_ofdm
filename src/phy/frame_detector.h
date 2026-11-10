@@ -41,6 +41,7 @@
 #define STS_LENGTH 16
 
 #include <complex>
+#include <cstdint>
 
 #include "block.h"
 #include "circular_accumulator.h"
@@ -61,6 +62,12 @@ class frame_detector : public fun::block<std::complex<double>, tagged_sample> {
   frame_detector();  //!< Constructor for frame_detector block.
 
   virtual void work();  //!< Signal processing happens here.
+
+  /*!
+   * \brief The number of frames detected so far: the STS_START tags output.
+   * On noise alone, each is a false alarm.
+   */
+  std::uint64_t detections() const { return m_detections; }
 
  private:
   /*!
@@ -89,6 +96,8 @@ class frame_detector : public fun::block<std::complex<double>, tagged_sample> {
    * and carrying them over to the next call to #work()
    */
   std::vector<std::complex<double>> m_carryover;
+
+  std::uint64_t m_detections = 0;  //!< See detections()
 };
 }  // namespace fun
 

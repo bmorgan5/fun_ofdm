@@ -62,6 +62,7 @@ void channel_est::work() {
       }
     } else {
       tagged_vector<64> symbol;
+      symbol.last_sample = input_buffer[i].last_sample;
       if (m_frame_start) {
         symbol.tag = START_OF_FRAME;
         m_frame_start = false;

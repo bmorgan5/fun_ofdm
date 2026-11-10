@@ -103,5 +103,19 @@ TEST(FrameDetectorTest, IgnoresNoise) {
   frame_detector detector;
   EXPECT_TRUE(tags(test::run_block(detector, noise, noise.size())).empty());
 }
+TEST(FrameDetectorTest, CountsTheFramesItDetects) {
+  std::vector<std::complex<double>> samples = noisy_frame();
+  frame_detector detector;
+  test::run_block(detector, samples, samples.size());
+  EXPECT_EQ(detector.detections(), 1u);
+}
+
+TEST(FrameDetectorTest, CountsNoDetectionsInNoise) {
+  std::vector<std::complex<double>> noise = test::prbs_noise(10000, 0.005);
+  frame_detector detector;
+  test::run_block(detector, noise, noise.size());
+  EXPECT_EQ(detector.detections(), 0u);
+}
+
 }  // namespace
 }  // namespace fun

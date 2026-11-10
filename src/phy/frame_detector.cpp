@@ -65,6 +65,7 @@ void frame_detector::work() {
       if (m_plateau_length == STS_PLATEAU_LENGTH) {
         output_buffer[x].tag = STS_START;
         m_plateau_flag = true;
+        m_detections++;
       }
     } else {
       if (m_plateau_flag) {

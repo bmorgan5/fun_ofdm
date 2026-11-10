@@ -13,6 +13,7 @@
 #ifndef FRAME_DECODER_H
 #define FRAME_DECODER_H
 
+#include <array>
 #include <complex>
 #include <cstddef>
 #include <cstdint>
@@ -35,6 +36,8 @@ struct FrameData {
   std::vector<std::complex<double>> samples;  //!< Decoded Samples
   std::size_t length;                         //!< Data length
   std::size_t required_samples;  //!< Number of samples required to decode frame
+  //! The tagged_vector::last_sample of the frame's latest symbol
+  std::uint64_t last_sample = 0;
 
   /*!
    * \brief Constructor for FrameData
@@ -84,8 +87,35 @@ class frame_decoder
 
   virtual void work();  //!< Signal processing happens here.
 
+  /*!
+   * \brief Where each payload in output_buffer ends: the
+   * tagged_vector::last_sample of its frame's last symbol. Like output_buffer,
+   * it's left as it was by a batch with no symbols.
+   */
+  std::vector<std::uint64_t> frame_ends;
+
+  /*!
+   * \brief The number of SIGNAL symbols so far that failed their parity check
+   * or had an invalid RATE.
+   */
+  std::uint64_t signal_failed() const { return m_signal_failed; }
+
+  //! The number of frames so far that passed their CRC check, for each rate
+  const std::array<std::uint64_t, RATE_COUNT>& crc_ok() const {
+    return m_crc_ok;
+  }
+
+  //! The number of frames so far that failed their CRC check, for each rate
+  const std::array<std::uint64_t, RATE_COUNT>& crc_failed() const {
+    return m_crc_failed;
+  }
+
  private:
   FrameData m_current_frame;  //!< Current frame that is being decoded.
+
+  std::uint64_t m_signal_failed = 0;                 //!< See signal_failed()
+  std::array<std::uint64_t, RATE_COUNT> m_crc_ok{};  //!< See crc_ok()
+  std::array<std::uint64_t, RATE_COUNT> m_crc_failed{};  //!< See crc_failed()
 };
 
 }  // namespace fun
