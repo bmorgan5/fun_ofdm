@@ -60,6 +60,7 @@
 #define LTS_LENGTH 64
 
 #include <complex>
+#include <cstdint>
 
 #include "block.h"
 #include "tagged_vector.h"
@@ -81,6 +82,13 @@ class timing_sync : public fun::block<tagged_sample, tagged_sample> {
 
   virtual void work();  //!< Signal processing happens here.
 
+  /*!
+   * \brief The number of frames lost so far: STS_END tags after which it
+   * didn't find the long training symbols, or found them but dropped the
+   * frame (see the third \\bug above).
+   */
+  std::uint64_t sync_lost() const { return m_sync_lost; }
+
  private:
   double m_phase_offset;  //!< The phase rotation from symbol to symbol
 
@@ -91,6 +99,8 @@ class timing_sync : public fun::block<tagged_sample, tagged_sample> {
    * and carrying them over to the next call to #work()
    */
   std::vector<tagged_sample> m_carryover;
+
+  std::uint64_t m_sync_lost = 0;  //!< See sync_lost()
 };
 }  // namespace fun
 

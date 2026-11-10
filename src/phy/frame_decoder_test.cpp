@@ -85,6 +85,45 @@ TEST_P(FrameDecoderTest, DropsAFrameWithABadCrc) {
   EXPECT_TRUE(test::run_block(block, input, input.size()).empty());
 }
 
+// Each symbol ends 80 samples after the one before it.
+TEST_P(FrameDecoderTest, CountsAFrameThatPassesItsCrc) {
+  std::vector<tagged_vector<48>> input =
+      symbols(test::prbs_bytes(100), GetParam());
+  for (std::size_t s = 0; s < input.size(); s++)
+    input[s].last_sample = 1000 + 80 * s;
+  frame_decoder block;
+  test::run_block(block, input, input.size());
+  EXPECT_EQ(block.frame_ends,
+            std::vector<std::uint64_t>{1000 + 80 * (input.size() - 1)});
+  for (int rate = 0; rate < static_cast<int>(RATE_COUNT); rate++) {
+    EXPECT_EQ(block.crc_ok()[rate], rate == GetParam() ? 1u : 0u) << rate;
+    EXPECT_EQ(block.crc_failed()[rate], 0u) << rate;
+  }
+  EXPECT_EQ(block.signal_failed(), 0u);
+}
+
+TEST_P(FrameDecoderTest, CountsAFrameThatFailsItsCrc) {
+  std::vector<tagged_vector<48>> input =
+      symbols(test::prbs_bytes(100), GetParam());
+  for (std::complex<double>& point : input[1].samples) point = -point;
+  frame_decoder block;
+  test::run_block(block, input, input.size());
+  EXPECT_TRUE(block.frame_ends.empty());
+  EXPECT_EQ(block.crc_ok()[GetParam()], 0u);
+  EXPECT_EQ(block.crc_failed()[GetParam()], 1u);
+}
+
+// Negating the SIGNAL symbol flips every bit, which the parity bit catches.
+TEST_P(FrameDecoderTest, CountsASignalThatFailsItsParityCheck) {
+  std::vector<tagged_vector<48>> input =
+      symbols(test::prbs_bytes(100), GetParam());
+  for (std::complex<double>& point : input[0].samples) point = -point;
+  frame_decoder block;
+  EXPECT_TRUE(test::run_block(block, input, input.size()).empty());
+  EXPECT_EQ(block.signal_failed(), 1u);
+  EXPECT_EQ(block.crc_ok()[GetParam()] + block.crc_failed()[GetParam()], 0u);
+}
+
 INSTANTIATE_TEST_SUITE_P(AllRates, FrameDecoderTest,
                          testing::ValuesIn(test::ALL_RATES), test::rate_name);
 }  // namespace

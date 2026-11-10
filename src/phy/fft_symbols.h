@@ -19,6 +19,7 @@
 
 #include <complex>
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 #include <fftw3.h>
@@ -59,6 +60,9 @@ class fft_symbols : public fun::block<tagged_sample, tagged_vector<64>> {
    * \brief Forward FFT
    */
   fft m_ffft;
+
+  //! The samples in every batch before this one, for tagged_vector::last_sample
+  std::uint64_t m_samples_before = 0;
 };
 }  // namespace fun
 

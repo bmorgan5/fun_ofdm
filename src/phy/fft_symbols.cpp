@@ -38,7 +38,10 @@ void fft_symbols::work() {
     if (input_buffer[x].tag == LTS1) {
       // Push the current vector to the output buffer if
       // we've written any data to it
-      if (m_offset > 15) output_buffer.push_back(m_current_vector);
+      if (m_offset > 15) {
+        m_current_vector.last_sample = m_samples_before + x - 1;
+        output_buffer.push_back(m_current_vector);
+      }
 
       // Start a new vector
       m_current_vector.tag = LTS_START;
@@ -57,11 +60,14 @@ void fft_symbols::work() {
     // Increment the offset and reset if we're at the end of the symbol
     m_offset++;
     if (m_offset == 80) {
+      m_current_vector.last_sample = m_samples_before + x;
       output_buffer.push_back(m_current_vector);
       m_current_vector.tag = NONE;
       m_offset = 0;
     }
   }
+
+  m_samples_before += input_buffer.size();
 
   // Perform forward FFT
   for (std::size_t x = 0; x < output_buffer.size(); x++) {

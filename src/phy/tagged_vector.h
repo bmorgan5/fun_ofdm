@@ -12,6 +12,7 @@
 
 #include <cassert>
 #include <complex>
+#include <cstdint>
 #include <cstring>
 #include <vector>
 
@@ -45,6 +46,13 @@ template <int N>
 struct tagged_vector {
   std::complex<double> samples[N];  //!< The array of N complex doubles
   vector_tag tag;                   //!< The array's tag
+
+  /*!
+   * The position of the symbol's last sample in fft_symbols' input, counting
+   * from 0, which the blocks after it pass on. It tells receiver_chain where
+   * each frame ends, for its latency.
+   */
+  std::uint64_t last_sample = 0;
 
   /*!
    * \brief Non-initializing constructor for tagged_vector.

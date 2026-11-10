@@ -124,5 +124,22 @@ TEST(FftSymbolsTest, OutputsTheSameInAnyBatchSize) {
     }
   }
 }
+// The first LTS symbol is the 64 samples from LTS1, and LTS2 starts the
+// second; each symbol after them is 80 samples, with its cyclic prefix.
+TEST(FftSymbolsTest, MarksWhereEachSymbolEnds) {
+  std::vector<tagged_sample> input = tagged_frame();
+  for (std::size_t batch : {input.size(), std::size_t{100}, std::size_t{1}}) {
+    fft_symbols block;
+    std::vector<tagged_vector<64>> output =
+        from_lts_start(test::run_block(block, input, batch));
+    ASSERT_GT(output.size(), 3u);
+    EXPECT_EQ(output[0].last_sample, START + 255) << batch << " per batch";
+    for (std::size_t s = 1; s < output.size(); s++) {
+      EXPECT_EQ(output[s].last_sample, START + 319 + 80 * (s - 1))
+          << "symbol " << s << ", " << batch << " per batch";
+    }
+  }
+}
+
 }  // namespace
 }  // namespace fun

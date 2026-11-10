@@ -69,6 +69,9 @@ enum Rate : int {
   RATE_3_4_QAM64 = 10  //!< Rate 3/4 code : QAM64 modulation
 };
 
+//! The number of rates, for arrays indexed by #Rate
+constexpr std::size_t RATE_COUNT = RATE_3_4_QAM64 + 1;
+
 // Parameters for each data rate
 /*!
  * \brief The RateParams struct

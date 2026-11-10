@@ -93,6 +93,7 @@ void phase_tracker::work() {
     }
 
     output_buffer[i].tag = input_buffer[i].tag;
+    output_buffer[i].last_sample = input_buffer[i].last_sample;
     m_symbol_count++;  // Keep track of the current symbol number in the frame
   }
 }

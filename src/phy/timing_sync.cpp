@@ -94,7 +94,10 @@ void timing_sync::work() {
             std::ptrdiff_t lts_offset =
                 std::min(peaks[s].second, peaks[t].second) -
                 32;  // Start of the LTS CP
-            if (lts_offset < 0) break;
+            if (lts_offset < 0) {
+              m_sync_lost++;
+              break;
+            }
 
             input[lts_offset + 24].tag = LTS1;       // First sample in the LTS
             input[lts_offset + 24 + 64].tag = LTS2;  // First sample in the LTS
@@ -112,6 +115,7 @@ void timing_sync::work() {
           }
         }
       }
+      if (!found) m_sync_lost++;
     }
 
     m_phase_acc += m_phase_offset;
