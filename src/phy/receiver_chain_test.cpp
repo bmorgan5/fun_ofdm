@@ -146,5 +146,65 @@ TEST(ReceiverChainTest, IgnoresEmptyBatches) {
   receiver_chain rx;
   EXPECT_EQ(receive(rx, input, sizes), payloads{payload});
 }
+// Batches of 4096 samples, said to arrive 1 ms apart, starting 10 s ago, so
+// a frame's latency is from its last batch's arrival to now.
+TEST(ReceiverChainTest, MeasuresEachBlockAndFrame) {
+  if (!metrics::ENABLED) GTEST_SKIP() << "Built without metrics";
+  const std::size_t BATCH = 4096;
+  const metrics::time_point MS = 1'000'000;
+  std::vector<std::uint8_t> payload = test::prbs_bytes(100);
+  std::vector<std::complex<double>> input = samples(payload, RATE_1_2_QPSK);
+  std::vector<std::size_t> sizes = batch_sizes(input.size(), BATCH);
+  input.resize(sizes.size() * BATCH, 0);
+
+  receiver_chain rx;
+  metrics::time_point first = metrics::now() - 10'000 * MS;
+  metrics::time_point before = 0;
+  payloads received;
+  for (std::size_t b = 0; b < sizes.size(); b++) {
+    std::vector<std::complex<double>> batch(input.begin() + b * BATCH,
+                                            input.begin() + (b + 1) * BATCH);
+    before = metrics::now();
+    payloads out = rx.process_samples(batch, first + b * MS);
+    received.insert(received.end(), out.begin(), out.end());
+  }
+  metrics::time_point after = metrics::now();
+  ASSERT_EQ(received, payloads{payload});
+
+  chain_metrics m = rx.metrics();
+  auto calls = static_cast<std::int64_t>(sizes.size());
+  EXPECT_EQ(m.frames_detected, 1u);
+  EXPECT_EQ(m.sync_lost, 0u);
+  EXPECT_EQ(m.signal_failed, 0u);
+  EXPECT_EQ(m.crc_ok[RATE_1_2_QPSK], 1u);
+  EXPECT_EQ(m.arrival_interval.count(), calls - 1);
+  EXPECT_NEAR(m.arrival_interval.percentile(50), MS, MS / 1000);
+
+  // The frame ends in the first batch: 200 zeros and under 4096 samples of
+  // frame. Its payload came out during one of the calls.
+  ASSERT_EQ(m.latency.count(), 1);
+  EXPECT_GE(m.latency.max(), (before - first) * 999 / 1000);
+  EXPECT_LE(m.latency.max(), (after - first) * 1001 / 1000);
+
+  std::vector<std::string> names;
+  for (const block_metrics& block : m.blocks) {
+    names.push_back(block.name);
+    EXPECT_EQ(block.processing.count(), calls) << block.name;
+    EXPECT_EQ(block.wait.count(), calls) << block.name;
+    EXPECT_EQ(block.start_interval.count(), calls - 1) << block.name;
+  }
+  EXPECT_EQ(names, (std::vector<std::string>{
+                       "frame_detector", "timing_sync", "fft_symbols",
+                       "channel_est", "phase_tracker", "frame_decoder"}));
+  // Block k first gets a batch on call k, and lags it by at least k ms
+  for (std::size_t k = 0; k < m.blocks.size(); k++) {
+    EXPECT_EQ(m.blocks[k].lag.count(), calls - static_cast<std::int64_t>(k))
+        << m.blocks[k].name;
+    EXPECT_GE(m.blocks[k].lag.percentile(0),
+              static_cast<std::int64_t>(k) * MS * 999 / 1000)
+        << m.blocks[k].name;
+  }
+}
+
 }  // namespace
 }  // namespace fun

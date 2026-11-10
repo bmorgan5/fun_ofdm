@@ -27,7 +27,10 @@ cc_library(
         "//conditions:default": [],
     }),
     visibility = ["//src:__subpackages__"],
-    deps = ["//third_party:fftw3"] + select({
+    deps = [
+        "//src/metrics",
+        "//third_party:fftw3",
+    ] + select({
         "@platforms//cpu:aarch64": ["@sse2neon"],
         "//conditions:default": [],
     }),
