@@ -5,7 +5,7 @@
 # either architecture on either host. A binary for the host's architecture
 # runs directly.
 #
-# Usage: run.sh <binary> [args...]
+# Usage: run.sh <binary or script> [args...]
 set -euo pipefail
 
 binary=$1
@@ -13,6 +13,12 @@ binary=$1
 if ! command -v readelf >/dev/null; then
     echo "run.sh: readelf isn't installed: sudo apt install binutils" >&2
     exit 1
+fi
+
+# A script, like an sh_test, runs on the host. It runs its binaries through
+# this script itself, as src/bench/bench-smoke-test.sh does.
+if ! readelf --file-header "$binary" >/dev/null 2>&1; then
+    exec "$@"
 fi
 
 # The binary's architecture, from its ELF header.
