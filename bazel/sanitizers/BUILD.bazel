@@ -1,0 +1,2 @@
+# The sanitizer configs' runtime options, for the tests (sanitizers.bzl).
+exports_files(["lsan_suppressions.txt"])
