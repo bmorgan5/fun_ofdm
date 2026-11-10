@@ -11,15 +11,21 @@
 
 #include <algorithm>
 #include <complex>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <optional>
+#include <stdexcept>
 #include <stop_token>
+#include <streambuf>
+#include <string>
 #include <thread>
+#include <type_traits>
 #include <vector>
 
 #include <CLI/CLI.hpp>
@@ -32,6 +38,7 @@
 #include "src/phy/frame_builder.h"
 #include "src/phy/receiver_chain.h"
 #include "stats.h"
+#include "summary.h"
 #include "transmitter.h"
 
 using namespace fun;
@@ -55,22 +62,24 @@ static void print_losses(std::uint64_t received, std::uint64_t lost,
  * \brief Transmits data over the air with a USRP.
  * \param opts The tx options
  * \param stop Stops transmitting after the current packet
- * \return Process exit code.
+ * \return What the run did.
  *
  * This function sends random data, split into frames with sequence numbers so
  * that the receiver can tell which frames it lost. It sends the amount of data
  * set by --packets or --bytes, or keeps sending until a stop is requested.
  */
-static int run_tx(const tx_options& opts, std::stop_token stop) {
+static tx_result run_tx(const tx_options& opts, std::stop_token stop) {
   if (!opts.radio.no_realtime) set_realtime_priority();
 
   transmitter tx = transmitter(to_usrp_params(opts));
 
-  random_source source(opts.data.limit());
+  tx_result result;
+  result.seed = opts.seed ? *opts.seed : random_seed();
+  random_source source(opts.data.limit(), result.seed);
   fragmenter frames(source);
 
-  std::cout << "Sending at " << RateParams(opts.phy_rate).name
-            << " (press Ctrl+C to stop)" << std::endl;
+  std::cout << "Sending at " << RateParams(opts.phy_rate).name << " with seed "
+            << result.seed << " (press Ctrl+C to stop)" << std::endl;
   transfer_stats stats;
   for (std::uint64_t sequence = 0; !stop.stop_requested(); sequence++) {
     std::vector<std::uint8_t> payload = frames.next_frame();
@@ -82,9 +91,10 @@ static int run_tx(const tx_options& opts, std::stop_token stop) {
               << payload.size() - FRAME_HEADER_SIZE << " bytes)" << std::endl;
   }
 
-  stats.print_summary("Sent");
+  result.sent = stats.totals();
+  result.sent.print("Sent");
 
-  return 0;
+  return result;
 }
 
 /*!
@@ -129,13 +139,13 @@ static void process_packets_callback(
  * \brief Receives frames over the air with a USRP.
  * \param opts The rx options
  * \param stop Stops receiving
- * \return Process exit code.
+ * \return What the run did.
  *
  *  This function creates a receiver object, passing it a pointer to the
  * #process_packets_callback() function which is used to process the received
  * packets. It then runs the receiver until a stop is requested.
  */
-static int run_rx(const rx_options& opts, std::stop_token stop) {
+static rx_result run_rx(const rx_options& opts, std::stop_token stop) {
   if (!opts.radio.no_realtime) set_realtime_priority();
 
   receiver rx = receiver(&process_packets_callback, to_usrp_params(opts));
@@ -144,11 +154,13 @@ static int run_rx(const rx_options& opts, std::stop_token stop) {
   rx_state.emplace();
   rx.run(stop);
 
-  rx_state->stats.print_summary("Received");
-  print_losses(rx_state->stats.packets(), rx_state->frames.lost(),
-               rx_state->frames.duplicates());
+  rx_result result = {.received = rx_state->stats.totals(),
+                      .lost = rx_state->frames.lost(),
+                      .duplicates = rx_state->frames.duplicates()};
+  result.received.print("Received");
+  print_losses(result.received.packets, result.lost, result.duplicates);
 
-  return 0;
+  return result;
 }
 
 /*!
@@ -174,8 +186,8 @@ static std::uint64_t count_mismatches(
  * \brief Builds frames and runs them through the receiver chain in software.
  * \param opts The sim options
  * \param stop Stops the simulation after the current chunk of samples
- * \return Process exit code: 0 if all the data was received intact or the
- * simulation was stopped, otherwise 1.
+ * \return What the run did. If it was stopped, it has no check of the
+ * received data.
  *
  * This function sends random data, split into frames with sequence numbers, by
  * building each frame's samples with the frame builder and passing them
@@ -185,14 +197,17 @@ static std::uint64_t count_mismatches(
  * It keeps a copy of every frame's data to check against, so its memory grows
  * with the amount of data sent.
  */
-static int run_sim(const sim_options& opts, std::stop_token stop) {
+static sim_result run_sim(const sim_options& opts, std::stop_token stop) {
   // Samples passed to the receiver chain at a time
   const std::size_t CHUNK_SIZE = 4096;
   // Zeros sent at the end to flush the receiver chain
   const std::size_t FLUSH_SIZE = 40960;
 
   std::optional<std::uint64_t> limit = opts.data.limit();
-  random_source source(limit ? *limit : SIM_DEFAULT_PACKETS * FRAME_DATA_SIZE);
+  sim_result result;
+  result.seed = opts.seed ? *opts.seed : random_seed();
+  random_source source(limit ? *limit : SIM_DEFAULT_PACKETS * FRAME_DATA_SIZE,
+                       result.seed);
   fragmenter frames(source);
 
   frame_builder builder;
@@ -226,7 +241,8 @@ static int run_sim(const sim_options& opts, std::stop_token stop) {
     }
   };
 
-  std::cout << "Simulating at " << RateParams(opts.phy_rate).name << std::endl;
+  std::cout << "Simulating at " << RateParams(opts.phy_rate).name
+            << " with seed " << result.seed << std::endl;
   while (!stop.stop_requested()) {
     std::vector<std::uint8_t> payload = frames.next_frame();
     if (payload.empty()) break;
@@ -236,26 +252,29 @@ static int run_sim(const sim_options& opts, std::stop_token stop) {
   }
   receive(std::vector<std::complex<double>>(FLUSH_SIZE));
 
-  stats.print_summary("Received");
+  result.received = stats.totals();
+  result.received.print("Received");
 
   if (stop.stop_requested()) {
     std::cout << "Stopped early, so not checking the received data"
               << std::endl;
-    return 0;
+    return result;
   }
 
   std::uint64_t lost = sent.size() - stats.packets();
   print_losses(stats.packets(), lost, received.duplicates());
+  result.check = sim_check{.lost = lost,
+                           .duplicates = received.duplicates(),
+                           .mismatched_bytes = mismatches};
 
-  if (lost == 0 && mismatches == 0) {
+  if (result.check->passed()) {
     std::cout << "PASS: all " << sent.size() << " packets received intact"
               << std::endl;
-    return 0;
+  } else {
+    std::cout << "FAIL: " << lost << " packets lost, " << mismatches
+              << " bytes mismatched" << std::endl;
   }
-
-  std::cout << "FAIL: " << lost << " packets lost, " << mismatches
-            << " bytes mismatched" << std::endl;
-  return 1;
+  return result;
 }
 
 /*!
@@ -309,6 +328,81 @@ static std::jthread stop_on_signals(std::stop_source stop) {
   });
 }
 
+/*!
+ * \brief The process exit code for a tx run: 0, since it only stops when it
+ * has sent everything or is asked to.
+ */
+static int exit_code(const tx_result&) { return 0; }
+
+/*!
+ * \brief The process exit code for an rx run: 0, since it only stops when it
+ * is asked to.
+ */
+static int exit_code(const rx_result&) { return 0; }
+
+/*!
+ * \brief The process exit code for a sim run: 0 if all the data was received
+ * intact or the run was stopped, otherwise 1.
+ */
+static int exit_code(const sim_result& result) {
+  return !result.check || result.check->passed() ? 0 : 1;
+}
+
+/*!
+ * \brief Sends what's written to std::cout to stderr instead, until it's
+ * destroyed.
+ */
+class stdout_to_stderr {
+ public:
+  stdout_to_stderr() : m_stdout(std::cout.rdbuf(std::cerr.rdbuf())) {}
+  ~stdout_to_stderr() { std::cout.rdbuf(m_stdout); }
+  stdout_to_stderr(const stdout_to_stderr&) = delete;
+  stdout_to_stderr& operator=(const stdout_to_stderr&) = delete;
+
+ private:
+  std::streambuf* m_stdout;  //!< std::cout's buffer, to put back
+};
+
+/*!
+ * \brief Runs a mode, and writes its run summary to its --json file, if it has
+ * one.
+ * \param run The mode's function, which returns its result
+ * \param opts The mode's options
+ * \param stop Stops the mode
+ * \return The process exit code, from exit_code().
+ * \throws std::runtime_error if the --json file can't be written.
+ *
+ * The file is opened before the mode runs, so a bad path fails at once, not
+ * after a long run. It's only written once the mode finishes: if the mode
+ * throws, the file is left empty.
+ *
+ * For "-", the summary goes to stdout, and everything else the mode writes to
+ * std::cout goes to stderr, so that stdout is only JSON.
+ */
+template <typename Options, std::invocable<const Options&, std::stop_token> Run>
+static int run_mode(Run run, const Options& opts, std::stop_token stop) {
+  std::optional<stdout_to_stderr> redirect;
+  std::ofstream json_file;
+  if (opts.json_file == "-") {
+    redirect.emplace();
+  } else if (opts.json_file) {
+    json_file.open(*opts.json_file);
+    if (!json_file) throw std::runtime_error("Can't open " + *opts.json_file);
+  }
+
+  std::invoke_result_t<Run, const Options&, std::stop_token> result =
+      run(opts, stop);
+
+  if (opts.json_file) {
+    redirect.reset();
+    std::ostream& out = json_file.is_open() ? json_file : std::cout;
+    // The version is from src/BUILD.bazel
+    out << to_json(FUN_OFDM_VERSION, opts, result) << std::endl;
+    if (!out) throw std::runtime_error("Can't write " + *opts.json_file);
+  }
+  return exit_code(result);
+}
+
 int main(int argc, char* argv[]) {
   CLI::App app("802.11a OFDM PHY for Ettus USRPs", "fun-ofdm");
   app.set_version_flag("--version", FUN_OFDM_VERSION);  // From src/BUILD.bazel
@@ -336,9 +430,9 @@ int main(int argc, char* argv[]) {
   std::jthread signal_waiter = stop_on_signals(stop);
 
   try {
-    if (tx->parsed()) return run_tx(tx_opts, stop.get_token());
-    if (rx->parsed()) return run_rx(rx_opts, stop.get_token());
-    if (sim->parsed()) return run_sim(sim_opts, stop.get_token());
+    if (tx->parsed()) return run_mode(run_tx, tx_opts, stop.get_token());
+    if (rx->parsed()) return run_mode(run_rx, rx_opts, stop.get_token());
+    if (sim->parsed()) return run_mode(run_sim, sim_opts, stop.get_token());
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << std::endl;
   }

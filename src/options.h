@@ -48,26 +48,31 @@ struct data_options {
  * \brief Options for the tx mode.
  */
 struct tx_options {
-  radio_options radio;            //!< USRP options
-  double tx_amp = 0.5;            //!< Scale factor for transmit samples
-  Rate phy_rate = RATE_1_2_BPSK;  //!< PHY rate for all transmitted frames
-  data_options data;  //!< How much data to send; unlimited if not set
+  radio_options radio;
+  double tx_amp = 0.5;
+  Rate phy_rate = RATE_1_2_BPSK;
+  data_options data;
+  std::optional<std::uint64_t> seed;
+  std::optional<std::string> json_file;
 };
 
 /*!
  * \brief Options for the rx mode.
  */
 struct rx_options {
-  radio_options radio;  //!< USRP options
+  radio_options radio;
+  std::optional<std::string> json_file;
 };
 
 /*!
  * \brief Options for the sim mode.
  */
 struct sim_options {
-  Rate phy_rate = RATE_3_4_QAM16;  //!< PHY rate for all simulated frames
-  //! How much data to send; #SIM_DEFAULT_PACKETS packets if not set
+  Rate phy_rate = RATE_3_4_QAM16;
   data_options data;
+
+  std::optional<std::uint64_t> seed;
+  std::optional<std::string> json_file;
 };
 
 /*!
@@ -90,6 +95,11 @@ void add_options(CLI::App* app, rx_options& opts);
  * \brief Adds the sim mode's options to its subcommand.
  */
 void add_options(CLI::App* app, sim_options& opts);
+
+/*!
+ * \brief The --phy-rate name of a rate, e.g. "qam16-3/4".
+ */
+std::string rate_name(Rate phy_rate);
 
 /*!
  * \brief Converts an 802.11 channel number to its center frequency.

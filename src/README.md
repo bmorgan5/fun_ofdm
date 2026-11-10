@@ -8,7 +8,9 @@ and which file does what.
 ## The modes
 
 Each mode is a function in [main.cpp](main.cpp) that runs until it has sent
-everything or is stopped, then prints a summary:
+everything or is stopped, then prints a summary. With `--json`, `run_mode()`
+also writes the summary to a file as JSON: the version, the mode, its options,
+the seed and the results ([summary.h](summary.h) lists the members).
 
 ```text
 tx:   random_source → fragmenter → transmitter (frame_builder → usrp) → air
@@ -44,7 +46,8 @@ followed by the data:
 ```
 
 The data is random bytes from `random_source` ([payload.h](payload.h)), and
-every frame is full except the last. The sequence number starts at 0 and goes
+every frame is full except the last. The bytes depend only on the seed, so
+`--seed` sends the same data again. The sequence number starts at 0 and goes
 up by one per frame. The PHY's CRC-32 already drops corrupted frames, so the
 sequence number only tells `reassembler` ([framing.h](framing.h)) which frames
 went missing or arrived twice. This is fun-ofdm's own format for testing the

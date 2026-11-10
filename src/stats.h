@@ -11,8 +11,29 @@
 
 namespace fun {
 /*!
- * \brief Counts the packets and bytes sent or received since it was created and
- * prints a summary of them.
+ * \brief The packets and bytes sent or received, and how long it took.
+ */
+struct transfer_totals {
+  std::size_t packets = 0;  //!< Packets counted
+  std::size_t bytes = 0;    //!< Payload bytes counted
+  //! Time from the start of counting to the totals
+  std::chrono::nanoseconds elapsed{0};
+
+  /*!
+   * \brief #elapsed in seconds.
+   */
+  double seconds() const;
+
+  /*!
+   * \brief Prints the packet and byte counts, the elapsed time and the
+   * throughput.
+   * \param verb What happened to the packets, e.g. "Sent" or "Received".
+   */
+  void print(const std::string& verb) const;
+};
+
+/*!
+ * \brief Counts the packets and bytes sent or received since it was created.
  */
 class transfer_stats {
  public:
@@ -33,11 +54,9 @@ class transfer_stats {
   std::size_t packets() const;
 
   /*!
-   * \brief Prints the packet and byte counts, the elapsed time and the
-   * throughput.
-   * \param verb What happened to the packets, e.g. "Sent" or "Received".
+   * \brief The totals so far, with the time elapsed since it was created.
    */
-  void print_summary(const std::string& verb) const;
+  transfer_totals totals() const;
 
  private:
   std::chrono::steady_clock::time_point m_start;  //!< When counting started
