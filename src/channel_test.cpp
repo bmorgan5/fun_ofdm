@@ -135,6 +135,21 @@ TEST(ChannelTest, KeepsTheFirstFramesNoiseFloor) {
   EXPECT_NEAR(mean_power(air.idle(100000)), 0.2, 0.005);
 }
 
+TEST(ChannelTest, SetsTheNoiseFloorFromTheSignalPowerItsGiven) {
+  channel air(channel_params{.snr_db = 10}, SAMPLE_RATE, 1);
+  air.set_signal_power(4);
+  EXPECT_NEAR(mean_power(air.idle(100000)), 0.4, 0.01);
+  // A frame doesn't move it
+  air.transmit(prbs_samples(1000));  // Mean power 2
+  EXPECT_NEAR(mean_power(air.idle(100000)), 0.4, 0.01);
+}
+
+TEST(ChannelTest, AddsNoNoiseForTheSignalPowerWithoutAnSnr) {
+  channel air(channel_params{}, SAMPLE_RATE, 1);
+  air.set_signal_power(4);
+  EXPECT_EQ(air.idle(100), samples(100));
+}
+
 TEST(ChannelTest, GivesTheSameSamplesForTheSameSeed) {
   channel_params params = {.snr_db = 10, .delay_spread_ns = 200};
   channel first(params, SAMPLE_RATE, 42);

@@ -80,6 +80,11 @@ channel::channel(const channel_params& params, double sample_rate,
   m_random.seed(sequence);
 }
 
+void channel::set_signal_power(double power) {
+  if (m_params.snr_db)
+    m_noise_power = power / std::pow(10, *m_params.snr_db / 10);
+}
+
 std::vector<std::complex<double>> channel::transmit(
     const std::vector<std::complex<double>>& frame) {
   if (m_params.snr_db && !m_noise_power && !frame.empty()) {

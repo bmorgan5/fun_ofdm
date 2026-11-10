@@ -36,10 +36,11 @@ namespace fun {
  */
 struct channel_params {
   /*!
-   * SNR in dB: the mean power of the first frame sent, over the noise power,
-   * or std::nullopt for no noise. The noise floor stays where the first frame
-   * sets it, and every frame has about the same power, so later frames see
-   * about the same SNR.
+   * SNR in dB: the signal power over the noise power, or std::nullopt for no
+   * noise. The signal power is the first frame's mean power, unless
+   * channel::set_signal_power() sets it first. The noise floor then stays
+   * where it is, and every frame has about the same power, so later frames
+   * see about the same SNR.
    */
   std::optional<double> snr_db;
 
@@ -96,6 +97,16 @@ class channel {
   channel(const channel_params& params, double sample_rate, std::uint64_t seed);
 
   /*!
+   * \brief Sets the signal power that channel_params::snr_db is relative to,
+   * and so the noise floor, instead of taking the first frame's power.
+   * \param power The mean power of a sample
+   *
+   * Without it, there's no noise until the first frame, so a channel that
+   * starts idle, or never sends a frame, needs it.
+   */
+  void set_signal_power(double power);
+
+  /*!
    * \brief Sends a frame through the channel.
    * \param frame The frame's samples
    * \return As many samples as \p frame: the start of what the receiver gets
@@ -108,7 +119,8 @@ class channel {
    * \brief Runs the channel while nothing is sent.
    * \param size The number of samples
    * \return \p size samples: the rest of what earlier calls sent, then noise.
-   * There's no noise before the first frame, which sets the noise floor.
+   * There's no noise before the noise floor is set, by the first frame or
+   * set_signal_power().
    */
   std::vector<std::complex<double>> idle(std::size_t size);
 
