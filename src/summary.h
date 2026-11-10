@@ -71,8 +71,9 @@ struct sim_result {
  * - `options`: a member per option, named after it without the leading
  *   dashes, in the option's units, with the value the run used. An option is
  *   null only if the run had no value for it: `freq` when `channel` is set,
- *   `channel` when it isn't, `device` when UHD finds one, and both `packets`
- *   and `bytes` when tx sends until it's stopped. --seed and --json aren't
+ *   `channel` when it isn't, `device` when UHD finds one, both `packets`
+ *   and `bytes` when tx sends until it's stopped, and `snr` when sim adds no
+ *   noise. --seed and --json aren't
  *   included: the seed that was used is a member of its own, and where the
  *   summary went isn't part of the run.
  * - `seed` (tx and sim).

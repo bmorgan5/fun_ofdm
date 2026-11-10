@@ -171,7 +171,9 @@ TEST(SummaryTest, WritesASimRunThatFailed) {
       summary(R"({
         "version": "1.2.3",
         "mode": "sim",
-        "options": {"phy_rate": "qam16-3/4", "packets": 3, "bytes": null},
+        "options": {"phy_rate": "qam16-3/4", "packets": 3, "bytes": null,
+                    "bandwidth": 5.0, "snr": null, "cfo": 0.0,
+                    "timing_offset": 0.0, "delay_spread": 0.0},
         "seed": 18446744073709551615,
         "received": )" +
               std::string(TOTALS_JSON) +
@@ -188,7 +190,9 @@ TEST(SummaryTest, WritesTheSimDefaultPackets) {
       summary(to_json("1.2.3", parse<sim_options>(""), sim_result{}));
   EXPECT_EQ(parsed.as_object().at("options"),
             summary(R"({"phy_rate": "qam16-3/4", "packets": 100,
-                        "bytes": null})"));
+                        "bytes": null, "bandwidth": 5.0, "snr": null,
+                        "cfo": 0.0, "timing_offset": 0.0,
+                        "delay_spread": 0.0})"));
 }
 
 TEST(SummaryTest, WritesTheSimBytesInsteadOfTheDefault) {
@@ -196,7 +200,21 @@ TEST(SummaryTest, WritesTheSimBytesInsteadOfTheDefault) {
       to_json("1.2.3", parse<sim_options>("--bytes 1500"), sim_result{}));
   EXPECT_EQ(parsed.as_object().at("options"),
             summary(R"({"phy_rate": "qam16-3/4", "packets": null,
-                        "bytes": 1500})"));
+                        "bytes": 1500, "bandwidth": 5.0, "snr": null,
+                        "cfo": 0.0, "timing_offset": 0.0,
+                        "delay_spread": 0.0})"));
+}
+
+TEST(SummaryTest, WritesTheGivenSimChannelOptions) {
+  sim_options opts = parse<sim_options>(
+      "--bandwidth 20 --snr -3 --cfo -1500 --timing-offset 2.5 "
+      "--delay-spread 50");
+  json::value parsed = summary(to_json("1.2.3", opts, sim_result{}));
+  EXPECT_EQ(parsed.as_object().at("options"),
+            summary(R"({"phy_rate": "qam16-3/4", "packets": 100,
+                        "bytes": null, "bandwidth": 20.0, "snr": -3.0,
+                        "cfo": -1500.0, "timing_offset": 2.5,
+                        "delay_spread": 50.0})"));
 }
 
 TEST(SummaryTest, PassesASimRunWithNothingLostOrMismatched) {

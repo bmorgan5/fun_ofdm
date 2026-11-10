@@ -202,6 +202,86 @@ TEST(SeedOptionTest, IsOnlyForTheModesWithRandomness) {
   EXPECT_THROW(app.parse("--seed 1", false), CLI::ExtrasError);
 }
 
+TEST(ChannelOptionsTest, AreAPerfectChannelWithoutOptions) {
+  CLI::App app;
+  sim_options opts;
+  add_options(&app, opts);
+  app.parse("", false);
+  EXPECT_DOUBLE_EQ(opts.bandwidth_mhz, 5);
+  EXPECT_EQ(opts.channel.snr_db, std::nullopt);
+  EXPECT_EQ(opts.channel.cfo_hz, 0);
+  EXPECT_EQ(opts.channel.timing_offset, 0);
+  EXPECT_EQ(opts.channel.delay_spread_ns, 0);
+}
+
+TEST(ChannelOptionsTest, ParsesEachImpairment) {
+  CLI::App app;
+  sim_options opts;
+  add_options(&app, opts);
+  app.parse(
+      "--bandwidth 20 --snr -3.5 --cfo -1500 --timing-offset 0.25 "
+      "--delay-spread 50",
+      false);
+  EXPECT_DOUBLE_EQ(opts.bandwidth_mhz, 20);
+  EXPECT_EQ(opts.channel.snr_db, -3.5);
+  EXPECT_DOUBLE_EQ(opts.channel.cfo_hz, -1500);
+  EXPECT_DOUBLE_EQ(opts.channel.timing_offset, 0.25);
+  EXPECT_DOUBLE_EQ(opts.channel.delay_spread_ns, 50);
+}
+
+TEST(ChannelOptionsTest, ParsesTheCfoWithAUnit) {
+  const std::vector<std::pair<std::string, double>> CFOS = {
+      {"1500", 1500},        {"1500Hz", 1500},
+      {"1.5kHz", 1500},      {"1.5khz", 1500},
+      {"\"1.5 kHz\"", 1500}, {"0.1MHz", 100000},
+      {"-2.5kHz", -2500},    {"1GHz", 1e9},
+      {"1e3kHz", 1e6},       {"2.4123456MHz", 2412345.6},
+  };
+  for (const auto& [cfo, hz] : CFOS) {
+    CLI::App app;
+    sim_options opts;
+    add_options(&app, opts);
+    app.parse("--cfo " + cfo, false);
+    // Exactly the double nearest the number in Hz, as if it were typed out
+    EXPECT_EQ(opts.channel.cfo_hz, hz) << cfo;
+  }
+}
+
+TEST(ChannelOptionsTest, KeepsEveryDigitOfALargeCfo) {
+  CLI::App app;
+  sim_options opts;
+  add_options(&app, opts);
+  app.parse("--cfo 123456789.123", false);
+  EXPECT_EQ(opts.channel.cfo_hz, 123456789.123);
+}
+
+TEST(ChannelOptionsTest, RejectsACfoThatIsntAFrequency) {
+  for (const std::string& cfo :
+       {"kHz", "1.5kbps", "\"1.5 k\"", "abc", "inf", "1e400", "1e300GHz"}) {
+    CLI::App app;
+    sim_options opts;
+    add_options(&app, opts);
+    EXPECT_THROW(app.parse("--cfo " + cfo, false), CLI::ValidationError) << cfo;
+  }
+}
+
+TEST(ChannelOptionsTest, RejectsNegativeDelaysAndBandwidths) {
+  for (const std::string& option :
+       {"--timing-offset -1", "--delay-spread -1", "--bandwidth 0"}) {
+    CLI::App app;
+    sim_options opts;
+    add_options(&app, opts);
+    EXPECT_THROW(app.parse(option, false), CLI::ValidationError) << option;
+  }
+}
+
+TEST(ChannelOptionsTest, AreOnlyForSim) {
+  CLI::App app;
+  tx_options opts;
+  add_options(&app, opts);
+  EXPECT_THROW(app.parse("--snr 10", false), CLI::ExtrasError);
+}
+
 TEST(RateNameTest, IsTheOptionName) {
   for (const auto& [name, rate] : RATE_NAMES) EXPECT_EQ(rate_name(rate), name);
 }

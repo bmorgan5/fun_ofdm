@@ -11,6 +11,7 @@
 
 #include <CLI/CLI.hpp>
 
+#include "channel.h"
 #include "src/phy/rates.h"
 #include "src/usrp/usrp_params.h"
 
@@ -70,6 +71,8 @@ struct rx_options {
 struct sim_options {
   Rate phy_rate = RATE_3_4_QAM16;
   data_options data;
+  double bandwidth_mhz = 5;  //!< Channel bandwidth (and sample rate) in MHz
+  channel_params channel;    //!< The channel's impairments
 
   std::optional<std::uint64_t> seed;
   std::optional<std::string> json_file;

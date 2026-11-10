@@ -4,8 +4,14 @@
 
 #include "options.h"
 
+#include <algorithm>
+#include <array>
+#include <cctype>
+#include <charconv>
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -50,6 +56,75 @@ static const CLI::Validator POSITIVE = number_validator(
     "POSITIVE", [](double x) { return x > 0; }, "greater than 0");
 static const CLI::Validator NON_NEGATIVE = number_validator(
     "NONNEGATIVE", [](double x) { return x >= 0; }, "of at least 0");
+
+/*!
+ * \brief Parses a whole string as a finite double.
+ * \return The number, or std::nullopt if the string isn't one.
+ */
+static std::optional<double> parse_double(const std::string& text) {
+  double number;
+  const char* end = text.data() + text.size();
+  auto [last, error] = std::from_chars(text.data(), end, number);
+  if (error != std::errc() || last != end || !std::isfinite(number))
+    return std::nullopt;
+  return number;
+}
+
+/*!
+ * \brief Converts a frequency with an optional unit, like 1.5kHz, to Hz.
+ *
+ * The unit is Hz, kHz, MHz or GHz, in any case, and can follow a space.
+ * Without one, the number is in Hz, so a frequency can still be given to the
+ * last digit.
+ *
+ * The unit moves the decimal point before the number is parsed, so
+ * 2.4123456MHz is exactly the double nearest 2412345.6, as if it were typed
+ * out: multiplying after parsing would round twice. CLI11's AsNumberWithUnit,
+ * which --bytes uses, would also write the result back with only 6 digits.
+ */
+static const CLI::Validator HERTZ(
+    [](std::string& value) -> std::string {
+      const std::vector<std::pair<std::string, int>> UNITS = {
+          {"ghz", 9}, {"mhz", 6}, {"khz", 3}, {"hz", 0}};
+      std::string lower = value;
+      std::transform(lower.begin(), lower.end(), lower.begin(),
+                     [](unsigned char c) { return std::tolower(c); });
+
+      std::string number = value;
+      int exponent = 0;
+      for (const auto& [unit, power] : UNITS) {
+        if (lower.ends_with(unit)) {
+          number.resize(number.size() - unit.size());
+          if (number.ends_with(' ')) number.pop_back();
+          exponent = power;
+          break;
+        }
+      }
+
+      std::optional<double> hz = parse_double(number);
+      if (hz && exponent) {
+        // A number with its own exponent, like 1e3kHz, is multiplied instead
+        if (number.find_first_of("eE") == std::string::npos)
+          hz = parse_double(number + "e" + std::to_string(exponent));
+        else if (double scaled = *hz * std::pow(10, exponent);
+                 std::isfinite(scaled))
+          hz = scaled;
+        else
+          hz = std::nullopt;
+      }
+      if (!hz) {
+        return "Value " + value +
+               " is not a frequency, e.g. 1500, 1.5kHz or 0.1MHz";
+      }
+
+      // The shortest form that reads back as the same double
+      std::array<char, 32> buffer;
+      char* end =
+          std::to_chars(buffer.data(), buffer.data() + buffer.size(), *hz).ptr;
+      value.assign(buffer.data(), end);
+      return "";
+    },
+    "HZ");
 
 /*!
  * \brief Adds the --phy-rate option.
@@ -191,9 +266,40 @@ void add_options(CLI::App* app, rx_options& opts) {
   add_json_option(app, opts.json_file);
 }
 
+/*!
+ * \brief Adds sim's options for the channel's impairments, and the bandwidth,
+ * which converts them to samples.
+ */
+static void add_channel_options(CLI::App* app, double& bandwidth_mhz,
+                                channel_params& params) {
+  app->add_option("--bandwidth", bandwidth_mhz,
+                  "Channel bandwidth in MHz (also the sample rate)")
+      ->check(POSITIVE)
+      ->capture_default_str();
+  app->add_option("--snr", params.snr_db,
+                  "Add white Gaussian noise at this SNR in dB (default: no "
+                  "noise)");
+  app->add_option("--cfo", params.cfo_hz,
+                  "Carrier frequency offset, the receiver's minus the "
+                  "transmitter's, e.g. 1500, 1.5kHz or 0.1MHz (Hz without a "
+                  "unit)")
+      ->transform(HERTZ)
+      ->capture_default_str();
+  app->add_option("--timing-offset", params.timing_offset,
+                  "Delay the signal by this many samples, which can be a "
+                  "fraction")
+      ->check(NON_NEGATIVE)
+      ->capture_default_str();
+  app->add_option("--delay-spread", params.delay_spread_ns,
+                  "RMS delay spread in ns of a random multipath channel per "
+                  "frame (default: no multipath)")
+      ->check(NON_NEGATIVE);
+}
+
 void add_options(CLI::App* app, sim_options& opts) {
   add_phy_rate_option(app, opts.phy_rate);
   add_data_options(app, opts.data, std::to_string(SIM_DEFAULT_PACKETS));
+  add_channel_options(app, opts.bandwidth_mhz, opts.channel);
   add_seed_option(app, opts.seed, "everything random in the simulation");
   add_json_option(app, opts.json_file);
 }

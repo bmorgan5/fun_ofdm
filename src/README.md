@@ -15,16 +15,17 @@ the seed and the results ([summary.h](summary.h) lists the members).
 ```text
 tx:   random_source → fragmenter → transmitter (frame_builder → usrp) → air
 rx:   air → receiver (usrp → receiver_chain) → reassembler → summary
-sim:  random_source → fragmenter → frame_builder → receiver_chain → reassembler
-                                                                  → check against what was sent
+sim:  random_source → fragmenter → frame_builder → channel → receiver_chain → reassembler
+                                                                            → check against what was sent
 ```
 
 - **`tx`** (`run_tx()`) sends random data over the air, one frame at a time.
 - **`rx`** (`run_rx()`) receives frames, and counts the ones lost or received
   twice from their sequence numbers.
-- **`sim`** (`run_sim()`) passes each frame's samples straight to the receiver
-  chain, with no channel in between, and checks every byte against what it
-  sent.
+- **`sim`** (`run_sim()`) passes each frame's samples through a simulated
+  channel ([channel.h](channel.h)) to the receiver chain, and checks every byte
+  against what it sent. The channel is perfect unless options add noise, a
+  frequency offset, a delay or multipath.
 
 `tx` and `rx` first ask for real time thread priority
 ([realtime.h](realtime.h)). A thread waits for SIGINT and SIGTERM
