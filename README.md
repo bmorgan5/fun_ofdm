@@ -31,7 +31,7 @@ sudo "$ARCHIVE/bootstrap.sh" --runtime
 and receive chains, and checks every byte:
 
 ```text
-Simulating at 3/4 QAM16
+Simulating at 3/4 QAM16 with seed 6409142305361286791
 Received 100 packets (149600 bytes) in 0.047 s, 25.3 Mbit/s
 Lost 0 packets (0.0%), 0 duplicates
 PASS: all 100 packets received intact
@@ -71,6 +71,11 @@ sudo fun-ofdm tx --channel 36 --bandwidth 20 --gain 25 --phy-rate qam16-1/2
 ```
 
 `--no-realtime` runs without real time priority, and so without root.
+
+`tx` and `sim` print the seed of their random data: `--seed` repeats a run.
+`--json FILE` also writes the run summary to `FILE` as JSON, for scripts.
+Without `FILE` it goes to stdout, and the rest of the output to stderr:
+`fun-ofdm sim --json | jq .passed`.
 
 ## Development
 

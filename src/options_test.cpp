@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <utility>
@@ -166,5 +167,100 @@ TEST(DataOptionsTest, AreOnlyForTheModesThatSend) {
   add_options(&app, opts);
   EXPECT_THROW(app.parse("--packets 3", false), CLI::ExtrasError);
 }
+TEST(SeedOptionTest, IsUnsetWithoutTheOption) {
+  CLI::App app;
+  sim_options opts;
+  add_options(&app, opts);
+  app.parse("", false);
+  EXPECT_EQ(opts.seed, std::nullopt);
+}
+
+TEST(SeedOptionTest, ParsesEvery64BitSeed) {
+  for (std::uint64_t seed : {std::uint64_t{0}, std::uint64_t{1},
+                             std::numeric_limits<std::uint64_t>::max()}) {
+    CLI::App app;
+    tx_options opts;
+    add_options(&app, opts);
+    app.parse("--seed " + std::to_string(seed), false);
+    EXPECT_EQ(opts.seed, seed);
+  }
+}
+
+TEST(SeedOptionTest, RejectsNegativeAndTooLargeSeeds) {
+  for (const std::string& seed : {"-1", "18446744073709551616", "abc"}) {
+    CLI::App app;
+    sim_options opts;
+    add_options(&app, opts);
+    EXPECT_THROW(app.parse("--seed " + seed, false), CLI::ParseError) << seed;
+  }
+}
+
+TEST(SeedOptionTest, IsOnlyForTheModesWithRandomness) {
+  CLI::App app;
+  rx_options opts;
+  add_options(&app, opts);
+  EXPECT_THROW(app.parse("--seed 1", false), CLI::ExtrasError);
+}
+
+TEST(RateNameTest, IsTheOptionName) {
+  for (const auto& [name, rate] : RATE_NAMES) EXPECT_EQ(rate_name(rate), name);
+}
+
+TEST(JsonOptionTest, IsUnsetWithoutTheOption) {
+  CLI::App app;
+  rx_options opts;
+  add_options(&app, opts);
+  app.parse("", false);
+  EXPECT_EQ(opts.json_file, std::nullopt);
+}
+
+TEST(JsonOptionTest, IsStdoutWithoutAFileName) {
+  for (const std::string& args : {"--json", "--json -"}) {
+    CLI::App app;
+    sim_options opts;
+    add_options(&app, opts);
+    app.parse(args, false);
+    EXPECT_EQ(opts.json_file, "-") << args;
+  }
+}
+
+TEST(JsonOptionTest, DoesntTakeTheNextOptionAsItsFileName) {
+  CLI::App app;
+  sim_options opts;
+  add_options(&app, opts);
+  app.parse("--json --packets 3", false);
+  EXPECT_EQ(opts.json_file, "-");
+  EXPECT_EQ(opts.data.packets, 3u);
+}
+
+TEST(JsonOptionTest, RejectsAnEmptyFileName) {
+  CLI::App app;
+  sim_options opts;
+  add_options(&app, opts);
+  // CLI11 takes the arguments in reverse order: this is `--json ""`.
+  std::vector<std::string> args = {"", "--json"};
+  EXPECT_THROW(app.parse(args), CLI::ValidationError);
+}
+
+TEST(JsonOptionTest, SetsTheFileInEveryMode) {
+  CLI::App tx_app;
+  tx_options tx_opts;
+  add_options(&tx_app, tx_opts);
+  tx_app.parse("--json tx.json", false);
+  EXPECT_EQ(tx_opts.json_file, "tx.json");
+
+  CLI::App rx_app;
+  rx_options rx_opts;
+  add_options(&rx_app, rx_opts);
+  rx_app.parse("--json rx.json", false);
+  EXPECT_EQ(rx_opts.json_file, "rx.json");
+
+  CLI::App sim_app;
+  sim_options sim_opts;
+  add_options(&sim_app, sim_opts);
+  sim_app.parse("--json sim.json", false);
+  EXPECT_EQ(sim_opts.json_file, "sim.json");
+}
+
 }  // namespace
 }  // namespace fun
