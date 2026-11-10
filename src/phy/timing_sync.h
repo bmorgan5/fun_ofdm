@@ -30,6 +30,14 @@
  *  estimated offset is always 0, and only a constant phase is applied.
  *  channel_est and phase_tracker correct some of the offset instead.
  *
+ *  \bug The correlation is divided by the received power, |Σ r · conj(LTS)| /
+ *  Σ |r|², rather than by the square root of both signals' energy, so it
+ *  isn't normalized: it's 1 / A for a frame received at A times the
+ *  transmitted amplitude, and noise lowers it further. A frame received at
+ *  more than 1 / LTS_CORR_THRESHOLD of the transmitted amplitude never
+ *  reaches the threshold, and is dropped. In sim, Rayleigh fading
+ *  (--delay-spread) drops about 30% of frames this way with no noise at all.
+ *
  *  \bug work() asserts that a batch has more than 160 samples, though
  *  block.h allows any size, so a debug build aborts on a shorter one. An
  *  optimized build leaves the assert out, and handles short batches apart

@@ -22,15 +22,16 @@ constexpr std::size_t DELAY = 160;
 
 // A frame at START, between zeros, with STS_END at START + sts_end, as
 // frame_detector would tag it. Each sample is rotated by offset radians more
-// than the one before, as a carrier frequency offset does.
-std::vector<tagged_sample> tagged_frame(std::size_t sts_end,
-                                        double offset = 0) {
+// than the one before, as a carrier frequency offset does, and scaled by
+// amplitude.
+std::vector<tagged_sample> tagged_frame(std::size_t sts_end, double offset = 0,
+                                        double amplitude = 1) {
   std::vector<std::complex<double>> frame =
       frame_builder().build_frame(test::prbs_bytes(100), RATE_1_2_BPSK);
   std::vector<tagged_sample> samples(START + frame.size() + 500);
   for (tagged_sample& s : samples) s.sample = 0;
   for (std::size_t x = 0; x < frame.size(); x++) {
-    samples[START + x].sample = frame[x] * std::polar(1.0, offset * x);
+    samples[START + x].sample = frame[x] * std::polar(amplitude, offset * x);
   }
   samples[START + sts_end].tag = STS_END;
   return samples;
@@ -60,6 +61,26 @@ TEST(TimingSyncTest, TagsTheLongTrainingSymbols) {
     std::sort(expected.begin(), expected.end());
     EXPECT_EQ(tags(test::run_block(sync, input, input.size())), expected)
         << "STS_END at " << sts_end;
+  }
+}
+
+// A channel's gain scales the whole frame, which mustn't change where the LTS
+// symbols are.
+TEST(TimingSyncTest, TagsTheLongTrainingSymbolsAtAnyAmplitude) {
+  GTEST_SKIP() << "The LTS correlation falls as the amplitude rises, so "
+                  "above 1/0.9 it misses the threshold and the block drops "
+                  "the frame (see the \\bug in timing_sync.h)";
+
+  for (double amplitude : {0.1, 0.5, 1.2, 2.0, 10.0}) {
+    std::vector<tagged_sample> input = tagged_frame(161, 0, amplitude);
+    timing_sync sync;
+    std::vector<std::pair<std::size_t, vector_tag>> expected = {
+        {START + 161 + DELAY, STS_END},
+        {START + 184 + DELAY, LTS1},
+        {START + 248 + DELAY, LTS2},
+    };
+    EXPECT_EQ(tags(test::run_block(sync, input, input.size())), expected)
+        << "amplitude " << amplitude;
   }
 }
 
