@@ -15,7 +15,7 @@
 #include <functional>
 #include <iostream>
 
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include "src/metrics/tracing.h"
 
 namespace fun {
 /*!
@@ -42,6 +42,10 @@ receiver_chain::receiver_chain() {
   // if the vectors get resized
   m_wake_sems.reserve(100);
   m_done_sems.reserve(100);
+  // Likewise the metrics, which the threads use while blocks are added
+  m_block_metrics.reserve(100);
+  m_batch_arrival.reserve(100);
+  m_last_start.reserve(100);
 
   // Add the blocks to the receiver chain
   add_block(m_frame_detector);
@@ -81,6 +85,9 @@ receiver_chain::~receiver_chain() {
 void receiver_chain::add_block(fun::block_base* block) {
   m_wake_sems.push_back(sem_t());
   m_done_sems.push_back(sem_t());
+  m_block_metrics.push_back({.name = block->name});
+  m_batch_arrival.push_back(0);
+  m_last_start.push_back(0);
   std::size_t index = m_wake_sems.size() - 1;
   sem_init(&m_wake_sems[index], 0, 0);
   sem_init(&m_done_sems[index], 0, 0);
@@ -99,21 +106,33 @@ void receiver_chain::add_block(fun::block_base* block) {
  * processing everything in the input_buffer. At this point it loops back around
  * and waits for the block to be "woken up" again when the next set of input
  * data is ready.
+ *
+ * Around each call to work(), it records the block's times in its own
+ * block_metrics, and a slice in the trace.
  */
 void receiver_chain::run_block(std::stop_token stop, std::size_t index,
                                fun::block_base* block) {
+  trace::name_thread(block->name);
   while (1) {
     sem_wait(&m_wake_sems[index]);
     if (stop.stop_requested()) return;
 
-    boost::posix_time::ptime start =
-        boost::posix_time::microsec_clock::local_time();
+    metrics::time_point start = metrics::now();
     block->work();
-    boost::posix_time::time_duration elapsed =
-        boost::posix_time::microsec_clock::local_time() - start;
+    metrics::time_point end = metrics::now();
 
-    if (elapsed.total_microseconds() > (2000 / 5e6 * 1e6)) {
-      // std::cout << "! - " <<  block->name << std::endl;
+    if constexpr (metrics::ENABLED) {
+      block_metrics& times = m_block_metrics[index];
+      times.wait.record(start - m_ready);
+      times.processing.record(end - start);
+      if (m_last_start[index])
+        times.start_interval.record(start - m_last_start[index]);
+      m_last_start[index] = start;
+      if (m_batch_arrival[index])
+        times.lag.record(end - m_batch_arrival[index]);
+      // Block `index` works on the batch from `index` calls ago
+      trace::slice(block->name.c_str(), start, end,
+                   {{"batch", static_cast<std::int64_t>(m_calls - index)}});
     }
 
     sem_post(&m_done_sems[index]);
@@ -131,9 +150,28 @@ void receiver_chain::run_block(std::stop_token stop, std::size_t index,
  * Decoder's output buffer.
  */
 std::vector<std::vector<std::uint8_t>> receiver_chain::process_samples(
-    std::vector<std::complex<double>> samples) {
+    std::vector<std::complex<double>> samples, metrics::time_point arrival) {
+  if constexpr (metrics::ENABLED) {
+    if (m_last_arrival) m_arrival_interval.record(arrival - m_last_arrival);
+    m_last_arrival = arrival;
+    m_arrivals[m_calls % m_arrivals.size()] = {
+        .first_sample = m_samples, .size = samples.size(), .time = arrival};
+    for (std::size_t k = 0; k < m_batch_arrival.size(); k++) {
+      m_batch_arrival[k] =
+          m_calls >= k ? m_arrivals[(m_calls - k) % m_arrivals.size()].time : 0;
+    }
+    trace::instant("arrival", arrival,
+                   {{"batch", static_cast<std::int64_t>(m_calls)},
+                    {"samples", static_cast<std::int64_t>(samples.size())}});
+  }
+  m_samples += samples.size();
+
   // samples -> sync short in
   m_frame_detector->input_buffer.swap(samples);
+
+  m_ready = metrics::now();
+  trace::instant("ready", m_ready,
+                 {{"batch", static_cast<std::int64_t>(m_calls)}});
 
   // Unlock the threads
   for (std::size_t x = 0; x < m_wake_sems.size(); x++)
@@ -143,6 +181,10 @@ std::vector<std::vector<std::uint8_t>> receiver_chain::process_samples(
   for (std::size_t x = 0; x < m_done_sems.size(); x++)
     sem_wait(&m_done_sems[x]);
 
+  // The decoder's output is only this call's if it had input: with none, it
+  // leaves its last output there (see the \\bug in receiver_chain.h)
+  bool new_output = !m_frame_decoder->input_buffer.empty();
+
   // Update the buffers
   m_timing_sync->input_buffer.swap(m_frame_detector->output_buffer);
   m_fft_symbols->input_buffer.swap(m_timing_sync->output_buffer);
@@ -150,8 +192,48 @@ std::vector<std::vector<std::uint8_t>> receiver_chain::process_samples(
   m_phase_tracker->input_buffer.swap(m_channel_est->output_buffer);
   m_frame_decoder->input_buffer.swap(m_phase_tracker->output_buffer);
 
+  if (metrics::ENABLED && new_output) {
+    metrics::time_point out = metrics::now();
+    for (std::uint64_t end : m_frame_decoder->frame_ends)
+      record_latency(end, out);
+  }
+  m_calls++;
+
   // Return any completed packets
   return m_frame_decoder->output_buffer;
+}
+
+/*!
+ * timing_sync passes every sample on CARRYOVER_LENGTH samples late, so a
+ * position in fft_symbols' input is that many samples later than in the
+ * stream that process_samples() is given.
+ */
+void receiver_chain::record_latency(std::uint64_t last_sample,
+                                    metrics::time_point out) {
+  if (last_sample < CARRYOVER_LENGTH) return;
+  std::uint64_t sample = last_sample - CARRYOVER_LENGTH;
+  for (const arrival& batch : m_arrivals) {
+    if (batch.size && batch.first_sample <= sample &&
+        sample < batch.first_sample + batch.size) {
+      m_latency.record(out - batch.time);
+      trace::instant("payload", out, {{"latency_ns", out - batch.time}});
+      return;
+    }
+  }
+}
+
+chain_metrics receiver_chain::metrics() const {
+  chain_metrics result = {
+      .arrival_interval = m_arrival_interval,
+      .latency = m_latency,
+      .blocks = m_block_metrics,
+      .frames_detected = m_frame_detector->detections(),
+      .sync_lost = m_timing_sync->sync_lost(),
+      .signal_failed = m_frame_decoder->signal_failed(),
+      .crc_ok = m_frame_decoder->crc_ok(),
+      .crc_failed = m_frame_decoder->crc_failed(),
+  };
+  return result;
 }
 
 }  // namespace fun
