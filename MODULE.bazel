@@ -8,6 +8,33 @@ bazel_dep(name = "cli11", version = "2.7.2")
 # Benchmarks: fun-ofdm-bench, which ships with fun-ofdm, so it's not a dev
 # dependency.
 bazel_dep(name = "google_benchmark", version = "1.10.0")
+
+# The receiver's metrics (src/metrics): HdrHistogram_c for the latency and
+# jitter histograms, and the Perfetto SDK for its traces. The BCR's
+# hdrhistogram_c doesn't load cc_library, which Bazel 9 needs, and Perfetto
+# isn't on the BCR, so both come from their releases, with BUILD files in
+# third_party/.
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "hdrhistogram_c",
+    build_file = "//third_party:hdrhistogram_c.BUILD.bazel",
+    integrity = "sha256-DrX9ufH4xLnG6zGVAvjZ4omRr/+4QYZyphdBmThVZQ4=",
+    strip_prefix = "HdrHistogram_c-0.11.9",
+    url = "https://github.com/HdrHistogram/HdrHistogram_c/archive/refs/tags/0.11.9.tar.gz",
+)
+
+# Perfetto's own MODULE.bazel is its whole development build, Android SDK
+# included, so this takes the release's SDK instead. Once Perfetto is on the
+# BCR, use it: https://github.com/bazelbuild/bazel-central-registry/issues/1020
+# and https://github.com/google/perfetto/issues/2787.
+http_archive(
+    name = "perfetto_sdk",
+    build_file = "//third_party:perfetto.BUILD.bazel",
+    integrity = "sha256-5WEm/4Hw+RTTX+A8ckGdFHrPKJDzb72n1FWP1bhMSwk=",
+    url = "https://github.com/google/perfetto/releases/download/v58.2/perfetto-cpp-sdk-src.zip",
+)
+
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "rules_cc", version = "0.2.26")
 bazel_dep(name = "rules_doxygen", version = "2.7.0")
