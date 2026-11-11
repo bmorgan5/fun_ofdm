@@ -6,12 +6,12 @@
 #include "framing.h"
 
 namespace fun {
-fragmenter::fragmenter(data_source& source) : m_source(source) {}
+fragmenter::fragmenter(data_source& source, std::size_t payload_size)
+    : m_source(source), m_data_size(payload_size - FRAME_HEADER_SIZE) {}
 
 std::vector<std::uint8_t> fragmenter::next_frame() {
-  std::vector<std::uint8_t> payload(FRAME_HEADER_SIZE + FRAME_DATA_SIZE);
-  std::size_t count =
-      m_source.read(&payload[FRAME_HEADER_SIZE], FRAME_DATA_SIZE);
+  std::vector<std::uint8_t> payload(FRAME_HEADER_SIZE + m_data_size);
+  std::size_t count = m_source.read(&payload[FRAME_HEADER_SIZE], m_data_size);
   if (count == 0) return {};
 
   payload.resize(FRAME_HEADER_SIZE + count);

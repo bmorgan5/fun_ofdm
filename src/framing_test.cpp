@@ -92,6 +92,21 @@ TEST(FragmenterTest, SendsNoFramesWithoutData) {
   EXPECT_TRUE(fragment(source).empty());
 }
 
+TEST(FragmenterTest, MakesPayloadsOfTheSizeItsGiven) {
+  vector_source source(test::prbs_bytes(2000));
+  fragmenter frames(source, 1000);
+  std::vector<std::vector<std::uint8_t>> payloads;
+  for (std::vector<std::uint8_t> payload = frames.next_frame();
+       !payload.empty(); payload = frames.next_frame()) {
+    payloads.push_back(payload);
+  }
+  // 996 data bytes in each full frame, and 8 left for the last
+  ASSERT_EQ(payloads.size(), 3u);
+  EXPECT_EQ(payloads[0].size(), 1000u);
+  EXPECT_EQ(payloads[1].size(), 1000u);
+  EXPECT_EQ(payloads[2].size(), FRAME_HEADER_SIZE + 8);
+}
+
 TEST(FragmenterTest, KeepsReturningNoFrameAtTheEnd) {
   vector_source source(test::prbs_bytes(10));
   fragmenter frames(source);

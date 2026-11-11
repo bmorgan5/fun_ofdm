@@ -91,7 +91,7 @@ static tx_result run_tx(const tx_options& opts, std::stop_token stop) {
   tx_result result;
   result.seed = opts.seed ? *opts.seed : random_seed();
   random_source source(opts.data.limit(), result.seed);
-  fragmenter frames(source);
+  fragmenter frames(source, opts.data.payload_size);
 
   std::cout << "Sending at " << RateParams(opts.phy_rate).name << " with seed "
             << result.seed << " (press Ctrl+C to stop)" << std::endl;
@@ -256,9 +256,11 @@ static sim_result run_sim(const sim_options& opts, std::stop_token stop) {
   std::optional<std::uint64_t> limit = opts.data.limit();
   sim_result result;
   result.seed = opts.seed ? *opts.seed : random_seed();
-  random_source source(limit ? *limit : SIM_DEFAULT_PACKETS * FRAME_DATA_SIZE,
+  random_source source(limit ? *limit
+                             : SIM_DEFAULT_PACKETS *
+                                   (opts.data.payload_size - FRAME_HEADER_SIZE),
                        result.seed);
-  fragmenter frames(source);
+  fragmenter frames(source, opts.data.payload_size);
 
   frame_builder builder;
   channel air(opts.channel, opts.bandwidth_mhz * 1e6, result.seed);

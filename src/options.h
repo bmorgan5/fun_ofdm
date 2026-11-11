@@ -5,6 +5,7 @@
 #ifndef OPTIONS_H
 #define OPTIONS_H
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -12,6 +13,7 @@
 #include <CLI/CLI.hpp>
 
 #include "channel.h"
+#include "framing.h"
 #include "src/phy/rates.h"
 #include "src/usrp/usrp_params.h"
 
@@ -36,6 +38,8 @@ struct data_options {
   std::uint64_t packets = 0;
   //! Number of bytes of random data, or 0 if not set
   std::uint64_t bytes = 0;
+  //! The size of each packet's payload, with its sequence number
+  std::size_t payload_size = MAX_PAYLOAD_SIZE;
 
   /*!
    * \brief The number of bytes to send.

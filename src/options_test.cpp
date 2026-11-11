@@ -145,6 +145,41 @@ TEST(DataOptionsTest, ParsesSizesForBytes) {
   }
 }
 
+TEST(DataOptionsTest, SendsFullPayloadsOfTheGivenSize) {
+  CLI::App app;
+  sim_options opts;
+  add_options(&app, opts);
+  app.parse("--packets 3 --payload-size 1000", false);
+  EXPECT_EQ(opts.data.payload_size, 1000u);
+  EXPECT_EQ(opts.data.limit(), 3 * (1000 - FRAME_HEADER_SIZE));
+}
+
+TEST(DataOptionsTest, HasTheLargestPayloadsWithoutAnOption) {
+  CLI::App app;
+  tx_options opts;
+  add_options(&app, opts);
+  app.parse("", false);
+  EXPECT_EQ(opts.data.payload_size, MAX_PAYLOAD_SIZE);
+}
+
+TEST(DataOptionsTest, AcceptsPayloadsFromOneDataByteTo1500Bytes) {
+  for (std::size_t size : {FRAME_HEADER_SIZE + 1, MAX_PAYLOAD_SIZE}) {
+    CLI::App app;
+    sim_options opts;
+    add_options(&app, opts);
+    app.parse("--payload-size " + std::to_string(size), false);
+    EXPECT_EQ(opts.data.payload_size, size);
+  }
+  for (std::size_t size : {FRAME_HEADER_SIZE, MAX_PAYLOAD_SIZE + 1}) {
+    CLI::App app;
+    sim_options opts;
+    add_options(&app, opts);
+    EXPECT_THROW(app.parse("--payload-size " + std::to_string(size), false),
+                 CLI::ValidationError)
+        << size;
+  }
+}
+
 TEST(DataOptionsTest, RejectsZero) {
   for (const std::string& option : {"--packets 0", "--bytes 0"}) {
     CLI::App app;

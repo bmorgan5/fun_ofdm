@@ -121,7 +121,7 @@ TEST(SummaryTest, WritesTheTxDefaults) {
                 "tx_amp": 0.5,
                 "phy_rate": "bpsk-1/2",
                 "packets": null,
-                "bytes": null
+                "bytes": null, "payload_size": 1500
               },
               "seed": 42,
               "sent": )" + std::string(TOTALS_JSON) + "}"));
@@ -144,7 +144,7 @@ TEST(SummaryTest, WritesTheGivenTxOptions) {
               "tx_amp": 0.25,
               "phy_rate": "qam64-3/4",
               "packets": null,
-              "bytes": 1000000
+              "bytes": 1000000, "payload_size": 1500
             })"));
 }
 
@@ -182,8 +182,8 @@ TEST(SummaryTest, WritesASimRunThatFailed) {
         "version": "1.2.3",
         "mode": "sim",
         "options": {"phy_rate": "qam16-3/4", "packets": 3, "bytes": null,
-                    "bandwidth": 5.0, "snr": null, "cfo": 0.0,
-                    "timing_offset": 0.0, "delay_spread": 0.0},
+                    "payload_size": 1500, "bandwidth": 5.0, "snr": null,
+                    "cfo": 0.0, "timing_offset": 0.0, "delay_spread": 0.0},
         "seed": 18446744073709551615,
         "received": )" +
                     std::string(TOTALS_JSON) +
@@ -200,7 +200,8 @@ TEST(SummaryTest, WritesTheSimDefaultPackets) {
       summary(to_json("1.2.3", parse<sim_options>(""), sim_result{}));
   EXPECT_EQ(parsed.as_object().at("options"),
             summary(R"({"phy_rate": "qam16-3/4", "packets": 100,
-                        "bytes": null, "bandwidth": 5.0, "snr": null,
+                        "bytes": null, "payload_size": 1500,
+                        "bandwidth": 5.0, "snr": null,
                         "cfo": 0.0, "timing_offset": 0.0,
                         "delay_spread": 0.0})"));
 }
@@ -210,9 +211,17 @@ TEST(SummaryTest, WritesTheSimBytesInsteadOfTheDefault) {
       to_json("1.2.3", parse<sim_options>("--bytes 1500"), sim_result{}));
   EXPECT_EQ(parsed.as_object().at("options"),
             summary(R"({"phy_rate": "qam16-3/4", "packets": null,
-                        "bytes": 1500, "bandwidth": 5.0, "snr": null,
+                        "bytes": 1500, "payload_size": 1500,
+                        "bandwidth": 5.0, "snr": null,
                         "cfo": 0.0, "timing_offset": 0.0,
                         "delay_spread": 0.0})"));
+}
+
+TEST(SummaryTest, WritesTheGivenPayloadSize) {
+  json::value parsed = summary(to_json(
+      "1.2.3", parse<sim_options>("--payload-size 1000"), sim_result{}));
+  EXPECT_EQ(parsed.as_object().at("options").as_object().at("payload_size"),
+            1000);
 }
 
 TEST(SummaryTest, WritesTheGivenSimChannelOptions) {
@@ -222,7 +231,8 @@ TEST(SummaryTest, WritesTheGivenSimChannelOptions) {
   json::value parsed = summary(to_json("1.2.3", opts, sim_result{}));
   EXPECT_EQ(parsed.as_object().at("options"),
             summary(R"({"phy_rate": "qam16-3/4", "packets": 100,
-                        "bytes": null, "bandwidth": 20.0, "snr": -3.0,
+                        "bytes": null, "payload_size": 1500,
+                        "bandwidth": 20.0, "snr": -3.0,
                         "cfo": -1500.0, "timing_offset": 2.5,
                         "delay_spread": 50.0})"));
 }
