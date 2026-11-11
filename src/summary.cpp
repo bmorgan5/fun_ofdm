@@ -202,6 +202,7 @@ std::string to_json(const std::string& version, const tx_options& opts,
   // Without either, tx sends until it's stopped
   options["packets"] = unless_zero(opts.data.packets);
   options["bytes"] = unless_zero(opts.data.bytes);
+  options["payload_size"] = opts.data.payload_size;
 
   json::object summary = start(version, "tx", std::move(options));
   summary["seed"] = result.seed;
@@ -228,6 +229,7 @@ std::string to_json(const std::string& version, const sim_options& opts,
       {"packets", data_given ? unless_zero(opts.data.packets)
                              : json::value(SIM_DEFAULT_PACKETS)},
       {"bytes", unless_zero(opts.data.bytes)},
+      {"payload_size", opts.data.payload_size},
       {"bandwidth", opts.bandwidth_mhz},
       {"snr",
        opts.channel.snr_db ? json::value(*opts.channel.snr_db) : json::value()},

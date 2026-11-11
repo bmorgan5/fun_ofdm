@@ -35,6 +35,12 @@ const std::size_t FRAME_HEADER_SIZE = 4;
 const std::size_t FRAME_DATA_SIZE = 1496;
 
 /*!
+ * \brief The largest payload: the header and fun::FRAME_DATA_SIZE bytes of
+ * data, 1500 bytes.
+ */
+const std::size_t MAX_PAYLOAD_SIZE = FRAME_HEADER_SIZE + FRAME_DATA_SIZE;
+
+/*!
  * \brief Splits the data from a source into frame payloads.
  */
 class fragmenter {
@@ -42,8 +48,12 @@ class fragmenter {
   /*!
    * \brief Constructor for fragmenter
    * \param source The data to split into frames
+   * \param payload_size The size of each frame's payload, with its header,
+   * from fun::FRAME_HEADER_SIZE + 1 to fun::MAX_PAYLOAD_SIZE. The last frame
+   * can be smaller.
    */
-  explicit fragmenter(data_source& source);
+  explicit fragmenter(data_source& source,
+                      std::size_t payload_size = MAX_PAYLOAD_SIZE);
 
   /*!
    * \brief Builds the next frame's payload: its sequence number followed by its
@@ -53,7 +63,8 @@ class fragmenter {
   std::vector<std::uint8_t> next_frame();
 
  private:
-  data_source& m_source;  //!< The data to split into frames
+  data_source& m_source;    //!< The data to split into frames
+  std::size_t m_data_size;  //!< The data bytes in each full frame
 
   std::uint32_t m_sequence = 0;  //!< The next frame's sequence number
 };

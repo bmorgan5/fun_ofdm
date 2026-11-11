@@ -256,10 +256,15 @@ static void add_data_options(CLI::App* app, data_options& opts,
           ->transform(CLI::AsSizeValue(true))
           ->check(POSITIVE);
   packets->excludes(bytes);
+  app->add_option("--payload-size", opts.payload_size,
+                  "Bytes in each packet's payload, with its 4-byte sequence "
+                  "number")
+      ->check(CLI::Range(FRAME_HEADER_SIZE + 1, MAX_PAYLOAD_SIZE))
+      ->capture_default_str();
 }
 
 std::optional<std::uint64_t> data_options::limit() const {
-  if (packets) return packets * FRAME_DATA_SIZE;
+  if (packets) return packets * (payload_size - FRAME_HEADER_SIZE);
   if (bytes) return bytes;
   return std::nullopt;
 }
