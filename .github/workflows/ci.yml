@@ -1,7 +1,7 @@
-# Runs the tests, coverage and the format checks on every PR, and on every push
-# to main, which keeps a warm cache for new PR branches to start from. Every
-# job runs on both, so main's runs have no skipped jobs: what only a PR needs,
-# like putting coverage in its description, is a step.
+# Runs the tests, the PER guardrails, coverage and the format checks on every
+# PR, and on every push to main, which keeps a warm cache for new PR branches
+# to start from. Every job runs on both, so main's runs have no skipped jobs:
+# what only a PR needs, like putting coverage in its description, is a step.
 name: CI
 
 on:
@@ -41,6 +41,37 @@ jobs:
           disk-cache: ${{ matrix.arch }}-${{ matrix.config }}
           repository-cache: true
       - run: bazel test //... --config=${{ matrix.config }}
+
+  # The PER guardrails (tests/test_per.py), on each architecture,
+  # since the decoder's SIMD code differs. They take a few minutes, about as
+  # long as the tests with a sanitizer.
+  per:
+    name: per-${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64
+            runner: ubuntu-26.04-arm
+          - arch: x86_64
+            runner: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: bazel-contrib/setup-bazel@104e3eea9447cdaa4b00d0fb46191a3985d26ab3 # 0.19.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ matrix.arch }}-per
+          repository-cache: true
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          # Keep in step with tools/bootstrap/bootstrap.sh.
+          version: 0.13.7
+      - run: bazel run //:install
+      # What running fun-ofdm needs, like libuhd, as a release's users install
+      # it.
+      - run: sudo tools/bootstrap/bootstrap.sh --runtime
+      - run: uv run --locked pytest tests
 
   # Coverage of the code the tests run, in the job summary and the PR
   # description. main uploads its report. A PR's report is compared with

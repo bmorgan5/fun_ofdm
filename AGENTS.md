@@ -25,7 +25,9 @@ libraries.
 | Format the C++ and Starlark files | `bazel run format` |
 | Check formatting, changing nothing | `bazel run format.check` |
 | Install Python and the Python tools' packages | `uv sync` |
-| Test the Python tools (not the hardware tests) | `uv run pytest` |
+| Test the Python tools, in `tools/` | `uv run pytest` |
+| Test `fun-ofdm` from Python, in `tests/`, after `bazel run install` (as CI) | `uv run pytest tests` |
+| PER vs SNR at every rate (see `tools/per/README.md`) | `uv run tools/per/sweep.py` |
 | Format and lint the Python tools | `uv run ruff format` and `uv run ruff check` |
 | Check the Python tools' types | `uv run ty check` |
 | Add a Python package | `uv add <package>` (`--dev` if only for development) |
@@ -56,7 +58,9 @@ libraries.
 - `docs/`: the Doxygen build.
 - `tools/`: `bootstrap/`, the tools that Bazel runs (`coverage/`, `format/`,
   `qemu/`), the Perfetto config for system traces (`trace/`), and the Python
-  tools (`pyproject.toml`).
+  tools (`pyproject.toml`), like the PER sweep (`per/`), with their own tests.
+- `tests/`: Python tests of `fun-ofdm` itself, which run the binary, like the
+  PER guardrails.
 
 ## Conventions
 
@@ -108,9 +112,9 @@ libraries.
 - The PR description summarizes the change as a whole, and how it was tested.
   Don't list the commits: a workflow adds their messages to the description
   on every push.
-- CI (`.github/workflows/ci.yml`) runs `bazel test //...`,
-  `bazel run //:format.check` and the Python tools' checks on every PR, so
-  they must pass locally first.
+- CI (`.github/workflows/ci.yml`) runs `bazel test //...`, the PER tests
+  (`uv run pytest tests`), `bazel run //:format.check` and the Python tools'
+  checks on every PR, so they must pass locally first.
 - If a PR closes an issue, the issue is the unit of work: only the issue goes
   in the GitHub project and the milestone, and the PR shows up on it as a
   linked pull request. A PR with no issue goes in the project and the milestone
