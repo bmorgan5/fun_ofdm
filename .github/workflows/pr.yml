@@ -1,11 +1,14 @@
-# Lists the PR's commit messages in its description, between the
-# commits:start and commits:end markers from the PR template, and updates
-# them on every push. It also sets the coverage section, between the
-# coverage:start and coverage:end markers, to pending until ci.yml's
-# coverage-report job fills it in; doing both in one edit means the two
-# workflows never edit the description at the same time. The rest of the
-# description is left alone.
-name: PR commits
+# On every push to a PR, updates two sections of its description, between
+# the markers from the PR template, and leaves the rest alone:
+#
+# - Commits (commits:start to commits:end): each commit's message.
+# - Coverage (coverage:start to coverage:end): set to pending, until ci.yml's
+#   coverage job fills in the totals.
+#
+# Both jobs rewrite the whole description, so whichever writes last wins. This
+# job finishes in seconds and coverage takes minutes, so this job writes first
+# unless its runner is very late to start.
+name: PR
 
 on:
   pull_request:
@@ -15,11 +18,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: pr-commits-${{ github.event.pull_request.number }}
+  group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  update:
+  # Updates the PR description: lists the commits, and sets the coverage
+  # section to pending.
+  description:
     runs-on: ubuntu-26.04
     # A fork PR's token can't edit the PR.
     if: github.event.pull_request.head.repo.full_name == github.repository
