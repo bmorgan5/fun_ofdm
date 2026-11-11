@@ -38,11 +38,18 @@ convention = "google"
 # in conftest.py still do: `pytest --fixtures` shows them.
 "**/test_*.py" = ["D"]
 
+[tool.ty.environment]
+# As pytest's pythonpath, below: tests/ imports the tools it uses.
+extra-paths = ["tools/per"]
+
 [tool.ty.terminal]
 # Warnings fail the check too, so CI catches them.
 error-on-warning = true
 
 [tool.pytest.ini_options]
-# The tools' own tests. Hardware tests need devices, so they only run when
-# named.
+# By default, the tools' own tests, beside their code in tools/. The tests of
+# fun-ofdm itself, in tests/, run the binary and take minutes, so they only
+# run when named: `pytest tests`, as CI does in its own job.
 testpaths = ["tools"]
+# So tests/ can import the tools it uses.
+pythonpath = ["tools/per"]

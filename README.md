@@ -103,6 +103,10 @@ bazel run coverage         # Coverage, with an HTML report in out/coverage/
 bazel run format           # Formats the C++ and Bazel files
 bazel run install          # Copies the binaries to out/<platform>/bin/
 bazel build //docs         # The API docs, in bazel-bin/docs/html/ (x86_64 only)
+
+uv run pytest              # The Python tools' tests
+uv run pytest tests        # Tests fun-ofdm from Python, like PER (after bazel run install)
+uv run tools/per/sweep.py  # PER vs SNR at every rate (see tools/per/README.md)
 ```
 
 Every build is a cross compile against an Ubuntu 26.04 sysroot, built from a
