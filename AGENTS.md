@@ -108,8 +108,9 @@ libraries.
 - The PR description summarizes the change as a whole, and how it was tested.
   Don't list the commits: a workflow adds their messages to the description
   on every push.
-- CI (`.github/workflows/ci.yml`) runs `bazel test //...` and
-  `bazel run //:format.check` on every PR, so both must pass locally first.
+- CI (`.github/workflows/ci.yml`) runs `bazel test //...`,
+  `bazel run //:format.check` and the Python tools' checks on every PR, so
+  they must pass locally first.
 - If a PR closes an issue, the issue is the unit of work: only the issue goes
   in the GitHub project and the milestone, and the PR shows up on it as a
   linked pull request. A PR with no issue goes in the project and the milestone

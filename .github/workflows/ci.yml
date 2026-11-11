@@ -1,6 +1,7 @@
-# Runs the tests, coverage and the format check on every PR. The tests and
-# coverage also run on every push to main, which keeps a warm cache for new PR
-# branches to start from.
+# Runs the tests, coverage and the format checks on every PR, and on every push
+# to main, which keeps a warm cache for new PR branches to start from. Every
+# job runs on both, so main's runs have no skipped jobs: what only a PR needs,
+# like putting coverage in its description, is a step.
 name: CI
 
 on:
@@ -41,22 +42,28 @@ jobs:
           repository-cache: true
       - run: bazel test //... --config=${{ matrix.config }}
 
-  # Coverage of the code the tests run, in the job summary and, through
-  # coverage-report, the PR description. main uploads its report. A PR's report
-  # is compared with main's latest, which sorts the lines by how the PR changed
-  # them, for example new code that no test runs (see
-  # tools/coverage/coverage.sh). There's no target yet: the first numbers are
-  # the floor.
+  # Coverage of the code the tests run, in the job summary and the PR
+  # description. main uploads its report. A PR's report is compared with
+  # main's latest, which sorts the lines by how the PR changed them, for
+  # example new code that no test runs (see tools/coverage/coverage.sh).
+  # There's no target yet: the first numbers are the floor.
+  #
+  # The job can edit the PR, and also runs the PR's code, so only the step
+  # that edits the PR gets the token, and checkout doesn't save it in
+  # .git/config. Only a PR from this repo, not a fork, gets a token that can
+  # edit the PR, and pushing a branch here already needs write access.
   coverage:
     runs-on: ubuntu-26.04
     permissions:
       contents: read
       # To find and download main's report.
       actions: read
-    outputs:
-      totals: ${{ steps.report.outputs.totals }}
+      # To put the totals in the PR description.
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: bazel-contrib/setup-bazel@104e3eea9447cdaa4b00d0fb46191a3985d26ab3 # 0.19.1
         with:
           bazelisk-cache: true
@@ -97,32 +104,23 @@ jobs:
         with:
           name: coverage
           path: out/coverage/
-
-  # Puts the coverage totals in the PR description, between the coverage:start
-  # and coverage:end markers from the PR template. pr-commits.yml sets them to
-  # pending on every push. A job of its own, so the job that can edit the PR
-  # doesn't run anything from it.
-  coverage-report:
-    needs: coverage
-    # Not when a newer push cancelled the run: that push's run reports. A fork
-    # PR's token can't edit the PR.
-    if: >-
-      !cancelled() && github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-26.04
-    permissions:
-      pull-requests: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      PR: ${{ github.event.pull_request.number }}
-      REPO: ${{ github.repository }}
-      RESULT: ${{ needs.coverage.result }}
-      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      SHA: ${{ github.event.pull_request.head.sha }}
-      TOTALS: ${{ needs.coverage.outputs.totals }}
-    steps:
-      # Only GitHub's API: nothing from the PR is checked out or run.
-      - run: |
+      # The totals, between the coverage:start and coverage:end markers from
+      # the PR template, which pr.yml sets to pending on every push. Also when
+      # coverage failed, to say so, but not when a newer push cancelled the
+      # run: that push's run reports. A fork PR's token can't edit the PR.
+      - name: Put the totals in the PR description
+        if: >-
+          !cancelled() && github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          RESULT: ${{ steps.report.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          TOTALS: ${{ steps.report.outputs.totals }}
+        run: |
           gh api "repos/$REPO/pulls/$PR" > pr.json
           python3 - <<'EOF'
           import json
@@ -156,8 +154,6 @@ jobs:
           fi
 
   format:
-    # main only gets commits from PRs that passed it.
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -170,8 +166,6 @@ jobs:
   # The Python tools (pyproject.toml): formatting, lint, types and their own
   # tests. --locked fails if uv.lock is out of date.
   python-tools:
-    # main only gets commits from PRs that passed it.
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
