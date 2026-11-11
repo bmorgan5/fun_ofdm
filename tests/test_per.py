@@ -38,14 +38,9 @@ FIXED_SNR_DB = {
     "qam64-3/4": 22.0,
 }
 
-#: The sweep for the SNR at 10% PER: every 0.5 dB across every rate's crossing
-#: of 10% PER.
-SWEEP_SNRS = sweep.snr_grid(14.0, 24.0, 0.5)
-SWEEP_FRAMES = 1000
-
-#: The baseline: each rate's SNR at 10% PER from that sweep. Update a value
-#: only with a release note that explains why it got worse; when a change
-#: improves one, lower it.
+#: The baseline: each rate's SNR at 10% PER from the guardrail's sweep
+#: (sweep.GUARDRAIL_SNRS). Update a value only with a release note that
+#: explains why it got worse; when a change improves one, lower it.
 BASELINE_SNR_DB = {
     "bpsk-1/2": 18.08,
     "bpsk-2/3": 17.87,
@@ -66,12 +61,12 @@ MAX_REGRESSION_DB = 0.25
 
 @pytest.fixture(scope="module")
 def curves(fun_ofdm: pathlib.Path) -> dict[str, list[sweep.Point]]:
-    """Every rate's curve, from the sweep for the SNR at 10% PER."""
+    """Every rate's curve, from the guardrail's sweep."""
     return sweep.sweep(
-        sweep.sim_runner(fun_ofdm, seed=1),
+        sweep.sim_runner(fun_ofdm, seed=sweep.GUARDRAIL_SEED),
         sweep.RATES,
-        SWEEP_SNRS,
-        SWEEP_FRAMES,
+        sweep.GUARDRAIL_SNRS,
+        sweep.GUARDRAIL_FRAMES,
         jobs=max(1, (os.cpu_count() or 2) // 2),
     )
 

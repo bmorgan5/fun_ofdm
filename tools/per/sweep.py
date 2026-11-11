@@ -212,6 +212,14 @@ def snr_grid(start: float, stop: float, step: float) -> list[float]:
     return [round(start + i * step, 6) for i in range(count)]
 
 
+#: The guardrail's sweep: every 0.5 dB across every rate's crossing of 10%
+#: PER, 1000 frames a point, with seed 1. tests/test_per.py checks it against
+#: its baselines, and the scorecard reports it, so the two agree.
+GUARDRAIL_SNRS = snr_grid(14.0, 24.0, 0.5)
+GUARDRAIL_FRAMES = 1000
+GUARDRAIL_SEED = 1
+
+
 def sweep(
     run: Runner,
     rates: Iterable[str],
