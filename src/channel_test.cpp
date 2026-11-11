@@ -126,6 +126,34 @@ TEST(ChannelTest, AddsNoiseAtTheSnr) {
   }
 }
 
+// Uncoded BPSK through AWGN: its bit error rate is Q(sqrt(2 Eb/N0)), which is
+// erfc(sqrt(SNR)) / 2, since a BPSK symbol is one bit. The real part of the
+// noise has half its power. Within 4 standard deviations of the binomial
+// count, at three SNRs.
+TEST(ChannelTest, GivesUncodedBpskItsTheoreticalBitErrorRate) {
+  const std::size_t BITS = 1'000'000;
+  std::vector<std::uint8_t> bits = test::prbs_bits(BITS);
+  samples symbols(BITS);
+  for (std::size_t i = 0; i < BITS; i++) symbols[i] = bits[i] ? 1.0 : -1.0;
+
+  for (double snr_db : {0.0, 4.0, 8.0}) {
+    channel air(channel_params{.snr_db = snr_db}, SAMPLE_RATE, 1);
+    air.set_signal_power(1);
+    samples received = air.transmit(symbols);
+    std::size_t errors = 0;
+    for (std::size_t i = 0; i < BITS; i++)
+      errors += (received[i].real() > 0) != (bits[i] != 0);
+
+    double snr = std::pow(10, snr_db / 10);
+    double ber = std::erfc(std::sqrt(snr)) / 2;
+    double expected = ber * BITS;
+    double sd = std::sqrt(BITS * ber * (1 - ber));
+    EXPECT_NEAR(static_cast<double>(errors), expected, 4 * sd)
+        << snr_db << " dB: theory " << ber << ", measured "
+        << static_cast<double>(errors) / BITS;
+  }
+}
+
 TEST(ChannelTest, KeepsTheFirstFramesNoiseFloor) {
   channel air(channel_params{.snr_db = 10}, SAMPLE_RATE, 1);
   EXPECT_EQ(air.idle(100), samples(100));
