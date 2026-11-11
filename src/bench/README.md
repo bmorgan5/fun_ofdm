@@ -6,11 +6,10 @@ answers two questions:
 
 - **Does the receiver keep up?** `receiver_chain/<workload>` runs the whole
   multithreaded receiver on 10 s of samples and times it on the wall clock.
-  A 20 MHz channel delivers 20 MS/s, so real time needs at least that
-  (scorecard row S2).
+  A 20 MHz channel delivers 20 MS/s, so real time needs at least that.
 - **Where does the time go?** `<block>/<workload>`, like
-  `frame_detector/W-54`, runs one of the six blocks on its own, on one thread
-  (scorecard row S3).
+  `frame_detector/W-54`, runs one of the six blocks on its own, on one
+  thread.
 
 `bazel run install` copies the binary next to `fun-ofdm`, built with the same
 toolchain and flags, so a machine without Bazel, like the Pi, runs what's
@@ -238,8 +237,8 @@ i7-10700K, W-54 ran at 20.2 MS/s on all 16 CPUs, 20.7 on 4 and 16.3 on 2.
 Without a limit, a container runs at the machine's speed: its processes are
 ordinary processes on the host's kernel.
 
-The scorecard's `hostcheck.py` will record the rest: the governor, turbo,
-isolated cores and the tuning configuration.
+The scorecard's [hostcheck.py](../../tools/scorecard/hostcheck.py) records
+the rest: the governor, turbo, isolated cores and the tuning configuration.
 
 ## Testing
 
