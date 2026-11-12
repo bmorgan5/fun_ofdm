@@ -8,6 +8,8 @@ numbers noisy or unfair to compare.
 
     uv run tools/scorecard/hostcheck.py
     uv run tools/scorecard/hostcheck.py --json
+
+scorecard.py runs it first and puts its report in every result file.
 """
 
 import argparse
@@ -86,7 +88,8 @@ class Host:
     #: "docker", "podman" or "none".
     container: str
     cpus_online: int
-    #: The CPUs this process may run on, its affinity, which taskset sets.
+    #: The CPUs this process may run on, its affinity, which taskset or
+    #: scorecard.py's --cpus sets.
     cpus_usable: list[int]
     #: The cgroup's CPU limit, like 2.5 CPUs, or None for none.
     cpu_quota: float | None
@@ -353,7 +356,8 @@ def warnings(host: Host) -> list[str]:
         found.append(
             f"CPUs {host.isolated} are isolated, but this process may also "
             f"run on others ({format_cpu_list(host.cpus_usable)}). Pin it "
-            f"to them: taskset -c {host.isolated}."
+            f"to them: taskset -c {host.isolated}, or scorecard.py's --cpus "
+            f"{host.isolated}."
         )
     if host.throttled not in (None, "0x0"):
         found.append(
