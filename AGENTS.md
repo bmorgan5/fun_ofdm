@@ -28,6 +28,8 @@ libraries.
 | Test the Python tools, in `tools/` | `uv run pytest` |
 | Test `fun-ofdm` from Python, in `tests/`, after `bazel run install` (as CI) | `uv run pytest tests` |
 | PER vs SNR at every rate (see `tools/per/README.md`) | `uv run tools/per/sweep.py` |
+| The machine, for benchmarking (see `tools/scorecard/README.md`) | `uv run tools/scorecard/hostcheck.py` |
+| The scorecard, about 40 min, after `bazel run install` | `uv run tools/scorecard/scorecard.py --milestone <name> -i` |
 | Format and lint the Python tools | `uv run ruff format` and `uv run ruff check` |
 | Check the Python tools' types | `uv run ty check` |
 | Add a Python package | `uv add <package>` (`--dev` if only for development) |
@@ -58,7 +60,8 @@ libraries.
 - `docs/`: the Doxygen build.
 - `tools/`: `bootstrap/`, the tools that Bazel runs (`coverage/`, `format/`,
   `qemu/`), the Perfetto config for system traces (`trace/`), and the Python
-  tools (`pyproject.toml`), like the PER sweep (`per/`), with their own tests.
+  tools (`pyproject.toml`), like the PER sweep (`per/`) and the scorecard
+  (`scorecard/`), with their own tests.
 - `tests/`: Python tests of `fun-ofdm` itself, which run the binary, like the
   PER guardrails.
 
