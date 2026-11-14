@@ -1,9 +1,9 @@
 # The fun-ofdm binary
 
 This directory holds the `fun-ofdm` binary, which drives the PHY in
-[phy/](phy/README.md) with a USRP (`tx` and `rx`) or entirely in software
-(`sim`). This page covers how each mode moves data, what each frame carries,
-and which file does what.
+[phy/](phy/README.md) with a USRP (`tx`, `rx` and `loopback`) or entirely in
+software (`sim`). This page covers how each mode moves data, what each frame
+carries, and which file does what.
 
 ## The modes
 
@@ -15,6 +15,8 @@ the seed and the results ([summary.h](summary.h) lists the members).
 ```text
 tx:   random_source → fragmenter → transmitter (frame_builder → usrp) → air
 rx:   air → receiver (usrp → receiver_chain) → reassembler → summary
+loopback: random_source → fragmenter → transmitter → usrp TX port ⇢ usrp RX port → receiver → reassembler
+                                                                                            → check against what was sent
 sim:  random_source → fragmenter → frame_builder → channel → receiver_chain → reassembler
                                                                             → check against what was sent
 ```
@@ -22,17 +24,21 @@ sim:  random_source → fragmenter → frame_builder → channel → receiver_ch
 - **`tx`** (`run_tx()`) sends random data over the air, one frame at a time.
 - **`rx`** (`run_rx()`) receives frames, and counts the ones lost or received
   twice from their sequence numbers.
+- **`loopback`** (`run_loopback()`) is `sim` with a USRP in place of the
+  simulated channel: one usrp transmits on one port and receives on another,
+  usually through a cable and an attenuator. The main thread transmits, and a
+  second thread receives.
 - **`sim`** (`run_sim()`) passes each frame's samples through a simulated
   channel ([channel.h](channel.h)) to the receiver chain, and checks every byte
   against what it sent. The channel is perfect unless options add noise, a
   frequency offset, a delay or multipath.
 
-`rx` and `sim` measure the receiver as they run, and `--json` writes what they
-measured: each block's times, the frames' latency, and what happened to the
-frames. `--trace FILE` also records a trace. See
+`rx`, `loopback` and `sim` measure the receiver as they run, and `--json`
+writes what they measured: each block's times, the frames' latency, and what
+happened to the frames. `--trace FILE` also records a trace. See
 [metrics/README.md](metrics/README.md).
 
-`tx` and `rx` first ask for real time thread priority
+The modes that use a USRP first ask for real time thread priority
 ([realtime.h](realtime.h)). A thread waits for SIGINT and SIGTERM
 (`stop_on_signals()`): the first one requests a stop on a `std::stop_token`
 that each mode checks between frames, and the second exits immediately.

@@ -25,7 +25,6 @@ struct radio_options {
   double freq_ghz = 5.72;  //!< Center frequency in GHz, unless #channel is set
   int channel = 0;         //!< 802.11 channel number, or 0 to use #freq_ghz
   double bandwidth_mhz = 5;  //!< Channel bandwidth (and sample rate) in MHz
-  double gain = 30;          //!< TX or RX gain in dB, depending on the mode
   std::string device;  //!< UHD device address, or "" to find one automatically
   bool no_realtime = false;  //!< Skip requesting real time thread priority
 };
@@ -64,6 +63,7 @@ struct trace_options {
  */
 struct tx_options {
   radio_options radio;
+  double gain = 30;  //!< Transmit gain in dB
   double tx_amp = 0.5;
   Rate phy_rate = RATE_1_2_BPSK;
   data_options data;
@@ -76,6 +76,30 @@ struct tx_options {
  */
 struct rx_options {
   radio_options radio;
+  double gain = 30;  //!< Receive gain in dB
+  std::optional<std::string> json_file;
+  trace_options trace;
+};
+
+/*!
+ * \brief Options for the loopback mode: one USRP transmits on one port and
+ * receives on another.
+ *
+ * The defaults suit a B210 with channel A's TX/RX port cabled to channel B's,
+ * through 40 dB.
+ */
+struct loopback_options {
+  radio_options radio;
+  double tx_gain = 80;               //!< Transmit gain in dB
+  double rx_gain = 60;               //!< Receive gain in dB
+  double tx_amp = 0.5;               //!< Scales each transmitted sample
+  std::string tx_subdev = "A:A";     //!< See usrp_params::tx_subdev
+  std::string rx_subdev = "A:B";     //!< See usrp_params::rx_subdev
+  std::string tx_antenna = "TX/RX";  //!< See usrp_params::tx_antenna
+  std::string rx_antenna = "TX/RX";  //!< See usrp_params::rx_antenna
+  Rate phy_rate = RATE_1_2_BPSK;
+  data_options data;
+  std::optional<std::uint64_t> seed;
   std::optional<std::string> json_file;
   trace_options trace;
 };
@@ -101,6 +125,12 @@ struct sim_options {
 const std::uint64_t SIM_DEFAULT_PACKETS = 100;
 
 /*!
+ * \brief The number of packets loopback sends when neither --packets nor
+ * --bytes is given.
+ */
+const std::uint64_t LOOPBACK_DEFAULT_PACKETS = 100;
+
+/*!
  * \brief Adds the tx mode's options to its subcommand.
  */
 void add_options(CLI::App* app, tx_options& opts);
@@ -109,6 +139,11 @@ void add_options(CLI::App* app, tx_options& opts);
  * \brief Adds the rx mode's options to its subcommand.
  */
 void add_options(CLI::App* app, rx_options& opts);
+
+/*!
+ * \brief Adds the loopback mode's options to its subcommand.
+ */
+void add_options(CLI::App* app, loopback_options& opts);
 
 /*!
  * \brief Adds the sim mode's options to its subcommand.
@@ -136,6 +171,11 @@ usrp_params to_usrp_params(const tx_options& opts);
  * \brief Builds the USRP parameters for the rx mode.
  */
 usrp_params to_usrp_params(const rx_options& opts);
+
+/*!
+ * \brief Builds the USRP parameters for the loopback mode, for both directions.
+ */
+usrp_params to_usrp_params(const loopback_options& opts);
 }  // namespace fun
 
 #endif  // OPTIONS_H
