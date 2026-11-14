@@ -92,7 +92,20 @@ To build from source, open the repo in its dev container (VS Code's "Dev
 Containers: Reopen in Container"), or run `sudo tools/bootstrap/bootstrap.sh`,
 which installs the same tools as the dev container, including
 [bazelisk](https://github.com/bazelbuild/bazelisk) as `bazel`. Bazel downloads
-the compiler and the libraries itself. Common build commands:
+the compiler and the libraries itself.
+
+The dev container shares the host's USB bus, so it can use a USRP B210
+plugged into the host: `sudo uhd_usrp_probe` should find it (root, since
+udev doesn't run in a container).
+
+On Windows, first attach the B210 to WSL with
+[usbipd-win](https://learn.microsoft.com/windows/wsl/connect-usb): `usbipd bind`
+and `usbipd attach --wsl --auto-attach` its BUSID. When UHD loads its firmware,
+the B210 reconnects as a USB 3 device, on another BUSID, so bind and attach that
+one too. If `usbipd list` shows it as "Device Descriptor Request Failed", unplug
+it and plug it back in.
+
+Common build commands:
 
 ```bash
 bazel build fun-ofdm       # The binary, in bazel-bin/src/fun-ofdm
