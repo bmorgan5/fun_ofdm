@@ -10,6 +10,8 @@
 #include <stdexcept>
 #include <string>
 
+#include <uhd/usrp/subdev_spec.hpp>
+
 namespace fun {
 /*!
  * \brief Checks that a gain is within the device's range. UHD would otherwise
@@ -41,6 +43,12 @@ usrp::usrp(usrp_params params) : m_params(params) {
       uhd::usrp::multi_usrp::make(uhd::device_addr_t(m_params.device_addr));
   m_device = m_usrp->get_device();
 
+  // The frontends first: they decide which channel the settings below apply to
+  if (!m_params.tx_subdev.empty())
+    m_usrp->set_tx_subdev_spec(uhd::usrp::subdev_spec_t(m_params.tx_subdev));
+  if (!m_params.rx_subdev.empty())
+    m_usrp->set_rx_subdev_spec(uhd::usrp::subdev_spec_t(m_params.rx_subdev));
+
   // Set the center frequency
   m_usrp->set_tx_freq(uhd::tune_request_t(m_params.freq));
   m_usrp->set_rx_freq(uhd::tune_request_t(m_params.freq));
@@ -55,8 +63,9 @@ usrp::usrp(usrp_params params) : m_params(params) {
   m_usrp->set_tx_gain(m_params.tx_gain);
   m_usrp->set_rx_gain(m_params.rx_gain);
 
-  // Set the RX antenna
-  // m_usrp->set_rx_antenna("RX2");
+  // Set the antennas
+  if (!m_params.tx_antenna.empty()) m_usrp->set_tx_antenna(m_params.tx_antenna);
+  if (!m_params.rx_antenna.empty()) m_usrp->set_rx_antenna(m_params.rx_antenna);
 
   // Get the TX and RX stream handles
   m_tx_streamer = m_usrp->get_tx_stream(uhd::stream_args_t("fc64"));

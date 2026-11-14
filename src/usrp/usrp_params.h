@@ -28,6 +28,14 @@ struct usrp_params {
   std::string device_addr;  //!< UHD device address, e.g.
                             //!< "addr=192.168.10.2", or "" to use the first
                             //!< device found
+  std::string tx_subdev;    //!< Transmit frontend, as a UHD subdev spec:
+                            //!< e.g. "A:A", a B210's channel A. "" for the
+                            //!< default.
+  std::string rx_subdev;    //!< Receive frontend, like #tx_subdev
+  std::string tx_antenna;   //!< Transmit port, e.g. "TX/RX". "" for the
+                            //!< default.
+  std::string rx_antenna;   //!< Receive port, e.g. "TX/RX" or "RX2". "" for
+                            //!< the default.
 };
 }  // namespace fun
 
