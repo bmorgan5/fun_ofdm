@@ -16,7 +16,15 @@
         // randomization off, through personality(), which Docker's default
         // seccomp profile blocks. This container is only for development, so
         // filtering syscalls isn't worth losing TSan for.
-        "--security-opt", "seccomp=unconfined"
+        "--security-opt", "seccomp=unconfined",
+        // USB, for a USRP B210. Shares the whole bus, not one device, because
+        // the B210 reappears as a new device once UHD loads its firmware.
+        // --volume, unlike "mounts", still works on a host without USB.
+        "--device-cgroup-rule=c 189:* rmw",
+        "--volume=/dev/bus/usb:/dev/bus/usb",
+        // Lets root in the container give fun-ofdm real time priority, which
+        // Docker otherwise doesn't allow, even with sudo.
+        "--cap-add=SYS_NICE"
     ],
 
     "mounts": [
