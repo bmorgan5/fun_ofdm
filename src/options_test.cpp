@@ -2,8 +2,10 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
+#include <map>
 #include <optional>
 #include <string>
 #include <utility>
@@ -478,6 +480,48 @@ TEST(TraceOptionsTest, AreForTheModesThatReceive) {
   tx_options tx_opts;
   add_options(&tx_app, tx_opts);
   EXPECT_THROW(tx_app.parse("--trace tx.pftrace", false), CLI::ExtrasError);
+}
+
+// The heading each of a mode's options is under in --help, by name.
+template <typename Options>
+std::map<std::string, std::string> headings() {
+  CLI::App app;
+  Options opts;
+  add_options(&app, opts);
+  std::map<std::string, std::string> result;
+  for (const CLI::Option* option : app.get_options())
+    result[option->get_name()] = option->get_group();
+  return result;
+}
+
+TEST(HeadingsTest, PutEveryOptionButHelpUnderAHeading) {
+  const std::vector<std::string> HEADINGS = {"Radio", "Data", "Channel",
+                                             "Output"};
+  for (const auto& mode :
+       {headings<tx_options>(), headings<rx_options>(),
+        headings<loopback_options>(), headings<sim_options>()}) {
+    for (const auto& [name, heading] : mode) {
+      if (name == "--help") continue;
+      EXPECT_NE(std::find(HEADINGS.begin(), HEADINGS.end(), heading),
+                HEADINGS.end())
+          << name << " is under " << heading;
+    }
+  }
+}
+
+TEST(HeadingsTest, PutEachOptionUnderItsHeading) {
+  std::map<std::string, std::string> loopback = headings<loopback_options>();
+  EXPECT_EQ(loopback["--freq"], "Radio");
+  EXPECT_EQ(loopback["--tx-gain"], "Radio");
+  EXPECT_EQ(loopback["--rx-antenna"], "Radio");
+  EXPECT_EQ(loopback["--phy-rate"], "Data");
+  EXPECT_EQ(loopback["--seed"], "Data");
+  EXPECT_EQ(loopback["--json"], "Output");
+  EXPECT_EQ(loopback["--trace"], "Output");
+
+  std::map<std::string, std::string> sim = headings<sim_options>();
+  EXPECT_EQ(sim["--bandwidth"], "Channel");
+  EXPECT_EQ(sim["--snr"], "Channel");
 }
 
 }  // namespace
