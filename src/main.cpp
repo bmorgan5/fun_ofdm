@@ -86,7 +86,8 @@ static void print_latency(const metrics::histogram& latency) {
 static tx_result run_tx(const tx_options& opts, std::stop_token stop) {
   if (!opts.radio.no_realtime) set_realtime_priority();
 
-  transmitter tx = transmitter(to_usrp_params(opts));
+  usrp radio(to_usrp_params(opts));
+  transmitter tx(radio);
 
   tx_result result;
   result.seed = opts.seed ? *opts.seed : random_seed();
@@ -163,7 +164,8 @@ static void process_packets_callback(
 static rx_result run_rx(const rx_options& opts, std::stop_token stop) {
   if (!opts.radio.no_realtime) set_realtime_priority();
 
-  receiver rx = receiver(&process_packets_callback, to_usrp_params(opts));
+  usrp radio(to_usrp_params(opts));
+  receiver rx(radio, &process_packets_callback);
 
   std::cout << "Receiving (press Ctrl+C to stop)" << std::endl;
   rx_state.emplace();
