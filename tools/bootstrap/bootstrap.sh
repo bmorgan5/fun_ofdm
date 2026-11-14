@@ -51,13 +51,16 @@ if ! $simulate && ((EUID != 0)); then
     exit 1
 fi
 
-# What running fun-ofdm needs. It links libuhd dynamically, so it loads it at
-# run time. Keep the version in step with the libuhd in the build's sysroot
-# (MODULE.bazel). Perfetto's traced and perfetto record system traces with
-# --trace-system (src/metrics/README.md); fun-ofdm has the SDK built in.
+# fun-ofdm runtime dependencies:
+#   * libuhd: fun-ofdm loads it at run time to talk to USRPs. Keep its
+#     version in step with the libuhd in the build's sysroot (MODULE.bazel).
+#   * perfetto: traced and perfetto, for --trace-system (src/metrics/README.md).
+#   * uhd-host: UHD's tools (uhd_find_devices, uhd_usrp_probe and
+#     uhd_images_downloader), and the udev rules that let any user open a USRP.
 runtime_packages=(
     libuhd4.9.0
     perfetto
+    uhd-host
 )
 
 # What building and developing need: tools/qemu runs cross-compiled binaries
@@ -100,6 +103,27 @@ if $simulate; then
 else
     apt-get update
     apt-get install -y "${apt_options[@]}" "${packages[@]}"
+fi
+
+# The B210's FPGA image and USB controller firmware, which UHD loads into it
+# each time it opens the device. Ubuntu can't package them (they're built with
+# Xilinx's tools), so uhd-host's downloader fetches the ones for its version
+# of UHD from Ettus, checks them against the SHA-256s in UHD's manifest
+# (--test), and skips the ones it already has. --yes, so it never asks.
+section "USRP images: B200/B210"
+images_options=(--types b2xx --test --yes)
+if $reinstall; then
+    images_options+=(--refetch)
+fi
+if $simulate; then
+    if command -v uhd_images_downloader >/dev/null; then
+        uhd_images_downloader "${images_options[@]}" --dry-run
+    else
+        echo "Would run uhd_images_downloader ${images_options[*]}, after" \
+            "installing uhd-host."
+    fi
+else
+    uhd_images_downloader "${images_options[@]}"
 fi
 
 if $runtime_only; then
