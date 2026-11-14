@@ -84,7 +84,7 @@ TEST(SummaryTest, WritesAMemberPerLineIndentedBy2) {
 TEST(SummaryTest, WritesDoublesInTheirShortestForm) {
   tx_options opts;
   opts.tx_amp = 1e-7;
-  opts.radio.gain = 1e21;
+  opts.gain = 1e21;
   std::string text = to_json("1.2.3", opts, tx_result{});
   EXPECT_TRUE(text.contains(R"("freq": 5.72,)")) << text;
   EXPECT_TRUE(text.contains(R"("gain": 1e+21,)")) << text;
@@ -97,7 +97,7 @@ TEST(SummaryTest, WritesNonFiniteDoublesAsNull) {
                       std::numeric_limits<double>::infinity(),
                       -std::numeric_limits<double>::infinity()}) {
     rx_options opts;
-    opts.radio.gain = gain;
+    opts.gain = gain;
     json::value parsed = summary(to_json("1.2.3", opts, rx_result{}));
     EXPECT_TRUE(
         parsed.as_object().at("options").as_object().at("gain").is_null())
@@ -193,6 +193,78 @@ TEST(SummaryTest, WritesASimRunThatFailed) {
         "mismatched_bytes": 3,
         "passed": false
       })"));
+}
+
+TEST(SummaryTest, WritesALoopbackRun) {
+  loopback_result result = {
+      .seed = 5,
+      .sent = TOTALS,
+      .received = TOTALS,
+      .check = sim_check{.lost = 1, .duplicates = 2, .mismatched_bytes = 3}};
+  EXPECT_EQ(without_metrics(summary(to_json(
+                "1.2.3", parse<loopback_options>("--freq 0.915 --packets 3"),
+                result))),
+            summary(R"({
+              "version": "1.2.3",
+              "mode": "loopback",
+              "options": {
+                "freq": 0.915,
+                "channel": null,
+                "bandwidth": 5.0,
+                "tx_gain": 80.0,
+                "rx_gain": 60.0,
+                "device": null,
+                "no_realtime": false,
+                "tx_amp": 0.5,
+                "tx_subdev": "A:A",
+                "rx_subdev": "A:B",
+                "tx_antenna": "TX/RX",
+                "rx_antenna": "TX/RX",
+                "phy_rate": "bpsk-1/2",
+                "packets": 3,
+                "bytes": null,
+                "payload_size": 1500
+              },
+              "seed": 5,
+              "sent": )" +
+                    std::string(TOTALS_JSON) +
+                    R"(,
+              "received": )" +
+                    std::string(TOTALS_JSON) +
+                    R"(,
+              "lost": 1,
+              "duplicates": 2,
+              "mismatched_bytes": 3,
+              "passed": false
+            })"));
+}
+
+TEST(SummaryTest, WritesTheLoopbackMembersInOrder) {
+  json::value parsed = summary(to_json("1.2.3", parse<loopback_options>(""),
+                                       loopback_result{.check = sim_check{}}));
+  EXPECT_EQ(keys(parsed), (std::vector<std::string>{
+                              "version", "mode", "options", "seed", "sent",
+                              "received", "lost", "duplicates",
+                              "mismatched_bytes", "passed", "metrics"}));
+  EXPECT_EQ(keys(parsed.as_object().at("options")),
+            (std::vector<std::string>{
+                "freq", "channel", "bandwidth", "tx_gain", "rx_gain", "device",
+                "no_realtime", "tx_amp", "tx_subdev", "rx_subdev", "tx_antenna",
+                "rx_antenna", "phy_rate", "packets", "bytes", "payload_size"}));
+}
+
+TEST(SummaryTest, WritesTheLoopbackDefaultPackets) {
+  json::value parsed =
+      summary(to_json("1.2.3", parse<loopback_options>(""), loopback_result{}));
+  EXPECT_EQ(parsed.as_object().at("options").as_object().at("packets"),
+            LOOPBACK_DEFAULT_PACKETS);
+}
+
+TEST(SummaryTest, LeavesOutTheCheckOfAStoppedLoopbackRun) {
+  json::value parsed =
+      summary(to_json("1.2.3", loopback_options{}, loopback_result{}));
+  EXPECT_FALSE(parsed.as_object().contains("lost"));
+  EXPECT_FALSE(parsed.as_object().contains("passed"));
 }
 
 TEST(SummaryTest, WritesTheSimDefaultPackets) {
@@ -344,6 +416,15 @@ TEST(SummaryTest, AddsRxsOwnMetrics) {
   EXPECT_EQ(keys(m), (std::vector<std::string>{"enabled", "frames", "overflows",
                                                "arrival_interval", "recv_delay",
                                                "latency", "blocks"}));
+  EXPECT_EQ(m.at("overflows"), 4);
+  EXPECT_EQ(m.at("recv_delay"), summary(HUNDREDS_JSON));
+}
+
+TEST(SummaryTest, AddsTheUsrpsMetricsForLoopback) {
+  if (!metrics::ENABLED) GTEST_SKIP() << "Built without metrics";
+  loopback_result result = {.overflows = 4, .recv_delay = hundreds()};
+  json::value parsed = summary(to_json("1.2.3", loopback_options{}, result));
+  const json::object& m = parsed.as_object().at("metrics").as_object();
   EXPECT_EQ(m.at("overflows"), 4);
   EXPECT_EQ(m.at("recv_delay"), summary(HUNDREDS_JSON));
 }

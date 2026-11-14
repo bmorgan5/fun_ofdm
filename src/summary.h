@@ -53,6 +53,21 @@ struct sim_check {
 };
 
 /*!
+ * \brief What a loopback run did.
+ */
+struct loopback_result {
+  std::uint64_t seed = 0;    //!< The seed of the random data
+  transfer_totals sent;      //!< The packets sent
+  transfer_totals received;  //!< The packets received, without duplicates
+  //! The check of the received data, the same as sim's, or std::nullopt if
+  //! the run was stopped before it
+  std::optional<sim_check> check;
+  chain_metrics metrics;          //!< What the receiver chain measured
+  std::uint64_t overflows = 0;    //!< receiver::overflows()
+  metrics::histogram recv_delay;  //!< receiver::recv_delay()
+};
+
+/*!
  * \brief What a sim run did.
  */
 struct sim_result {
@@ -73,35 +88,37 @@ struct sim_result {
  * end.
  *
  * The summary is an object with these members, in this order:
- * - `version`, and `mode`: "tx", "rx" or "sim".
+ * - `version`, and `mode`: "tx", "rx", "loopback" or "sim".
  * - `options`: a member per option, named after it without the leading
  *   dashes, in the option's units, with the value the run used. An option is
  *   null only if the run had no value for it: `freq` when `channel` is set,
  *   `channel` when it isn't, `device` when UHD finds one, both `packets`
  *   and `bytes` when tx sends until it's stopped, and `snr` when sim adds no
- *   noise. --seed and --json aren't
- *   included: the seed that was used is a member of its own, and where the
- *   summary went isn't part of the run.
- * - `seed` (tx and sim).
- * - `sent` (tx) or `received` (rx and sim): `packets`, `bytes`, `seconds` and
- *   `bits_per_second`, which is null if no time passed.
- * - `lost` and `duplicates` (rx, and sim unless it was stopped).
- * - `mismatched_bytes` and `passed` (sim, unless it was stopped). A stopped sim
- *   run doesn't check the data it received.
- * - `metrics` (rx and sim): what the receiver chain measured
+ *   noise. tx and rx have `gain`, and loopback `tx_gain` and `rx_gain`.
+ *   --seed and --json aren't included: the seed that was used is a member of
+ *   its own, and where the summary went isn't part of the run.
+ * - `seed` (tx, loopback and sim).
+ * - `sent` (tx and loopback), then `received` (rx, loopback and sim):
+ *   `packets`, `bytes`, `seconds` and `bits_per_second`, which is null if no
+ *   time passed.
+ * - `lost` and `duplicates` (rx, and loopback and sim unless they were
+ *   stopped).
+ * - `mismatched_bytes` and `passed` (loopback and sim, unless they were
+ *   stopped). A stopped run doesn't check the data it received.
+ * - `metrics` (rx, loopback and sim): what the receiver chain measured
  *   (receiver_chain.h).
  *   - `enabled`: false in a build without metrics (`--config=no_metrics`),
  *     whose histograms are empty.
  *   - `frames`: `detected`, `sync_lost`, `signal_failed`, and `crc_ok` and
  *     `crc_failed`, each an object with a count per `--phy-rate` name.
- *   - `overflows` (rx): the USRP's.
+ *   - `overflows` (rx and loopback): the USRP's.
  *   - Histograms of times in nanoseconds: `arrival_interval`, `recv_delay`
- *     (rx), `latency`, and `blocks`, an object with a member per block, in
- *     the chain's order, each with `wait`, `processing`, `start_interval` and
- *     `lag`. Each histogram is `count`, `p50`, `p99`, `p99_9` and `max`, then
- *     `buckets`: an array of [value, count] pairs, one per bucket that holds
- *     any values, where value is the bucket's largest, so scripts can add
- *     runs together.
+ *     (rx and loopback), `latency`, and `blocks`, an object with a member per
+ *     block, in the chain's order, each with `wait`, `processing`,
+ *     `start_interval` and `lag`. Each histogram is `count`, `p50`, `p99`,
+ *     `p99_9` and `max`, then `buckets`: an array of [value, count] pairs, one
+ *     per bucket that holds any values, where value is the bucket's largest,
+ *     so scripts can add runs together.
  */
 std::string to_json(const std::string& version, const tx_options& opts,
                     const tx_result& result);
@@ -112,6 +129,13 @@ std::string to_json(const std::string& version, const tx_options& opts,
  */
 std::string to_json(const std::string& version, const rx_options& opts,
                     const rx_result& result);
+
+/*!
+ * \brief Writes a loopback run's summary as JSON, like
+ * to_json(const std::string&, const tx_options&, const tx_result&).
+ */
+std::string to_json(const std::string& version, const loopback_options& opts,
+                    const loopback_result& result);
 
 /*!
  * \brief Writes a sim run's summary as JSON, like

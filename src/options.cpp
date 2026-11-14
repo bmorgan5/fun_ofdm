@@ -226,15 +226,34 @@ static void add_radio_options(CLI::App* app, radio_options& opts) {
       ->check(POSITIVE)
       ->capture_default_str();
   app->add_option(
-         "--gain", opts.gain,
-         "Amplifier gain in dB (the valid range depends on the device)")
-      ->check(NON_NEGATIVE)
-      ->capture_default_str();
-  app->add_option(
       "--device", opts.device,
       "UHD device address, e.g. addr=192.168.10.2 (default: find one)");
   app->add_flag("--no-realtime", opts.no_realtime,
                 "Don't request real time thread priority");
+}
+
+/*!
+ * \brief Adds a gain option.
+ * \param app The subcommand to add the option to
+ * \param name The option, e.g. --gain
+ * \param gain Where to store the gain
+ * \param what Which amplifier, for the help text, e.g. "Transmit"
+ */
+static void add_gain_option(CLI::App* app, const std::string& name,
+                            double& gain, const std::string& what) {
+  app->add_option(name, gain,
+                  what + " gain in dB (the valid range depends on the device)")
+      ->check(NON_NEGATIVE)
+      ->capture_default_str();
+}
+
+/*!
+ * \brief Adds the --tx-amp option.
+ */
+static void add_tx_amp_option(CLI::App* app, double& tx_amp) {
+  app->add_option("--tx-amp", tx_amp, "Scale factor for transmit samples")
+      ->check(CLI::Range(0.0, 1.0))
+      ->capture_default_str();
 }
 
 /*!
@@ -271,9 +290,8 @@ std::optional<std::uint64_t> data_options::limit() const {
 
 void add_options(CLI::App* app, tx_options& opts) {
   add_radio_options(app, opts.radio);
-  app->add_option("--tx-amp", opts.tx_amp, "Scale factor for transmit samples")
-      ->check(CLI::Range(0.0, 1.0))
-      ->capture_default_str();
+  add_gain_option(app, "--gain", opts.gain, "Transmit");
+  add_tx_amp_option(app, opts.tx_amp);
   add_phy_rate_option(app, opts.phy_rate);
   add_data_options(app, opts.data, "send until Ctrl+C");
   add_seed_option(app, opts.seed, "the random data");
@@ -282,6 +300,32 @@ void add_options(CLI::App* app, tx_options& opts) {
 
 void add_options(CLI::App* app, rx_options& opts) {
   add_radio_options(app, opts.radio);
+  add_gain_option(app, "--gain", opts.gain, "Receive");
+  add_json_option(app, opts.json_file);
+  add_trace_options(app, opts.trace);
+}
+
+void add_options(CLI::App* app, loopback_options& opts) {
+  add_radio_options(app, opts.radio);
+  add_gain_option(app, "--tx-gain", opts.tx_gain, "Transmit");
+  add_gain_option(app, "--rx-gain", opts.rx_gain, "Receive");
+  add_tx_amp_option(app, opts.tx_amp);
+  app->add_option("--tx-subdev", opts.tx_subdev,
+                  "Transmit frontend, as a UHD subdevice spec (A:A is a "
+                  "B210's channel A)")
+      ->capture_default_str();
+  app->add_option("--rx-subdev", opts.rx_subdev,
+                  "Receive frontend, as a UHD subdevice spec (A:B is a B210's "
+                  "channel B)")
+      ->capture_default_str();
+  app->add_option("--tx-antenna", opts.tx_antenna, "Transmit antenna port")
+      ->capture_default_str();
+  app->add_option("--rx-antenna", opts.rx_antenna,
+                  "Receive antenna port, e.g. TX/RX or RX2")
+      ->capture_default_str();
+  add_phy_rate_option(app, opts.phy_rate);
+  add_data_options(app, opts.data, std::to_string(LOOPBACK_DEFAULT_PACKETS));
+  add_seed_option(app, opts.seed, "the random data");
   add_json_option(app, opts.json_file);
   add_trace_options(app, opts.trace);
 }
@@ -336,9 +380,9 @@ double channel_to_freq(int channel) {
 }
 
 /*!
- * \brief Builds the USRP parameters shared by both modes and prints the
- * frequency and bandwidth being used. The caller sets the gain for the
- * direction it uses; the other direction keeps the #usrp_params default.
+ * \brief Builds the USRP parameters shared by the modes that use one, and
+ * prints the frequency and bandwidth being used. The caller sets the gain for
+ * each direction it uses; the others keep the #usrp_params defaults.
  */
 static usrp_params to_usrp_params(const radio_options& opts) {
   usrp_params params;
@@ -360,14 +404,26 @@ static usrp_params to_usrp_params(const radio_options& opts) {
 
 usrp_params to_usrp_params(const tx_options& opts) {
   usrp_params params = to_usrp_params(opts.radio);
-  params.tx_gain = opts.radio.gain;
+  params.tx_gain = opts.gain;
   params.tx_amp = opts.tx_amp;
   return params;
 }
 
 usrp_params to_usrp_params(const rx_options& opts) {
   usrp_params params = to_usrp_params(opts.radio);
-  params.rx_gain = opts.radio.gain;
+  params.rx_gain = opts.gain;
+  return params;
+}
+
+usrp_params to_usrp_params(const loopback_options& opts) {
+  usrp_params params = to_usrp_params(opts.radio);
+  params.tx_gain = opts.tx_gain;
+  params.rx_gain = opts.rx_gain;
+  params.tx_amp = opts.tx_amp;
+  params.tx_subdev = opts.tx_subdev;
+  params.rx_subdev = opts.rx_subdev;
+  params.tx_antenna = opts.tx_antenna;
+  params.rx_antenna = opts.rx_antenna;
   return params;
 }
 }  // namespace fun
