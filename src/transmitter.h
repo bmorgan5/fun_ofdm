@@ -24,20 +24,16 @@ namespace fun {
 /*!
  * \brief Sends frames over the air with one USRP, one frame at a time.
  *
- * Usage: create a transmitter with the USRP's parameters (center frequency,
- * sample rate, transmit gain and amplitude), then call send_frame() with each
- * payload and the PHY rate to send it at.
+ * Usage: open a usrp, create a transmitter with it, then call send_frame()
+ * with each payload and the PHY rate to send it at.
  */
 class transmitter {
  public:
   /*!
-   * \brief Opens the USRP.
-   * \param params The USRP's parameters. Defaults to the defaults in
-   * #usrp_params. The receive gain isn't used.
-   * \throws Whatever usrp::usrp() throws, if the device can't be opened or a
-   * gain is out of range.
+   * \brief Creates a transmitter that sends with \p radio.
+   * \param radio The USRP to send with, which must outlive the transmitter.
    */
-  transmitter(usrp_params params = usrp_params());
+  transmitter(usrp& radio);
 
   /*!
    * \brief Sends one frame, and blocks until it has gone out.
@@ -53,7 +49,7 @@ class transmitter {
                   Rate phy_rate = RATE_1_2_BPSK);
 
  private:
-  usrp m_usrp;  //!< Sends each frame's samples
+  usrp& m_usrp;  //!< Sends each frame's samples
 
   frame_builder m_frame_builder;  //!< Builds each frame's samples
 };

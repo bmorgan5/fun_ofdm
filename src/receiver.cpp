@@ -9,16 +9,15 @@
 #include "receiver.h"
 
 #include <cstdint>
+#include <utility>
 
 #include "src/metrics/tracing.h"
 
 namespace fun {
 
-receiver::receiver(
-    void (*callback)(std::vector<std::vector<std::uint8_t>> packets),
-    usrp_params params)
-    : m_callback(callback),
-      m_usrp(params),
+receiver::receiver(usrp& radio, callback on_packets)
+    : m_usrp(radio),
+      m_callback(std::move(on_packets)),
       m_rec_chain(),
       m_samples(NUM_RX_SAMPLES) {}
 
