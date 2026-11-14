@@ -115,6 +115,68 @@ TEST(OptionsTest, SetsOnlyTheGainForTheModesDirection) {
   EXPECT_DOUBLE_EQ(rx_params.tx_gain, defaults.tx_gain);
 }
 
+TEST(LoopbackOptionsTest, AreChannelAToChannelBOfAB210ByDefault) {
+  CLI::App app;
+  loopback_options opts;
+  add_options(&app, opts);
+  app.parse("", false);
+  usrp_params params = to_usrp_params(opts);
+  EXPECT_EQ(params.tx_subdev, "A:A");
+  EXPECT_EQ(params.tx_antenna, "TX/RX");
+  EXPECT_EQ(params.rx_subdev, "A:B");
+  EXPECT_EQ(params.rx_antenna, "TX/RX");
+  EXPECT_DOUBLE_EQ(params.tx_gain, 80);
+  EXPECT_DOUBLE_EQ(params.rx_gain, 60);
+  EXPECT_DOUBLE_EQ(params.tx_amp, 0.5);
+}
+
+TEST(LoopbackOptionsTest, SetsBothDirections) {
+  CLI::App app;
+  loopback_options opts;
+  add_options(&app, opts);
+  app.parse(
+      "--tx-gain 70 --rx-gain 40 --tx-amp 0.25 --tx-subdev A:B --rx-subdev A:A "
+      "--tx-antenna TX/RX --rx-antenna RX2 --freq 2.437",
+      false);
+  usrp_params params = to_usrp_params(opts);
+  EXPECT_DOUBLE_EQ(params.tx_gain, 70);
+  EXPECT_DOUBLE_EQ(params.rx_gain, 40);
+  EXPECT_DOUBLE_EQ(params.tx_amp, 0.25);
+  EXPECT_EQ(params.tx_subdev, "A:B");
+  EXPECT_EQ(params.rx_subdev, "A:A");
+  EXPECT_EQ(params.tx_antenna, "TX/RX");
+  EXPECT_EQ(params.rx_antenna, "RX2");
+  EXPECT_DOUBLE_EQ(params.freq, 2.437e9);
+}
+
+TEST(LoopbackOptionsTest, HasAGainForEachDirectionInsteadOfGain) {
+  CLI::App app;
+  loopback_options opts;
+  add_options(&app, opts);
+  EXPECT_THROW(app.parse("--gain 30", false), CLI::ExtrasError);
+}
+
+TEST(LoopbackOptionsTest, RejectsNegativeGains) {
+  for (const std::string& option : {"--tx-gain", "--rx-gain"}) {
+    CLI::App app;
+    loopback_options opts;
+    add_options(&app, opts);
+    EXPECT_THROW(app.parse(option + " -1", false), CLI::ValidationError)
+        << option;
+  }
+}
+
+TEST(LoopbackOptionsTest, SendsData) {
+  CLI::App app;
+  loopback_options opts;
+  add_options(&app, opts);
+  app.parse("--packets 3 --payload-size 100 --phy-rate qpsk-1/2 --seed 9",
+            false);
+  EXPECT_EQ(opts.data.limit(), 3 * (100 - FRAME_HEADER_SIZE));
+  EXPECT_EQ(opts.phy_rate, RATE_1_2_QPSK);
+  EXPECT_EQ(opts.seed, 9);
+}
+
 TEST(DataOptionsTest, HasNoLimitWithoutAnOption) {
   CLI::App app;
   tx_options opts;
@@ -375,6 +437,12 @@ TEST(JsonOptionTest, SetsTheFileInEveryMode) {
   add_options(&sim_app, sim_opts);
   sim_app.parse("--json sim.json", false);
   EXPECT_EQ(sim_opts.json_file, "sim.json");
+
+  CLI::App loopback_app;
+  loopback_options loopback_opts;
+  add_options(&loopback_app, loopback_opts);
+  loopback_app.parse("--json loopback.json", false);
+  EXPECT_EQ(loopback_opts.json_file, "loopback.json");
 }
 
 TEST(TraceOptionsTest, AreOffWithoutTheOptions) {
@@ -399,6 +467,12 @@ TEST(TraceOptionsTest, AreForTheModesThatReceive) {
   add_options(&sim_app, sim_opts);
   sim_app.parse("--trace sim.pftrace", false);
   EXPECT_EQ(sim_opts.trace.file, "sim.pftrace");
+
+  CLI::App loopback_app;
+  loopback_options loopback_opts;
+  add_options(&loopback_app, loopback_opts);
+  loopback_app.parse("--trace loopback.pftrace", false);
+  EXPECT_EQ(loopback_opts.trace.file, "loopback.pftrace");
 
   CLI::App tx_app;
   tx_options tx_opts;

@@ -2,7 +2,8 @@
  *  \brief Entry point for the fun-ofdm binary.
  *
  *  Parses the command line and runs the selected mode: transmitting frames over
- * the air (tx), receiving them (rx), or building frames and running them
+ * the air (tx), receiving them (rx), sending them from one of a USRP's
+ * channels to the other (loopback), or building frames and running them
  * through the receive chain in software (sim).
  */
 
@@ -10,6 +11,8 @@
 #include <signal.h>
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <complex>
 #include <concepts>
 #include <cstddef>
@@ -21,6 +24,7 @@
 #include <iomanip>
 #include <iostream>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <stop_token>
 #include <streambuf>
@@ -195,9 +199,8 @@ static rx_result run_rx(const rx_options& opts, std::stop_token stop) {
  * \return The number of mismatched bytes, counting any difference in length as
  * mismatched.
  */
-static std::uint64_t count_mismatches(
-    const std::vector<std::uint8_t>& sent,
-    const std::vector<std::uint8_t>& received) {
+static std::uint64_t count_mismatches(std::span<const std::uint8_t> sent,
+                                      std::span<const std::uint8_t> received) {
   std::size_t common = std::min(sent.size(), received.size());
   std::uint64_t mismatches = std::max(sent.size(), received.size()) - common;
   for (std::size_t i = 0; i < common; i++) {
@@ -336,6 +339,132 @@ static sim_result run_sim(const sim_options& opts, std::stop_token stop) {
 }
 
 /*!
+ * \brief How long loopback keeps receiving after its last frame, for that
+ * frame to get through the receiver.
+ */
+static const std::chrono::milliseconds LOOPBACK_DRAIN{500};
+
+/*!
+ * \brief Transmits frames on one of a USRP's ports, receives them on
+ * another, and checks every byte received.
+ * \param opts The loopback options
+ * \param stop Stops sending after the current frame
+ * \return What the run did. A stopped run has no check of the data.
+ *
+ * It's sim with a USRP in place of the simulated channel. The main thread
+ * sends, and a second thread receives. Every frame is built before either
+ * starts, so the threads share nothing that changes. The receiver's results
+ * are read after its thread is joined, and an exception there is rethrown
+ * here.
+ *
+ * Like sim, it keeps every frame, so its memory grows with the data sent.
+ */
+static loopback_result run_loopback(const loopback_options& opts,
+                                    std::stop_token stop) {
+  if (!opts.radio.no_realtime) set_realtime_priority();
+
+  loopback_result result;
+  result.seed = opts.seed ? *opts.seed : random_seed();
+  std::optional<std::uint64_t> limit = opts.data.limit();
+  random_source source(limit ? *limit
+                             : LOOPBACK_DEFAULT_PACKETS *
+                                   (opts.data.payload_size - FRAME_HEADER_SIZE),
+                       result.seed);
+  fragmenter fragments(source, opts.data.payload_size);
+  // Each frame's payload, with its header, by sequence number
+  std::vector<std::vector<std::uint8_t>> frames;
+  for (std::vector<std::uint8_t> payload = fragments.next_frame();
+       !payload.empty(); payload = fragments.next_frame())
+    frames.push_back(std::move(payload));
+
+  usrp radio(to_usrp_params(opts));
+  transmitter tx(radio);
+
+  // Only the receiver's thread uses these until it's joined
+  reassembler received;
+  transfer_stats received_stats;
+  std::uint64_t mismatches = 0;
+  receiver rx(radio, [&](std::vector<std::vector<std::uint8_t>> packets) {
+    for (const auto& payload : packets) {
+      std::optional<received_frame> frame = received.add(payload);
+      if (!frame) continue;
+
+      received_stats.add_packet(frame->data.size());
+      if (frame->sequence < frames.size()) {
+        mismatches += count_mismatches(
+            std::span(frames[frame->sequence]).subspan(FRAME_HEADER_SIZE),
+            frame->data);
+      } else {
+        mismatches += frame->data.size();
+      }
+    }
+  });
+  // An exception that leaves a thread ends the process, so the thread keeps
+  // it, and the main thread stops sending and rethrows it after the join
+  std::exception_ptr receive_error;
+  std::atomic<bool> receiving_failed = false;
+  std::jthread receiving([&](std::stop_token token) {
+    try {
+      rx.run(token);
+    } catch (...) {
+      receive_error = std::current_exception();
+      receiving_failed = true;
+    }
+  });
+
+  std::cout << "Looping back at " << RateParams(opts.phy_rate).name
+            << " with seed " << result.seed << ", from " << opts.tx_subdev
+            << " " << opts.tx_antenna << " to " << opts.rx_subdev << " "
+            << opts.rx_antenna << std::endl;
+  transfer_stats sent_stats;
+  for (const std::vector<std::uint8_t>& payload : frames) {
+    if (stop.stop_requested() || receiving_failed) break;
+    tx.send_frame(payload, opts.phy_rate);
+    sent_stats.add_packet(payload.size() - FRAME_HEADER_SIZE);
+  }
+  result.sent = sent_stats.totals();
+
+  auto drained = std::chrono::steady_clock::now() + LOOPBACK_DRAIN;
+  while (!stop.stop_requested() && !receiving_failed &&
+         std::chrono::steady_clock::now() < drained)
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  receiving.request_stop();
+  receiving.join();
+  if (receive_error) std::rethrow_exception(receive_error);
+
+  result.received = received_stats.totals();
+  result.metrics = rx.metrics();
+  result.overflows = rx.overflows();
+  result.recv_delay = rx.recv_delay();
+  result.sent.print("Sent");
+  result.received.print("Received");
+  print_latency(result.metrics.latency);
+  if (result.overflows)
+    std::cout << "The USRP overflowed " << result.overflows << " times"
+              << std::endl;
+
+  if (stop.stop_requested()) {
+    std::cout << "Stopped early, so not checking the received data"
+              << std::endl;
+    return result;
+  }
+
+  std::uint64_t lost = frames.size() - received_stats.packets();
+  print_losses(received_stats.packets(), lost, received.duplicates());
+  result.check = sim_check{.lost = lost,
+                           .duplicates = received.duplicates(),
+                           .mismatched_bytes = mismatches};
+  if (result.check->passed()) {
+    std::cout << "PASS: all " << frames.size() << " packets received intact"
+              << std::endl;
+  } else {
+    std::cout << "FAIL: " << lost << " packets lost, " << mismatches
+              << " bytes mismatched" << std::endl;
+  }
+  return result;
+}
+
+/*!
  * \brief Requests a stop on a stop source when the program receives SIGINT
  * (Ctrl+C) or SIGTERM.
  * \param stop The stop source that the first signal stops
@@ -399,10 +528,13 @@ static int exit_code(const tx_result&) { return 0; }
 static int exit_code(const rx_result&) { return 0; }
 
 /*!
- * \brief The process exit code for a sim run: 0 if all the data was received
- * intact or the run was stopped, otherwise 1.
+ * \brief The process exit code for a sim or loopback run: 0 if all the data
+ * was received intact or the run was stopped, otherwise 1.
  */
-static int exit_code(const sim_result& result) {
+template <typename Result>
+  requires std::same_as<Result, sim_result> ||
+           std::same_as<Result, loopback_result>
+static int exit_code(const Result& result) {
   return !result.check || result.check->passed() ? 0 : 1;
 }
 
@@ -486,6 +618,13 @@ int main(int argc, char* argv[]) {
   CLI::App* rx = app.add_subcommand("rx", "Receive frames");
   add_options(rx, rx_opts);
 
+  loopback_options loopback_opts;
+  CLI::App* loopback = app.add_subcommand(
+      "loopback",
+      "Transmit on one of a USRP's ports and receive on another, and check "
+      "every byte");
+  add_options(loopback, loopback_opts);
+
   sim_options sim_opts;
   CLI::App* sim = app.add_subcommand(
       "sim", "Run frames through the receiver chain in software (no USRP)");
@@ -502,6 +641,8 @@ int main(int argc, char* argv[]) {
   try {
     if (tx->parsed()) return run_mode(run_tx, tx_opts, stop.get_token());
     if (rx->parsed()) return run_mode(run_rx, rx_opts, stop.get_token());
+    if (loopback->parsed())
+      return run_mode(run_loopback, loopback_opts, stop.get_token());
     if (sim->parsed()) return run_mode(run_sim, sim_opts, stop.get_token());
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << std::endl;

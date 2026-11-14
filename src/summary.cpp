@@ -30,17 +30,21 @@ static json::value unless_zero(T value) {
 /*!
  * \brief The options shared by the modes that use a USRP. Only one of freq
  * and channel is set.
+ * \param opts The shared options
+ * \param gains The mode's gain options, which go after the bandwidth
  */
-static json::object radio_json(const radio_options& opts) {
-  return {
+static json::object radio_json(const radio_options& opts,
+                               const json::object& gains) {
+  json::object result = {
       {"freq", opts.channel ? json::value() : json::value(opts.freq_ghz)},
       {"channel", unless_zero(opts.channel)},
       {"bandwidth", opts.bandwidth_mhz},
-      {"gain", opts.gain},
-      {"device",
-       opts.device.empty() ? json::value() : json::value(opts.device)},
-      {"no_realtime", opts.no_realtime},
   };
+  for (const auto& gain : gains) result[gain.key()] = gain.value();
+  result["device"] =
+      opts.device.empty() ? json::value() : json::value(opts.device);
+  result["no_realtime"] = opts.no_realtime;
+  return result;
 }
 
 /*!
@@ -84,12 +88,15 @@ static json::object per_rate_json(
 }
 
 /*!
- * \brief What a receiver chain measured.
- * \param m The chain's metrics
- * \param rx rx's result, for its own metrics, or nullptr for sim
+ * \brief What a receiver chain measured, and the USRP's own metrics if the
+ * mode used one.
+ * \param result The mode's result: its `metrics`, and its `overflows` and
+ * `recv_delay` if it has them
  */
-static json::object metrics_json(const chain_metrics& m,
-                                 const rx_result* rx = nullptr) {
+template <typename Result>
+static json::object metrics_json(const Result& result) {
+  const chain_metrics& m = result.metrics;
+  constexpr bool has_usrp = requires { result.overflows; };
   json::object blocks;
   for (const block_metrics& block : m.blocks) {
     blocks[block.name] = {
@@ -99,7 +106,7 @@ static json::object metrics_json(const chain_metrics& m,
         {"lag", histogram_json(block.lag)},
     };
   }
-  json::object result = {
+  json::object json_result = {
       {"enabled", metrics::ENABLED},
       {"frames",
        {
@@ -110,12 +117,13 @@ static json::object metrics_json(const chain_metrics& m,
            {"crc_failed", per_rate_json(m.crc_failed)},
        }},
   };
-  if (rx) result["overflows"] = rx->overflows;
-  result["arrival_interval"] = histogram_json(m.arrival_interval);
-  if (rx) result["recv_delay"] = histogram_json(rx->recv_delay);
-  result["latency"] = histogram_json(m.latency);
-  result["blocks"] = std::move(blocks);
-  return result;
+  if constexpr (has_usrp) json_result["overflows"] = result.overflows;
+  json_result["arrival_interval"] = histogram_json(m.arrival_interval);
+  if constexpr (has_usrp)
+    json_result["recv_delay"] = histogram_json(result.recv_delay);
+  json_result["latency"] = histogram_json(m.latency);
+  json_result["blocks"] = std::move(blocks);
+  return json_result;
 }
 
 /*!
@@ -196,7 +204,7 @@ static std::string write_pretty(const json::object& summary) {
 
 std::string to_json(const std::string& version, const tx_options& opts,
                     const tx_result& result) {
-  json::object options = radio_json(opts.radio);
+  json::object options = radio_json(opts.radio, {{"gain", opts.gain}});
   options["tx_amp"] = opts.tx_amp;
   options["phy_rate"] = rate_name(opts.phy_rate);
   // Without either, tx sends until it's stopped
@@ -212,11 +220,50 @@ std::string to_json(const std::string& version, const tx_options& opts,
 
 std::string to_json(const std::string& version, const rx_options& opts,
                     const rx_result& result) {
-  json::object summary = start(version, "rx", radio_json(opts.radio));
+  json::object summary =
+      start(version, "rx", radio_json(opts.radio, {{"gain", opts.gain}}));
   summary["received"] = totals_json(result.received);
   summary["lost"] = result.lost;
   summary["duplicates"] = result.duplicates;
-  summary["metrics"] = metrics_json(result.metrics, &result);
+  summary["metrics"] = metrics_json(result);
+  return write_pretty(summary);
+}
+
+/*!
+ * \brief The members for a check of the received data, if there was one.
+ */
+static void add_check(json::object& summary,
+                      const std::optional<sim_check>& check) {
+  if (!check) return;
+  summary["lost"] = check->lost;
+  summary["duplicates"] = check->duplicates;
+  summary["mismatched_bytes"] = check->mismatched_bytes;
+  summary["passed"] = check->passed();
+}
+
+std::string to_json(const std::string& version, const loopback_options& opts,
+                    const loopback_result& result) {
+  // Without either, loopback sends LOOPBACK_DEFAULT_PACKETS packets
+  bool data_given = opts.data.packets || opts.data.bytes;
+  json::object options = radio_json(
+      opts.radio, {{"tx_gain", opts.tx_gain}, {"rx_gain", opts.rx_gain}});
+  options["tx_amp"] = opts.tx_amp;
+  options["tx_subdev"] = opts.tx_subdev;
+  options["rx_subdev"] = opts.rx_subdev;
+  options["tx_antenna"] = opts.tx_antenna;
+  options["rx_antenna"] = opts.rx_antenna;
+  options["phy_rate"] = rate_name(opts.phy_rate);
+  options["packets"] = data_given ? unless_zero(opts.data.packets)
+                                  : json::value(LOOPBACK_DEFAULT_PACKETS);
+  options["bytes"] = unless_zero(opts.data.bytes);
+  options["payload_size"] = opts.data.payload_size;
+
+  json::object summary = start(version, "loopback", std::move(options));
+  summary["seed"] = result.seed;
+  summary["sent"] = totals_json(result.sent);
+  summary["received"] = totals_json(result.received);
+  add_check(summary, result.check);
+  summary["metrics"] = metrics_json(result);
   return write_pretty(summary);
 }
 
@@ -241,13 +288,8 @@ std::string to_json(const std::string& version, const sim_options& opts,
   json::object summary = start(version, "sim", std::move(options));
   summary["seed"] = result.seed;
   summary["received"] = totals_json(result.received);
-  if (result.check) {
-    summary["lost"] = result.check->lost;
-    summary["duplicates"] = result.check->duplicates;
-    summary["mismatched_bytes"] = result.check->mismatched_bytes;
-    summary["passed"] = result.check->passed();
-  }
-  summary["metrics"] = metrics_json(result.metrics);
+  add_check(summary, result.check);
+  summary["metrics"] = metrics_json(result);
   return write_pretty(summary);
 }
 }  // namespace fun

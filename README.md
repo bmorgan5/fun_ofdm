@@ -75,16 +75,26 @@ bandwidth, gain, PHY rate and how much data to send. For example:
 sudo fun-ofdm tx --channel 36 --bandwidth 20 --gain 25 --phy-rate qam16-1/2
 ```
 
+With a two-channel USRP like the B210, `loopback` transmits on one port and
+receives on another port of the same device, and checks every byte, like
+`sim`. By default it transmits on channel A's TX/RX port and receives
+on channel B's (`fun-ofdm loopback --help`). It is recommended to connect the
+two ports with a cable and **at least 30 dB of attenuation**.
+
+```bash
+sudo fun-ofdm loopback --packets 1000
+```
+
 `--no-realtime` runs without real time priority, and so without root.
 
-`rx` and `sim` also measure the receiver: latency, jitter and frame outcomes,
-in the `--json` summary, and a trace with `--trace FILE`
+`rx`, `loopback` and `sim` also measure the receiver: latency, jitter and
+frame outcomes, in the `--json` summary, and a trace with `--trace FILE`
 ([src/metrics](src/metrics/README.md)).
 
-`tx` and `sim` print the seed of their random data: `--seed` repeats a run.
-`--json FILE` also writes the run summary to `FILE` as JSON, for scripts.
-Without `FILE` it goes to stdout, and the rest of the output to stderr:
-`fun-ofdm sim --json | jq .passed`.
+`tx`, `loopback` and `sim` print the seed of their random data: `--seed`
+repeats a run. `--json FILE` also writes the run summary to `FILE` as JSON,
+for scripts. Without `FILE` it goes to stdout, and the rest of the output to
+stderr: `fun-ofdm sim --json | jq .passed`.
 
 ## Development
 
