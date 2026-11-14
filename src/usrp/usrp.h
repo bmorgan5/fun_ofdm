@@ -14,10 +14,11 @@
  *
  *  The constructor opens the device and sets up both directions from one
  *  usrp_params: the same center frequency and sample rate, and each
- *  direction's gain. It then starts the RX stream, which runs until the object
- *  is destroyed. From then on the caller has to call get_samples() often
- *  enough to keep up with the sample rate, or the device overflows and drops
- *  samples.
+ *  direction's gain, frontend and antenna, so one B210 can transmit on one
+ *  channel and receive on the other. It then starts the RX stream, which
+ *  runs until the object is destroyed. From then on the caller has to call
+ *  get_samples() often enough to keep up with the sample rate, or the device
+ *  overflows and drops samples.
  *
  *  Each transmit call sends one burst, marked as both the start and the end
  *  of a burst, so the transmitter is only on while it sends a frame.
