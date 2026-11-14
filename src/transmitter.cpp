@@ -12,8 +12,7 @@
 
 namespace fun {
 
-transmitter::transmitter(usrp_params params)
-    : m_usrp(params), m_frame_builder() {}
+transmitter::transmitter(usrp& radio) : m_usrp(radio), m_frame_builder() {}
 
 /*!
  *  Transmits a single frame, blocking until the frame is sent.

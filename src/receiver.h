@@ -14,6 +14,7 @@
 #define RECEIVER_H
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <stop_token>
 #include <vector>
@@ -46,21 +47,19 @@ namespace fun {
 class receiver {
  public:
   /*!
-   * \brief Opens the USRP, which starts its RX stream, and starts the receiver
-   * chain's threads.
-   * \param callback Called with the payloads decoded from each batch of
-   * samples, which passed their CRC-32. It's called after every batch, with an
-   * empty vector if none were decoded.
-   * \param params The USRP's parameters. Defaults to the defaults in
-   * #usrp_params. The transmit gain and amplitude aren't used.
-   * \throws Whatever usrp::usrp() throws, if the device can't be opened or a
-   * gain is out of range.
-   *
-   * Call run() soon after: the RX stream is already running, and the USRP
-   * overflows if its samples aren't read.
+   * \brief Called after each batch of samples, with the payloads that passed
+   * their CRC-32 (none, often), on the thread that calls run().
    */
-  receiver(void (*callback)(std::vector<std::vector<std::uint8_t>> packets),
-           usrp_params params = usrp_params());
+  using callback =
+      std::function<void(std::vector<std::vector<std::uint8_t>> packets)>;
+
+  /*!
+   * \brief Starts the receiver chain's threads.
+   * \param radio The USRP to read from, which must outlive the receiver. Its
+   * RX stream is already running, so call run() soon after, or it overflows.
+   * \param on_packets Called with each batch's payloads
+   */
+  receiver(usrp& radio, callback on_packets);
 
   /*!
    * \brief Receives frames until a stop is requested.
@@ -90,10 +89,9 @@ class receiver {
   const metrics::histogram& recv_delay() const { return m_recv_delay; }
 
  private:
-  //! Called with the payloads decoded from each batch of samples
-  void (*m_callback)(std::vector<std::vector<std::uint8_t>> packets);
+  usrp& m_usrp;  //!< Reads the samples from the air
 
-  usrp m_usrp;  //!< Reads the samples from the air
+  callback m_callback;  //!< Called with the payloads from each batch
 
   receiver_chain m_rec_chain;  //!< Detects and decodes frames in the samples
 
