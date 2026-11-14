@@ -288,24 +288,39 @@ std::optional<std::uint64_t> data_options::limit() const {
   return std::nullopt;
 }
 
+/*!
+ * \brief Puts the options added next under a heading in --help.
+ * \param app The subcommand
+ * \param heading The heading, e.g. "Radio"
+ */
+static void heading(CLI::App* app, const std::string& heading) {
+  app->option_defaults()->group(heading);
+}
+
 void add_options(CLI::App* app, tx_options& opts) {
+  heading(app, "Radio");
   add_radio_options(app, opts.radio);
   add_gain_option(app, "--gain", opts.gain, "Transmit");
   add_tx_amp_option(app, opts.tx_amp);
+  heading(app, "Data");
   add_phy_rate_option(app, opts.phy_rate);
   add_data_options(app, opts.data, "send until Ctrl+C");
   add_seed_option(app, opts.seed, "the random data");
+  heading(app, "Output");
   add_json_option(app, opts.json_file);
 }
 
 void add_options(CLI::App* app, rx_options& opts) {
+  heading(app, "Radio");
   add_radio_options(app, opts.radio);
   add_gain_option(app, "--gain", opts.gain, "Receive");
+  heading(app, "Output");
   add_json_option(app, opts.json_file);
   add_trace_options(app, opts.trace);
 }
 
 void add_options(CLI::App* app, loopback_options& opts) {
+  heading(app, "Radio");
   add_radio_options(app, opts.radio);
   add_gain_option(app, "--tx-gain", opts.tx_gain, "Transmit");
   add_gain_option(app, "--rx-gain", opts.rx_gain, "Receive");
@@ -323,9 +338,11 @@ void add_options(CLI::App* app, loopback_options& opts) {
   app->add_option("--rx-antenna", opts.rx_antenna,
                   "Receive antenna port, e.g. TX/RX or RX2")
       ->capture_default_str();
+  heading(app, "Data");
   add_phy_rate_option(app, opts.phy_rate);
   add_data_options(app, opts.data, std::to_string(LOOPBACK_DEFAULT_PACKETS));
   add_seed_option(app, opts.seed, "the random data");
+  heading(app, "Output");
   add_json_option(app, opts.json_file);
   add_trace_options(app, opts.trace);
 }
@@ -361,10 +378,13 @@ static void add_channel_options(CLI::App* app, double& bandwidth_mhz,
 }
 
 void add_options(CLI::App* app, sim_options& opts) {
+  heading(app, "Data");
   add_phy_rate_option(app, opts.phy_rate);
   add_data_options(app, opts.data, std::to_string(SIM_DEFAULT_PACKETS));
-  add_channel_options(app, opts.bandwidth_mhz, opts.channel);
   add_seed_option(app, opts.seed, "everything random in the simulation");
+  heading(app, "Channel");
+  add_channel_options(app, opts.bandwidth_mhz, opts.channel);
+  heading(app, "Output");
   add_json_option(app, opts.json_file);
   add_trace_options(app, opts.trace);
 }
