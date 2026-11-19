@@ -39,17 +39,20 @@ convention = "google"
 "**/test_*.py" = ["D"]
 
 [tool.ty.environment]
-# As pytest's pythonpath, below: tests/ imports the tools it uses.
-extra-paths = ["tools/per"]
+# As pytest's pythonpath, below: tests/ and hil/ import the tools they use.
+extra-paths = ["tools/hil", "tools/per", "tools/scorecard"]
 
 [tool.ty.terminal]
 # Warnings fail the check too, so CI catches them.
 error-on-warning = true
 
 [tool.pytest.ini_options]
-# By default, the tools' own tests, beside their code in tools/. The tests of
-# fun-ofdm itself, in tests/, run the binary and take minutes, so they only
-# run when named: `pytest tests`, as CI does in its own job.
+# `pytest` runs only the tools' own tests, beside their code in tools/. The
+# others are slow or need hardware, so they only run when named:
+#   * `pytest tests`: fun-ofdm's own tests, which run the binary and take
+#     minutes. CI runs them in a job of their own.
+#   * `pytest hil`: the hardware tests, which need a USRP.
 testpaths = ["tools"]
-# So tests/ can import the tools it uses.
-pythonpath = ["tools/per"]
+# So tests/ and hil/ can import the tools they use, and tools/hil can import
+# hostcheck, from tools/scorecard.
+pythonpath = ["tools/hil", "tools/per", "tools/scorecard"]
