@@ -1,42 +1,57 @@
 # Scorecard
 
-The same measurements of the receiver every time, so a release's numbers
-compare directly with the last one's. [scorecard.py](scorecard.py) runs them,
-and [hostcheck.py](hostcheck.py) records the machine they ran on.
+The same measurements every time, so a release's numbers compare directly with
+the last one's. Each measurement tool writes a directory of results
+([the result contract](../results/result.py)), and
+[scorecard.py](scorecard.py) reads a directory of them and writes the
+scorecard: each tool's headline numbers, with medians and interquartile
+ranges. It runs nothing itself. [hostcheck.py](hostcheck.py) records the
+machine, in every result.
 
-| Row          | What                                                  | From                                       | Runs |
-|--------------|-------------------------------------------------------|--------------------------------------------|------|
-| `tests`      | Unit tests, and line coverage of `src/`               | `bazel run coverage`                       | 1    |
-| `throughput` | The receiver's MS/s on W-idle, W-6 and W-54           | `fun-ofdm-bench`: `receiver_chain`         | 20   |
-| `block-cost` | Each block's ns per sample on its own, per workload   | `fun-ofdm-bench`: each block               | 20   |
-| `latency`    | p50, p99, p99.9 and max, in µs                        | `fun-ofdm sim`, at W-6's and W-54's rates  | 20   |
-| `jitter`     | Each block's processing time, jitter and backlog, µs  | `fun-ofdm sim`, as `latency`               | 20   |
-| `per`        | Each rate's SNR at 10% PER                            | The [PER](../per/README.md) guardrail's sweep | 1 |
+| Row            | What                                                 | From                                           | Runs |
+|----------------|------------------------------------------------------|------------------------------------------------|------|
+| `tests`        | Unit tests, and line coverage of `src/`              | `measure.py tests`: `bazel run coverage`        | 1    |
+| `throughput`   | The receiver's MS/s on W-idle, W-6 and W-54          | `measure.py bench`: `fun-ofdm-bench`            | 20   |
+| `block-cost`   | Each block's ns per sample on its own, per workload  | `measure.py bench`: `fun-ofdm-bench`            | 20   |
+| `latency`      | p50, p99, p99.9 and max, in µs                       | `measure.py latency`: `fun-ofdm sim`            | 20   |
+| `jitter`       | Each block's processing time, jitter and backlog, µs | `measure.py latency`: `fun-ofdm sim`            | 20   |
+| `per`          | Each rate's SNR at 10% PER, in simulation            | [`tools/per/sweep.py`](../per/README.md)        | 1    |
+| `realtime`     | The highest bandwidth kept up with, on a B210        | [`hardware_sweep.py realtime`](../hardware/README.md) | 3 |
+| `per-hardware` | Each rate's SNR at 10% PER on a B210, and its loss   | [`hardware_sweep.py per`](../hardware/README.md) | 1    |
+| `link`         | Frames received intact in the link smoke test        | [`uv run pytest hil`](../../hil/README.md)      | 1    |
 
 The tests are exact, and the PER sweep uses fixed seeds, so those run once.
-The rest are times, so each is the median of 20 runs, with the interquartile
-range.
+The benchmarks and latency are times, so each is the median of 20 runs, with
+the interquartile range.
 
-## Running it
+## Measuring
 
 ```bash
 bazel run install
 uv run tools/scorecard/hostcheck.py        # The machine, and what to fix first
-uv run tools/scorecard/scorecard.py --milestone milestone2 -i
+uv run tools/scorecard/measure.py tests --out results/tests
+uv run tools/scorecard/measure.py bench --out results/bench -i      # About 50 minutes on a Pi 5
+uv run tools/scorecard/measure.py latency --out results/latency -i
+uv run tools/per/sweep.py --snr-min 14 --snr-max 24 --snr-step 0.5 --frames 1000 --out results/per
+uv run tools/scorecard/scorecard.py results
 ```
 
-It takes about 40 minutes, most of it the benchmarks. `--rows` runs only some
-rows, and `--repetitions` and `--workload-seconds` make a quick try, which
-isn't a scorecard. `--help` lists the rest.
+`-i` walks through preparing the machine, then asks which CPUs to pin to;
+`--cpus` pins without asking. `--repetitions` and `--workload-seconds` make a
+quick try, which isn't a result to keep. `--help` lists the rest.
 
-It writes `docs/perf/<milestone>/<host>/<configuration>.json`, with every
-run's number, and a `.md` with the tables. The host is the board or CPU, like
-`intel-core-i7-10700k`, unless `--host` names it.
+`scorecard.py DIR` reads `DIR/*/result.json`, each row from one result, and
+writes `DIR/scorecard.md` and `DIR/scorecard.json`. Only `DIR`'s own
+subdirectories are read, so a second set of results inside it, like a repeat,
+stays apart. It refuses a sweep that was interrupted, and notes results from
+different binaries or commits.
 
-**Comparing:** `--compare <old.json>` adds each metric's change to the table.
-A repeated metric changed only if Mann-Whitney U's p is below 0.05: the runs
-are too noisy to trust a difference in medians alone. The tests and coverage
-may never drop, and an SNR may get up to 0.25 dB worse, the guardrail's limit.
+**Comparing:** `--compare OLD` adds each metric's change since an earlier
+directory to the tables. A repeated metric changed only if Mann-Whitney U's p
+is below 0.05: the runs are too noisy to trust a difference in medians alone.
+One measured once changed if it moved more than its row allows: nothing for
+the tests and coverage, 0.25 dB for an SNR in simulation (the guardrail's
+limit), 1 dB on hardware, and 1 point for the link test.
 
 ## Preparing the machine
 
@@ -83,9 +98,9 @@ echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governo
 isolcpus=1-3 nohz_full=1-3 irqaffinity=0
 ```
 
-The throughput and block-cost rows are measured on Pinned or later. Latency
-and jitter are measured on each configuration, since tuning mostly changes
-the tail, not the typical value.
+Measure throughput and block cost on Pinned or later. Tuning mostly changes
+latency's tail, not its typical value, so it's worth measuring on each
+configuration, each in a directory of its own.
 
 In a VM or WSL, the hypervisor owns the clocks and shares the CPUs, so the
 numbers only compare with others from the same machine.
@@ -101,8 +116,9 @@ numbers only compare with others from the same machine.
   the latency is a busy receiver's. A block's jitter is its p99.9 minus its
   p50, and its backlog is the most it fell behind (`lag`'s max). The interval
   between a block's starts includes the time sim takes to make each batch.
-- **The SNR at 10% PER** is from the sweep `tests/test_per.py` checks, so the
-  two agree.
+- **The SNR at 10% PER** in simulation is from tools/per/sweep.py. With the
+  guardrail's settings, it's the sweep `tests/test_per.py` checks, so the two
+  agree.
 
 ## TODO
 

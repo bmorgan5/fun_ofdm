@@ -285,3 +285,19 @@ def test_main_says_to_measure_a_directory_without_provenance_again(
     out = capsys.readouterr().out
     assert f"{tmp_path / 'old'}: measure again: it has no result.json" in out
     assert f"{tmp_path / 'none'}: measure again: it has no result.json" in out
+
+
+def test_writes_arrays_of_numbers_on_one_line() -> None:
+    text = result.to_json_text({"buckets": [[100, 2], [110, 3]], "s": ["a"]})
+    assert text == (
+        '{\n  "buckets": [\n    [100, 2],\n    [110, 3]\n  ],\n'
+        '  "s": [\n    "a"\n  ]\n}\n'
+    )
+
+
+def test_leaves_strings_and_mixed_arrays_alone() -> None:
+    data = {"s": "x [1,   2] y", "m": [1, "a"], "e": [], "b": [True, 1]}
+    text = result.to_json_text(data)
+    assert json.loads(text) == data
+    assert '"x [1,   2] y"' in text
+    assert '"m": [\n    1,\n    "a"\n  ]' in text

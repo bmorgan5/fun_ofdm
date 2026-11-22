@@ -127,7 +127,7 @@ uv run pytest              # The Python tools' tests
 uv run pytest tests        # Tests fun-ofdm from Python, like PER (after bazel run install)
 uv run pytest hil  # The hardware tests, with a USRP (see hil/README.md)
 uv run tools/per/sweep.py  # PER vs SNR at every rate (see tools/per/README.md)
-uv run tools/scorecard/scorecard.py --milestone <name> -i  # The scorecard (see tools/scorecard/README.md)
+uv run tools/scorecard/scorecard.py <dir>  # The scorecard of a directory of results (see tools/scorecard/README.md)
 ```
 
 Every build is a cross compile against an Ubuntu 26.04 sysroot, built from a

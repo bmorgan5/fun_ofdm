@@ -176,9 +176,38 @@ def write(
     """
     out.mkdir(parents=True, exist_ok=True)
     (out / "result.json").write_text(
-        json.dumps({"provenance": prov, **results}, indent=2) + "\n"
+        to_json_text({"provenance": prov, **results})
     )
     (out / "result.md").write_text(markdown(prov, title, body))
+
+
+def to_json_text(data: Any) -> str:
+    """JSON with an indent of 2, but each array of numbers on one line.
+
+    Histograms' [value, count] pairs and repetitions' samples would take a
+    line per number otherwise.
+    """
+    return _json_text(data, 0) + "\n"
+
+
+def _json_text(value: Any, depth: int) -> str:
+    """to_json_text()'s JSON for a value nested depth deep."""
+    indent = "  " * (depth + 1)
+    if isinstance(value, dict) and value:
+        members = [
+            f"{indent}{json.dumps(str(k))}: {_json_text(v, depth + 1)}"
+            for k, v in value.items()
+        ]
+        return "{\n" + ",\n".join(members) + "\n" + "  " * depth + "}"
+    if isinstance(value, list | tuple) and value:
+        if all(
+            isinstance(v, int | float) and not isinstance(v, bool)
+            for v in value
+        ):
+            return json.dumps(list(value))
+        items = [f"{indent}{_json_text(v, depth + 1)}" for v in value]
+        return "[\n" + ",\n".join(items) + "\n" + "  " * depth + "]"
+    return json.dumps(value)
 
 
 def markdown(prov: Mapping[str, Any], title: str, body: str) -> str:

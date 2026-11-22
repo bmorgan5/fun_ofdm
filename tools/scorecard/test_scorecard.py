@@ -1,12 +1,10 @@
 import json
 import pathlib
-import sys
 from typing import Any
 
-import hostcheck
 import pytest
+import result
 import scorecard
-import sweep
 
 
 def metric(*samples: float, unit: str = "µs") -> scorecard.Metric:
@@ -94,7 +92,7 @@ def test_a_change_within_chance_is_the_same() -> None:
     ("before", "after", "verdict"),
     [(18.0, 18.3, "worse"), (18.0, 18.2, "same"), (18.0, 17.5, "better")],
 )
-def test_s6_is_worse_only_beyond_the_guardrail(
+def test_an_snr_in_simulation_changes_only_beyond_the_guardrail(
     before: float, after: float, verdict: str
 ) -> None:
     change = scorecard.compare_metric(
@@ -104,7 +102,7 @@ def test_s6_is_worse_only_beyond_the_guardrail(
     assert change.difference == pytest.approx(after - before)
 
 
-def test_s1_is_worse_if_the_tests_or_coverage_drop() -> None:
+def test_the_tests_or_coverage_are_worse_if_they_drop() -> None:
     before = scorecard.Metric("%", False, [96.8])
     after = scorecard.Metric("%", False, [96.5])
     assert scorecard.compare_metric("tests", before, after).verdict == "worse"
@@ -117,204 +115,7 @@ def test_compare_skips_metrics_the_earlier_run_didnt_measure() -> None:
     assert list(scorecard.compare(before, after)["throughput"]) == ["W-6"]
 
 
-LCOV = """\
-SF:src/a.cpp
-LF:10
-LH:8
-end_of_record
-SF:src/phy/test_util.h
-LF:5
-LH:0
-end_of_record
-SF:external/x.cpp
-LF:100
-LH:0
-end_of_record
-SF:src/b.h
-LF:6
-LH:6
-end_of_record
-"""
-
-
-def test_line_coverage_counts_src_without_the_test_helpers() -> None:
-    assert scorecard.line_coverage(LCOV) == (14, 16)
-
-
-def test_count_tests_leaves_out_disabled_tests() -> None:
-    reports = [
-        '<testsuites tests="18" failures="0" disabled="1"></testsuites>',
-        '<testsuites tests="5" failures="0" disabled="0"></testsuites>',
-    ]
-    assert scorecard.count_tests(reports) == 22
-
-
-def bench_result(name: str, rep: int, rate: float) -> dict[str, Any]:
-    return {
-        "name": f"{name}/real_time",
-        "run_name": f"{name}/real_time",
-        "run_type": "iteration",
-        "repetition_index": rep,
-        "samples_per_second": rate,
-        "time_per_sample": 1 / rate,
-    }
-
-
-def test_bench_rows_has_s2_and_s3_in_order_from_each_repetition() -> None:
-    results = {
-        "benchmarks": [
-            bench_result("timing_sync/W-54", 0, 50e6),
-            bench_result("receiver_chain/W-54", 0, 20e6),
-            bench_result("receiver_chain/W-idle", 0, 32e6),
-            bench_result("frame_detector/W-54", 0, 62.5e6),
-            bench_result("receiver_chain/W-54", 1, 21e6),
-            {
-                "name": "receiver_chain/W-54/real_time_median",
-                "run_name": "receiver_chain/W-54/real_time",
-                "run_type": "aggregate",
-                "samples_per_second": 20.5e6,
-            },
-        ]
-    }
-    rows = scorecard.bench_rows(results)
-    assert list(rows["throughput"]) == ["W-idle", "W-54"]
-    assert rows["throughput"]["W-54"].samples == pytest.approx([20, 21])
-    assert list(rows["block-cost"]) == [
-        "frame_detector W-54",
-        "timing_sync W-54",
-    ]
-    assert rows["block-cost"]["timing_sync W-54"].samples == pytest.approx([20])
-    assert rows["block-cost"]["timing_sync W-54"].lower_is_better
-
-
-@pytest.mark.parametrize(
-    ("rows", "pattern"),
-    [
-        (["throughput", "block-cost"], "."),
-        (["throughput"], "^receiver_chain/"),
-        (["block-cost"], "-^receiver_chain/"),
-    ],
-)
-def test_bench_filter_picks_the_rows_benchmarks(
-    rows: list[str], pattern: str
-) -> None:
-    assert scorecard.bench_filter(rows) == pattern
-
-
-def histogram(p50: float, p99_9: float, top: float) -> dict[str, float]:
-    return {"p50": p50, "p99": p99_9, "p99_9": p99_9, "max": top}
-
-
-def sim_summary(scale: float) -> dict[str, Any]:
-    block = {
-        "processing": histogram(1000 * scale, 3000 * scale, 4000),
-        "start_interval": histogram(200_000, 250_000, 300_000),
-        "wait": histogram(500, 1500, 2000),
-        "lag": histogram(10_000, 20_000, 30_000),
-    }
-    return {
-        "metrics": {
-            "latency": {
-                "p50": 2_000_000,
-                "p99": 2_500_000,
-                "p99_9": 3_000_000,
-                "max": 3_100_000 * scale,
-            },
-            "blocks": {name: block for name in scorecard.BLOCKS},
-        }
-    }
-
-
-def test_sim_rows_has_latency_and_each_blocks_jitter_in_us() -> None:
-    rows = scorecard.sim_rows({"W-54": [sim_summary(1), sim_summary(2)]})
-    assert rows["latency"]["W-54 p50"].samples == [2000, 2000]
-    assert rows["latency"]["W-54 max"].samples == [3100, 6200]
-    s5 = rows["jitter"]
-    assert s5["W-54 timing_sync processing p50"].samples == [1, 2]
-    assert s5["W-54 timing_sync processing jitter"].samples == [2, 4]
-    assert s5["W-54 timing_sync start_interval jitter"].samples == [50, 50]
-    assert s5["W-54 timing_sync wait jitter"].samples == [1, 1]
-    assert s5["W-54 timing_sync backlog"].samples == [30, 30]
-    assert len(s5) == 5 * len(scorecard.BLOCKS)
-
-
-def point(snr: float, lost: int) -> sweep.Point:
-    return sweep.Point(snr, 100, lost, 100, lost, 0, 0)
-
-
-def test_per_rows_has_each_rates_snr_and_none_if_never_reached() -> None:
-    rows = scorecard.per_rows(
-        {
-            "bpsk-1/2": [point(10, 100), point(12, 10)],
-            "qam64-3/4": [point(10, 100), point(12, 100)],
-        }
-    )
-    assert rows["bpsk-1/2"].samples == [12]
-    assert rows["qam64-3/4"].samples == []
-
-
-@pytest.mark.parametrize(
-    ("cpu", "board", "name"),
-    [
-        (
-            "Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz",
-            "",
-            "intel-core-i7-10700k",
-        ),
-        (
-            "ARM Cortex-A76",
-            "Raspberry Pi 5 Model B Rev 1.0",
-            "raspberry-pi-5-model-b",
-        ),
-        (
-            "AMD Ryzen 9 7950X 16-Core Processor",
-            "",
-            "amd-ryzen-9-7950x-16-core-processor",
-        ),
-    ],
-)
-def test_host_name_is_a_directory_name_for_the_machine(
-    cpu: str, board: str, name: str
-) -> None:
-    host = make_host(cpu_model=cpu, board=board)
-    assert scorecard.host_name(host) == name
-
-
-def make_host(**changes: Any) -> hostcheck.Host:
-    fields: dict[str, Any] = {
-        "cpu_model": "Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz",
-        "board": "",
-        "arch": "x86_64",
-        "kernel": "6.8.0",
-        "kernel_build": "#1 SMP",
-        "preempt_rt": False,
-        "virtualization": "none",
-        "container": "none",
-        "cpus_online": 16,
-        "cpus_usable": list(range(16)),
-        "cpu_quota": None,
-        "governors": {"performance": 16},
-        "turbo": False,
-        "isolated": "",
-        "nohz_full": "",
-        "load_average": 0.1,
-        "throttled": None,
-        "on_battery": False,
-        "compiler": "clang version 23.1.4",
-        "fun_ofdm_version": "2.0.0",
-        "commit": "b6254847da79",
-        "dirty": False,
-    }
-    fields.update(changes)
-    return hostcheck.Host(**fields)
-
-
-def test_suggested_cpus_are_the_isolated_ones_or_all_but_cpu_0() -> None:
-    assert scorecard.suggested_cpus(make_host()) == "1-15"
-    assert scorecard.suggested_cpus(make_host(isolated="4-7")) == "4-7"
-
-
-def test_grid_puts_s3s_blocks_on_lines_and_workloads_in_columns() -> None:
+def test_grid_puts_blocks_on_lines_and_workloads_in_columns() -> None:
     rows = {
         "frame_detector W-6": metric(16.0),
         "frame_detector W-54": metric(16.1),
@@ -329,176 +130,278 @@ def test_grid_puts_s3s_blocks_on_lines_and_workloads_in_columns() -> None:
     ]
 
 
-META = {
-    "milestone": "milestone2",
-    "host": "intel-core-i7-10700k",
-    "configuration": "Pinned",
-    "date": "2026-11-11T00:00:00+00:00",
-    "repetitions": 3,
-    "workload_seconds": None,
-    "cpus": "1-15",
-    "compared_with": "old.json",
+def prov(tool: str) -> dict[str, Any]:
+    # Enough provenance for the scorecard: the tool, and what describe()
+    # reads.
+    return {
+        "tool": tool,
+        "options": {},
+        "date": "2026-11-22T00:00:00+00:00",
+        "binaries": {},
+        "sources": {},
+        "host": {"cpu_model": "ARM Cortex-A76", "configuration": "Pinned"},
+        "hardware": None,
+    }
+
+
+def write(directory: pathlib.Path, tool: str, data: dict[str, Any]) -> None:
+    directory.mkdir(parents=True)
+    (directory / "result.json").write_text(
+        json.dumps({"provenance": prov(tool), **data})
+    )
+
+
+THROUGHPUT = {
+    "rows": {
+        "throughput": {
+            "W-54": scorecard.Metric(
+                "MS/s", False, [19.9, 20.0, 20.1]
+            ).to_json()
+        }
+    }
+}
+
+PER = {
+    "rates": {
+        "bpsk-1/2": {"snr_at_target_per": 18.1},
+        "qam64-3/4": {"snr_at_target_per": None},
+    }
+}
+
+REALTIME = {"highest_kept_up_mhz": {"bpsk-1/2": 7.0, "idle": None}}
+
+PER_HARDWARE = {
+    "rates": {
+        "bpsk-1/2": {
+            "snr_at_target_per": 17.5,
+            "implementation_loss_db": -0.6,
+        }
+    }
+}
+
+LINK = {
+    "runs": {
+        "bpsk-1/2": {
+            "summary": {"sent": {"packets": 1000}, "received": {"packets": 999}}
+        },
+        "qam64-3/4": {"summary": None},
+    }
 }
 
 
-def test_markdown_has_the_machine_and_a_table_per_row() -> None:
-    rows = {
-        "throughput": {
-            "W-54": scorecard.Metric("MS/s", False, [19.9, 20.0, 20.1])
-        },
-        "per": {"qam64-3/4": scorecard.Metric("dB", True, [])},
-    }
-    text = scorecard.markdown(META, make_host(), rows, None)
-    assert "# Scorecard: intel-core-i7-10700k, Stock" in text
-    assert "the median of 3 runs" in text
+@pytest.fixture
+def results(tmp_path: pathlib.Path) -> pathlib.Path:
+    directory = tmp_path / "milestone2"
+    write(directory / "bench", "tools/scorecard/measure.py bench", THROUGHPUT)
+    write(directory / "per", "tools/per/sweep.py", PER)
+    write(
+        directory / "realtime",
+        "tools/hardware/hardware_sweep.py realtime",
+        REALTIME,
+    )
+    write(
+        directory / "per-hardware",
+        "tools/hardware/hardware_sweep.py per",
+        PER_HARDWARE,
+    )
+    write(directory / "link_smoke", "hil/test_link_smoke.py", LINK)
+    # Another set of results inside it, which isn't read
+    write(directory / "repeat" / "bench", "tools/scorecard/measure.py x", {})
+    return directory
+
+
+def test_reads_every_tools_results_into_rows(results: pathlib.Path) -> None:
+    rows, sources = scorecard.read_results(results)
+    assert list(rows) == [
+        "throughput",
+        "per",
+        "realtime",
+        "per-hardware",
+        "link",
+    ]
+    assert rows["throughput"]["W-54"].samples == [19.9, 20.0, 20.1]
+    assert rows["per"]["bpsk-1/2"].samples == [18.1]
+    assert rows["per"]["qam64-3/4"].samples == []
+    assert rows["realtime"]["bpsk-1/2"].samples == [7.0]
+    assert rows["realtime"]["idle"].samples == []
+    assert rows["per-hardware"]["bpsk-1/2 SNR"].samples == [17.5]
+    assert rows["per-hardware"]["bpsk-1/2 loss"].samples == [-0.6]
+    assert rows["link"]["bpsk-1/2"].samples == [99.9]
+    assert rows["link"]["qam64-3/4"].samples == []
+    assert [s.path for s in sources] == [
+        "bench",
+        "link_smoke",
+        "per",
+        "per-hardware",
+        "realtime",
+    ]
+
+
+def test_refuses_two_results_with_the_same_row(results: pathlib.Path) -> None:
+    write(results / "per-again", "tools/per/sweep.py", PER)
+    with pytest.raises(ValueError, match="another result has per"):
+        scorecard.read_results(results)
+
+
+def test_refuses_a_tool_it_doesnt_read(results: pathlib.Path) -> None:
+    write(results / "other", "tools/other.py", {})
+    with pytest.raises(ValueError, match=r"doesn't read tools/other\.py"):
+        scorecard.read_results(results)
+
+
+@pytest.mark.parametrize(
+    ("row", "before", "after", "verdict"),
+    [
+        ("per-hardware", 18.0, 18.9, "same"),
+        ("per-hardware", 18.0, 19.1, "worse"),
+        ("link", 99.9, 99.0, "same"),
+        ("link", 99.9, 98.0, "worse"),
+        ("realtime", 7.0, 8.0, "better"),
+    ],
+)
+def test_a_metric_measured_once_changes_beyond_its_rows_tolerance(
+    row: str, before: float, after: float, verdict: str
+) -> None:
+    lower = row == "per-hardware"
+    change = scorecard.compare_metric(
+        row,
+        scorecard.Metric("dB", lower, [before]),
+        scorecard.Metric("dB", lower, [after]),
+    )
+    assert change.verdict == verdict
+
+
+META = {
+    "name": "milestone2",
+    "date": "2026-11-22T00:00:00+00:00",
+    "compared_with": "milestone1",
+}
+
+
+def test_markdown_has_its_sources_and_a_table_per_row(
+    results: pathlib.Path,
+) -> None:
+    rows, sources = scorecard.read_results(results)
+    text = scorecard.markdown(META, sources, rows, None)
+    assert "# Scorecard: milestone2" in text
+    assert f"- `per/`: {result.describe(prov('tools/per/sweep.py'))}" in text
     assert "## Receiver throughput (MS/s)" in text
     assert "| W-54 | 20.0 (19.9 to 20.1) |" in text
     assert "| qam64-3/4 | not reached |" in text
+    assert "| | SNR | loss |" in text
+    assert "| bpsk-1/2 | 17.5 | -0.60 |" in text
 
 
 def test_markdown_compared_has_the_change_and_its_verdict() -> None:
     before = {"latency": {"W-54 p50": metric(*FAST)}}
     after = {"latency": {"W-54 p50": metric(*SLOW)}}
     changes = scorecard.compare(before, after)
-    text = scorecard.markdown(META, make_host(), after, changes)
-    assert "Compared with old.json" in text
+    text = scorecard.markdown(META, [], after, changes)
+    assert "Compared with milestone1" in text
     line = next(line for line in text.splitlines() if "W-54 p50" in line)
     assert line.startswith("| W-54 p50 | 9.25 | 10.2 (10.1 to 10.4) | +10.8% |")
     assert line.endswith("| worse |")
 
 
-def test_scorecard_json_round_trips_its_rows() -> None:
-    rows = {
-        "throughput": {"W-6": scorecard.Metric("MS/s", False, [31.0, 31.2])}
-    }
-    data = json.loads(
-        json.dumps(scorecard.to_json(META, make_host(), rows, None))
-    )
-    assert data["hostcheck"]["cpu_model"].startswith("Intel")
-    assert scorecard.rows_from_json(data) == rows
-
-
-# Stand-ins for the binaries. fun-ofdm answers --version and writes sim's
-# JSON, from fun-ofdm.json next to it, exiting 1 as when frames are lost;
-# fun-ofdm-bench writes a result for each benchmark and repetition to
-# --benchmark_out, and its arguments to FAKE_ARGS.
-FAKE_FUN_OFDM = """\
-import sys
-if sys.argv[1] == "--version":
-    print("2.0.0")
-    sys.exit(0)
-print(open(sys.argv[0] + ".json").read())
-sys.exit(1)
-"""
-
-FAKE_BENCH = """\
-import json, os, sys
-args = dict(a.lstrip("-").split("=", 1) for a in sys.argv[1:])
-with open(os.environ["FAKE_ARGS"], "w") as f:
-    json.dump(args, f)
-reps = int(args["benchmark_repetitions"])
-names = ["receiver_chain/W-54"] + [
-    f"{b}/{w}" for b in ["frame_detector", "timing_sync"] for w in ["W-6", "W-54"]
-]
-results = [
-    {"run_name": n + "/real_time", "run_type": "iteration",
-     "samples_per_second": 20e6 + i * 1e6, "time_per_sample": 1 / (20e6 + i * 1e6)}
-    for i in range(reps) for n in names
-]
-with open(args["benchmark_out"], "w") as f:
-    json.dump({"benchmarks": results}, f)
-"""
-
-
-@pytest.fixture
-def bin_dir(tmp_path: pathlib.Path) -> pathlib.Path:
-    directory = tmp_path / "bin"
-    directory.mkdir()
-    for name, script in (
-        ("fun-ofdm", FAKE_FUN_OFDM),
-        ("fun-ofdm-bench", FAKE_BENCH),
-    ):
-        path = directory / name
-        path.write_text(f"#!{sys.executable}\n{script}")
-        path.chmod(0o755)
-    (directory / "fun-ofdm.json").write_text(json.dumps(sim_summary(1)))
-    return directory
-
-
 def test_main_writes_the_scorecard(
-    bin_dir: pathlib.Path,
-    tmp_path: pathlib.Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
+    results: pathlib.Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    args = tmp_path / "args.json"
-    monkeypatch.setenv("FAKE_ARGS", str(args))
-    out = tmp_path / "perf"
-    status = scorecard.main(
-        [
-            "--milestone",
-            "milestone2",
-            "--host",
-            "test-host",
-            "--rows",
-            "throughput",
-            "block-cost",
-            "latency",
-            "jitter",
-            "--repetitions",
-            "2",
-            "--workload-seconds",
-            "0.1",
-            "--bin-dir",
-            str(bin_dir),
-            "--out-dir",
-            str(out),
-        ]
-    )
-    assert status == 0
-    bench_args = json.loads(args.read_text())
-    assert bench_args["benchmark_filter"] == "."
-    assert bench_args["benchmark_repetitions"] == "2"
-    assert bench_args["workload_seconds"] == "0.1"
-
-    [result] = (out / "milestone2" / "test-host").glob("*.json")
-    data = json.loads(result.read_text())
-    assert list(data["rows"]) == [
-        "throughput",
-        "block-cost",
-        "latency",
-        "jitter",
-    ]
-    assert data["rows"]["throughput"]["W-54"]["samples"] == pytest.approx(
-        [20, 21]
-    )
-    assert data["rows"]["latency"]["W-54 p50"]["samples"] == [2000, 2000]
-    assert data["repetitions"] == 2
-    assert result.with_suffix(".md").read_text() in capsys.readouterr().out
+    assert scorecard.main([str(results)]) == 0
+    data = json.loads((results / "scorecard.json").read_text())
+    assert data["name"] == "milestone2"
+    assert data["rows"]["per"]["bpsk-1/2"]["median"] == 18.1
+    assert data["sources"][0]["path"] == "bench"
+    text = (results / "scorecard.md").read_text()
+    assert text in capsys.readouterr().out
 
 
-def test_main_compares_with_an_earlier_run(
-    bin_dir: pathlib.Path,
-    tmp_path: pathlib.Path,
-    monkeypatch: pytest.MonkeyPatch,
+def test_main_compares_with_an_earlier_directory(
+    results: pathlib.Path, tmp_path: pathlib.Path
 ) -> None:
-    monkeypatch.setenv("FAKE_ARGS", str(tmp_path / "args.json"))
-    out = tmp_path / "perf"
-    common = ["--milestone", "m", "--host", "h", "--rows", "throughput"]
-    common += ["--repetitions", "2", "--bin-dir", str(bin_dir)]
-    common += ["--out-dir", str(out)]
-    assert scorecard.main(common) == 0
-    [first] = (out / "m" / "h").glob("*.json")
-    old = tmp_path / "old.json"
-    first.rename(old)
-    assert scorecard.main([*common, "--compare", str(old)]) == 0
-    data = json.loads(first.read_text())
-    assert data["changes"]["throughput"]["W-54"]["verdict"] == "same"
-    assert "| W-54 | 20.5 |" in first.with_suffix(".md").read_text()
+    old = tmp_path / "milestone1"
+    write(old / "per", "tools/per/sweep.py", PER)
+    out = tmp_path / "out"
+    assert (
+        scorecard.main([str(results), "--compare", str(old), "--out", str(out)])
+        == 0
+    )
+    data = json.loads((out / "scorecard.json").read_text())
+    assert data["changes"]["per"]["bpsk-1/2"]["verdict"] == "same"
+    assert (
+        "throughput" not in data["changes"] or not data["changes"]["throughput"]
+    )
 
 
-def test_main_needs_the_binaries(tmp_path: pathlib.Path) -> None:
+def test_main_needs_results(tmp_path: pathlib.Path) -> None:
     with pytest.raises(SystemExit):
-        scorecard.main(
-            ["--milestone", "m", "--bin-dir", str(tmp_path / "missing")]
-        )
+        scorecard.main([str(tmp_path)])
+
+
+def test_a_change_in_mhz_is_in_mhz() -> None:
+    change = scorecard.compare_metric(
+        "realtime",
+        scorecard.Metric("MHz", False, [7.0]),
+        scorecard.Metric("MHz", False, [8.0]),
+    )
+    assert scorecard.change_text(change, "MHz") == "+1.00 MHz"
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "verdict"),
+    [([18.0], [], "worse"), ([], [18.0], "better"), ([], [], "same")],
+)
+def test_a_metric_no_longer_measured_is_worse(
+    before: list[float], after: list[float], verdict: str
+) -> None:
+    change = scorecard.compare_metric(
+        "per",
+        scorecard.Metric("dB", True, before),
+        scorecard.Metric("dB", True, after),
+    )
+    assert change.verdict == verdict
+
+
+def test_refuses_an_interrupted_sweep(results: pathlib.Path) -> None:
+    write(
+        results / "realtime-again",
+        "tools/hardware/hardware_sweep.py realtime",
+        {**REALTIME, "complete": False},
+    )
+    with pytest.raises(ValueError, match="interrupted"):
+        scorecard.read_results(results)
+
+
+def test_says_which_result_it_cant_read(tmp_path: pathlib.Path) -> None:
+    write(tmp_path / "per", "tools/per/sweep.py", {"not": "rates"})
+    with pytest.raises(ValueError, match=r"per/result\.json: can't read"):
+        scorecard.read_results(tmp_path)
+
+
+def test_notes_results_from_different_builds(results: pathlib.Path) -> None:
+    _, sources = scorecard.read_results(results)
+    assert scorecard.consistency_notes(sources) == []
+    sources[0].provenance["binaries"] = {"fun-ofdm": {"sha256": "a" * 64}}
+    sources[1].provenance["binaries"] = {"fun-ofdm": {"sha256": "b" * 64}}
+    sources[1].provenance["host"] = {
+        "commit": "0123456789abcdef",
+        "dirty": True,
+    }
+    notes = scorecard.consistency_notes(sources)
+    assert notes[0].startswith("The results ran 2 different fun-ofdm binaries")
+    assert notes[1] == "The results are from commits 0123456789ab, unknown"
+    assert notes[2] == "These had uncommitted changes: link_smoke/"
+
+
+def test_main_needs_results_to_compare_with(
+    results: pathlib.Path, tmp_path: pathlib.Path
+) -> None:
+    with pytest.raises(SystemExit):
+        scorecard.main([str(results), "--compare", str(tmp_path / "missing")])
+
+
+def test_main_dates_the_scorecard_by_its_newest_result(
+    results: pathlib.Path,
+) -> None:
+    scorecard.main([str(results)])
+    data = json.loads((results / "scorecard.json").read_text())
+    assert data["date"] == "2026-11-22T00:00:00+00:00"

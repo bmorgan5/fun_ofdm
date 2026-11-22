@@ -32,7 +32,8 @@ libraries.
 | The highest sample rate it keeps up with on a B210 (see `tools/hardware/README.md`) | `uv run tools/hardware/hardware_sweep.py realtime` |
 | PER vs SNR on a B210, against simulation (see `tools/hardware/README.md`) | `uv run tools/hardware/hardware_sweep.py per --sim <dir>` |
 | The machine, for benchmarking (see `tools/scorecard/README.md`) | `uv run tools/scorecard/hostcheck.py` |
-| The scorecard, about 40 min, after `bazel run install` | `uv run tools/scorecard/scorecard.py --milestone <name> -i` |
+| The tests, benchmarks or latency, as results (see `tools/scorecard/README.md`), after `bazel run install` | `uv run tools/scorecard/measure.py <tests\|bench\|latency> --out <dir> -i` |
+| The scorecard of a directory of results | `uv run tools/scorecard/scorecard.py <dir>` |
 | Format and lint the Python tools | `uv run ruff format` and `uv run ruff check` |
 | Check the Python tools' types | `uv run ty check` |
 | Add a Python package | `uv add <package>` (`--dev` if only for development) |

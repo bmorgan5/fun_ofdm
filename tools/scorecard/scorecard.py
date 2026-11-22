@@ -1,42 +1,44 @@
-"""Runs the scorecard: the same measurements of the receiver every time.
+"""The scorecard: each measurement's headline numbers, in one place.
 
-Each release's numbers come from here, so they compare directly with the last
-release's (see README.md for the rows and how to run it well):
+It reads a directory of results, each in a directory of its own, as the
+measurement tools write them with --out (tools/results/result.py), and writes
+the scorecard to the directory, as scorecard.md and scorecard.json:
 
-    uv run tools/scorecard/scorecard.py --milestone milestone2 --cpus 1-15
+    uv run tools/scorecard/scorecard.py out/results/v2.1.0 --compare OLD
 
-It runs hostcheck.py first, then each row, and writes JSON and a Markdown
-table to docs/perf/<milestone>/<host>/<configuration>.{json,md}. With
---compare, the table also has each metric's change from an earlier run, and
-whether it's significant.
+Each metric has its median and interquartile range. With --compare, the
+table also has each metric's change from an earlier directory, and whether
+it's significant. It runs nothing itself: measure.py, the sweeps and the
+hardware tests measure (README.md).
 """
 
 import argparse
 import dataclasses
-import datetime
 import json
 import math
-import os
 import pathlib
-import re
-import shutil
 import statistics
-import subprocess
 import sys
-import tempfile
-import xml.etree.ElementTree as ET
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
-import hostcheck
-
 REPO = pathlib.Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "tools" / "per"))
+sys.path.insert(0, str(REPO / "tools" / "results"))
 
-import sweep
+import result
 
-#: The rows the scorecard measures, by the names --rows and the JSON use.
-ROWS = ("tests", "throughput", "block-cost", "latency", "jitter", "per")
+#: The rows the scorecard has, in order, by the names the JSON uses.
+ROWS = (
+    "tests",
+    "throughput",
+    "block-cost",
+    "latency",
+    "jitter",
+    "per",
+    "realtime",
+    "per-hardware",
+    "link",
+)
 
 TITLES = {
     "tests": "Unit tests and line coverage of src/",
@@ -44,7 +46,10 @@ TITLES = {
     "block-cost": "Each block's cost, on its own",
     "latency": "Latency, last sample of a frame in to its payload out",
     "jitter": "Jitter of each block",
-    "per": "SNR at 10% PER",
+    "per": "SNR at 10% PER, in simulation",
+    "realtime": "Highest bandwidth kept up with, on a B210",
+    "per-hardware": "SNR at 10% PER on a B210, and the loss against simulation",
+    "link": "Frames received intact in the link smoke test",
 }
 
 #: The receiver's blocks, in order.
@@ -60,30 +65,14 @@ BLOCKS = (
 #: fun-ofdm-bench's standard workloads (src/bench/workload.h).
 WORKLOADS = ("W-idle", "W-6", "W-54")
 
-#: The sim runs for latency and jitter: W-6's and W-54's rate and SNR, with 1000-byte
-#: payloads, at 20 MS/s. sim sends frames back to back, as fast as the
-#: receiver takes them, so these are the latencies of a receiver that's
-#: busy all the time.
-SIM_RUNS = {"W-6": ("bpsk-1/2", 20.0), "W-54": ("qam64-3/4", 30.0)}
-SIM_PACKETS = 1000
-SIM_PAYLOAD_SIZE = 1000
-SIM_BANDWIDTH_MHZ = 20
-SIM_SEED = 1
-
-#: The latency percentiles the scorecard reports, by their names in sim's JSON.
-PERCENTILES = {"p50": "p50", "p99": "p99", "p99.9": "p99_9", "max": "max"}
-
 #: A difference is significant when Mann-Whitney U's p is below this.
 SIGNIFICANCE = 0.05
 
-#: Repetitions of each benchmark and sim run, for the median and the
-#: interquartile range.
-DEFAULT_REPETITIONS = 20
-
-#: The SNR at 10% PER may get at most this much worse before the comparison
-#: calls it worse,
-#: as tests/test_per.py's guardrail allows.
-PER_MAX_REGRESSION_DB = 0.25
+#: How much a metric measured once may change before the comparison calls it
+#: better or worse, in its unit. The SNR at 10% PER may get as much worse as
+#: tests/test_per.py's guardrail allows. On hardware, a step is 1 dB, and a
+#: run's losses vary from run to run.
+TOLERANCES = {"per": 0.25, "per-hardware": 1.0, "link": 1.0}
 
 
 @dataclasses.dataclass
@@ -184,19 +173,25 @@ class Change:
 
 
 #: Units whose differences are in the unit itself, not as a percentage.
-ABSOLUTE_UNITS = ("dB", "%", "tests")
+ABSOLUTE_UNITS = ("dB", "%", "tests", "MHz")
 
 
 def compare_metric(row: str, before: Metric, after: Metric) -> Change:
     """How a metric changed, and whether it's a real change.
 
     A repeated measurement changed if Mann-Whitney U says so. One measured
-    once is exact, or as good as: the test count and coverage may never drop,
-    and the SNR at 10% PER may get up to PER_MAX_REGRESSION_DB worse, the guardrail's limit.
+    once is exact, like the test count and coverage, which may never drop,
+    or changes only beyond its row's TOLERANCES.
     """
     old, new = before.median, after.median
     if old is None or new is None:
-        return Change(old, new, None, None, "same")
+        # Measured once but not now, like a rate no longer reaching 10% PER,
+        # is worse, and the other way better.
+        if old is None and new is None:
+            verdict = "same"
+        else:
+            verdict = "worse" if new is None else "better"
+        return Change(old, new, None, None, verdict)
     if after.unit in ABSOLUTE_UNITS:
         difference = new - old
     else:
@@ -210,12 +205,7 @@ def compare_metric(row: str, before: Metric, after: Metric) -> Change:
             verdict = "same"
         else:
             verdict = "worse" if (new - old) * worse_sign > 0 else "better"
-    elif row == "per":
-        if new - old > PER_MAX_REGRESSION_DB:
-            verdict = "worse"
-        else:
-            verdict = "better" if new < old else "same"
-    elif new == old:
+    elif abs(new - old) <= TOLERANCES.get(row, 0):
         verdict = "same"
     else:
         verdict = "worse" if (new - old) * worse_sign > 0 else "better"
@@ -232,90 +222,6 @@ def compare(before: Rows, after: Rows) -> dict[str, dict[str, Change]]:
         }
         for row, metrics in after.items()
     }
-
-
-# Tests ---------------------------------------------------------------------
-
-
-def line_coverage(lcov: str, prefix: str = "src/") -> tuple[int, int]:
-    """The lines covered and the lines in an lcov report, under a directory.
-
-    The tests' helpers, test_util.h, aren't code under test, so they're left
-    out, as tools/coverage/coverage.sh leaves them out of its report.
-    """
-    covered = total = 0
-    counting = False
-    for line in lcov.splitlines():
-        if line.startswith("SF:"):
-            path = line[3:]
-            counting = path.startswith(prefix) and not path.endswith(
-                "test_util.h"
-            )
-        elif counting and line.startswith("LF:"):
-            total += int(line[3:])
-        elif counting and line.startswith("LH:"):
-            covered += int(line[3:])
-    return covered, total
-
-
-def count_tests(reports: Iterable[str]) -> int:
-    """The tests run, from GoogleTest's XML reports, leaving out disabled."""
-    count = 0
-    for report in reports:
-        suites = ET.fromstring(report)
-        count += int(suites.get("tests", 0)) - int(suites.get("disabled", 0))
-    return count
-
-
-def measure_tests() -> dict[str, Metric]:
-    """Runs the C++ tests with coverage, which needs Bazel."""
-    start = datetime.datetime.now().timestamp()
-    subprocess.run(
-        ["bazel", "run", "//:coverage"],
-        cwd=REPO,
-        check=True,
-        stdout=subprocess.DEVNULL,
-    )
-    covered, total = line_coverage(
-        (REPO / "out" / "coverage" / "coverage.dat").read_text()
-    )
-    # Only the reports this run wrote, not ones from deleted tests.
-    reports = [
-        path.read_text()
-        for path in (REPO / "bazel-testlogs" / "src").rglob("test.xml")
-        if path.stat().st_mtime >= start
-    ]
-    return {
-        "tests": Metric("tests", False, [count_tests(reports)]),
-        "line coverage (%)": Metric("%", False, [100 * covered / total]),
-    }
-
-
-# Throughput and each block's cost ------------------------------------------
-
-
-def bench_rows(results: dict[str, Any]) -> Rows:
-    """Throughput and each block's cost, from fun-ofdm-bench's JSON.
-
-    Throughput is receiver_chain's MS/s on each workload, and each block's
-    cost is its ns per sample, for each repetition.
-    """
-    rows: Rows = {}
-    for result in results["benchmarks"]:
-        if result.get("run_type") != "iteration":
-            continue
-        block, workload = result["run_name"].split("/")[:2]
-        if block == "receiver_chain":
-            metric = rows.setdefault("throughput", {}).setdefault(
-                workload, Metric("MS/s", False, [])
-            )
-            metric.samples.append(result["samples_per_second"] / 1e6)
-        else:
-            metric = rows.setdefault("block-cost", {}).setdefault(
-                f"{block} {workload}", Metric("ns/sample", True, [])
-            )
-            metric.samples.append(result["time_per_sample"] * 1e9)
-    return in_order(rows)
 
 
 def in_order(rows: Rows) -> Rows:
@@ -341,179 +247,165 @@ def in_order(rows: Rows) -> Rows:
     return ordered
 
 
-def bench_filter(rows: Iterable[str]) -> str:
-    """fun-ofdm-bench's --benchmark_filter for throughput, block cost or both."""
-    wanted = set(rows)
-    if wanted >= {"throughput", "block-cost"}:
-        return "."
-    return "^receiver_chain/" if "throughput" in wanted else "-^receiver_chain/"
+# Reading the results --------------------------------------------------------
 
 
-def measure_bench(
-    bench: pathlib.Path,
-    rows: Iterable[str],
-    repetitions: int,
-    workload_seconds: float | None,
-) -> Rows:
-    """Measures throughput and each block's cost with fun-ofdm-bench."""
-    with tempfile.TemporaryDirectory() as tmp:
-        out = pathlib.Path(tmp) / "bench.json"
-        return bench_rows(
-            run_bench(bench, rows, repetitions, workload_seconds, out)
-        )
+def measured_rows(data: dict[str, Any]) -> Rows:
+    """The rows a measure.py result holds, with every repetition."""
+    return {
+        row: {name: Metric.from_json(m) for name, m in metrics.items()}
+        for row, metrics in data["rows"].items()
+    }
 
 
-def run_bench(
-    bench: pathlib.Path,
-    rows: Iterable[str],
-    repetitions: int,
-    workload_seconds: float | None,
-    out: pathlib.Path,
-) -> dict[str, Any]:
-    """Runs fun-ofdm-bench, and returns its JSON, which it writes to out."""
-    command = [
-        str(bench),
-        f"--benchmark_filter={bench_filter(rows)}",
-        f"--benchmark_repetitions={repetitions}",
-        # Each repetition at a different time, interleaved with the other
-        # benchmarks', so a slow minute doesn't land on one benchmark.
-        "--benchmark_enable_random_interleaving=true",
-        f"--benchmark_out={out}",
-        "--benchmark_out_format=json",
-    ]
-    if workload_seconds is not None:
-        command.append(f"--workload_seconds={workload_seconds}")
-    subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
-    return json.loads(out.read_text())
-
-
-# Latency and jitter --------------------------------------------------------
-
-
-def sim_rows(runs: dict[str, list[dict[str, Any]]]) -> Rows:
-    """Latency and jitter from sim's JSON summaries, in µs, per repetition.
-
-    Latency is its percentiles. Jitter is each block's processing time, and
-    its jitter: how far each time's p99.9 is from its p50, for the
-    processing time, the interval between starts and the wait to start, and
-    the most the block fell behind (lag's max), its backlog.
-
-    Args:
-        runs: Each run's summaries, one per repetition, by the run's name.
-    """
-    rows: Rows = {"latency": {}, "jitter": {}}
-
-    def add(row: str, name: str, nanoseconds: float) -> None:
-        metric = rows[row].setdefault(name, Metric("µs", True, []))
-        metric.samples.append(nanoseconds / 1000)
-
-    for run, summaries in runs.items():
-        for summary in summaries:
-            metrics = summary["metrics"]
-            for label, key in PERCENTILES.items():
-                add("latency", f"{run} {label}", metrics["latency"][key])
-            for block in BLOCKS:
-                times = metrics["blocks"][block]
-                processing = times["processing"]
-                add(
-                    "jitter", f"{run} {block} processing p50", processing["p50"]
-                )
-                for name in ("processing", "start_interval", "wait"):
-                    spread = times[name]["p99_9"] - times[name]["p50"]
-                    add("jitter", f"{run} {block} {name} jitter", spread)
-                add("jitter", f"{run} {block} backlog", times["lag"]["max"])
-    return rows
-
-
-def sim_command(fun_ofdm: pathlib.Path, rate: str, snr_db: float) -> list[str]:
-    """The sim command for one of SIM_RUNS."""
-    return [
-        str(fun_ofdm),
-        "sim",
-        "--phy-rate",
-        rate,
-        "--snr",
-        f"{snr_db:g}",
-        "--packets",
-        str(SIM_PACKETS),
-        "--payload-size",
-        str(SIM_PAYLOAD_SIZE),
-        "--bandwidth",
-        str(SIM_BANDWIDTH_MHZ),
-        "--seed",
-        str(SIM_SEED),
-        "--json",
-    ]
-
-
-def measure_sim(
-    fun_ofdm: pathlib.Path,
-    repetitions: int,
-    progress: Callable[[str], None],
-) -> Rows:
-    """Measures latency and jitter: runs each of SIM_RUNS repetitions times."""
-    runs: dict[str, list[dict[str, Any]]] = {}
-    for run, (rate, snr_db) in SIM_RUNS.items():
-        for i in range(repetitions):
-            progress(f"sim {run} ({rate}), {i + 1} of {repetitions}")
-            done = subprocess.run(
-                sim_command(fun_ofdm, rate, snr_db),
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-            # sim exits with 1 when it loses frames, which the latency
-            # doesn't depend on.
-            if done.returncode not in (0, 1):
-                raise subprocess.CalledProcessError(
-                    done.returncode, done.args, done.stdout, done.stderr
-                )
-            runs.setdefault(run, []).append(json.loads(done.stdout))
-    return sim_rows(runs)
-
-
-# SNR at 10% PER -------------------------------------------------------------
-
-
-def per_rows(curves: dict[str, list[sweep.Point]]) -> dict[str, Metric]:
-    """Each rate's SNR at 10% PER, in dB, from the guardrail's sweep.
+def per_rows(data: dict[str, Any]) -> Rows:
+    """Each rate's SNR at 10% PER, from a tools/per/sweep.py result.
 
     The sweep's seeds are fixed, so it's measured once. A rate that never
     reaches 10% PER has no sample.
     """
-    rows = {}
-    for rate, points in curves.items():
-        snr = sweep.snr_at_per(points, sweep.TARGET_PER)
-        rows[rate] = Metric("dB", True, [] if snr is None else [snr])
-    return rows
+    return {
+        "per": {
+            rate: Metric("dB", True, [] if snr is None else [snr])
+            for rate, curve in data["rates"].items()
+            for snr in [curve["snr_at_target_per"]]
+        }
+    }
 
 
-def measure_per(fun_ofdm: pathlib.Path, jobs: int) -> dict[str, Metric]:
-    """Runs the guardrail's PER sweep, as tests/test_per.py runs it."""
-    return per_rows(
-        sweep.sweep(
-            sweep.sim_runner(fun_ofdm, sweep.GUARDRAIL_SEED),
-            sweep.RATES,
-            sweep.GUARDRAIL_SNRS,
-            sweep.GUARDRAIL_FRAMES,
-            jobs,
+def realtime_rows(data: dict[str, Any]) -> Rows:
+    """Each workload's highest bandwidth kept up with, from hardware_sweep.py."""
+    return {
+        "realtime": {
+            workload: Metric("MHz", False, [] if mhz is None else [mhz])
+            for workload, mhz in data["highest_kept_up_mhz"].items()
+        }
+    }
+
+
+def per_hardware_rows(data: dict[str, Any]) -> Rows:
+    """Each rate's SNR at 10% PER on hardware, and its implementation loss."""
+    metrics = {}
+    for rate, curve in data["rates"].items():
+        for name, key in (
+            ("SNR", "snr_at_target_per"),
+            ("loss", "implementation_loss_db"),
+        ):
+            value = curve[key]
+            metrics[f"{rate} {name}"] = Metric(
+                "dB", True, [] if value is None else [value]
+            )
+    return {"per-hardware": metrics}
+
+
+def link_rows(data: dict[str, Any]) -> Rows:
+    """Each rate's frames received intact in the link smoke test, in %."""
+    metrics = {}
+    for name, run in data["runs"].items():
+        summary = run.get("summary")
+        samples = []
+        if summary is not None and summary["sent"]["packets"]:
+            intact = summary["received"]["packets"]
+            samples = [100 * intact / summary["sent"]["packets"]]
+        metrics[name] = Metric("%", False, samples)
+    return {"link": metrics}
+
+
+#: How to read each tool's results, by the start of its provenance's tool.
+READERS: dict[str, Callable[[dict[str, Any]], Rows]] = {
+    "tools/scorecard/measure.py": measured_rows,
+    "tools/per/sweep.py": per_rows,
+    "tools/hardware/hardware_sweep.py realtime": realtime_rows,
+    "tools/hardware/hardware_sweep.py per": per_hardware_rows,
+    "hil/test_link_smoke.py": link_rows,
+}
+
+
+@dataclasses.dataclass
+class Source:
+    """A result the scorecard read: where it is, and what made it."""
+
+    path: str
+    provenance: dict[str, Any]
+
+
+def read_results(directory: pathlib.Path) -> tuple[Rows, list[Source]]:
+    """The rows of every result in a directory's subdirectories.
+
+    Only the directory's own subdirectories are read, so another set of
+    results inside it, like a repeat of some measurements, isn't mixed in.
+
+    Raises:
+        ValueError: Two results have the same row, a result's tool isn't one
+            the scorecard reads, a result is a partial one that an
+            interrupted sweep saved, or a result can't be read.
+    """
+    rows: Rows = {}
+    sources = []
+    for path in sorted(directory.glob("*/result.json")):
+        try:
+            data = json.loads(path.read_text())
+            tool = data["provenance"]["tool"]
+        except (ValueError, KeyError) as error:
+            raise ValueError(f"{path}: not a result: {error!r}") from error
+        if data.get("complete") is False:
+            raise ValueError(f"{path}: the sweep was interrupted: run it again")
+        reader = next(
+            (r for prefix, r in READERS.items() if tool.startswith(prefix)),
+            None,
         )
-    )
+        if reader is None:
+            raise ValueError(f"{path}: the scorecard doesn't read {tool}")
+        try:
+            found = reader(data)
+        except (KeyError, TypeError) as error:
+            raise ValueError(f"{path}: can't read {tool}: {error!r}") from error
+        for row, metrics in found.items():
+            if row in rows:
+                raise ValueError(f"{path}: another result has {row} too")
+            rows[row] = metrics
+        sources.append(
+            Source(str(path.parent.relative_to(directory)), data["provenance"])
+        )
+    return in_order({row: rows[row] for row in ROWS if row in rows}), sources
+
+
+def consistency_notes(sources: Sequence[Source]) -> list[str]:
+    """What sets the results apart, which a scorecard shouldn't hide.
+
+    Each result should come from the same build of fun-ofdm, at the same
+    commit, with no uncommitted changes: otherwise its rows aren't of the
+    same code.
+    """
+    notes = []
+    for name in ("fun-ofdm", "fun-ofdm-bench"):
+        digests = {
+            s.provenance["binaries"][name]["sha256"][:12]: s.path
+            for s in sources
+            if name in s.provenance.get("binaries", {})
+        }
+        if len(digests) > 1:
+            notes.append(
+                f"The results ran {len(digests)} different {name} binaries: "
+                + ", ".join(f"{d} ({p}/)" for d, p in digests.items())
+            )
+    commits = {
+        (s.provenance["host"].get("commit") or "unknown")[:12] for s in sources
+    }
+    if len(commits) > 1:
+        notes.append(
+            f"The results are from commits {', '.join(sorted(commits))}"
+        )
+    dirty = [s.path for s in sources if s.provenance["host"].get("dirty")]
+    if dirty:
+        notes.append(
+            "These had uncommitted changes: "
+            + ", ".join(f"{p}/" for p in dirty)
+        )
+    return notes
 
 
 # Output --------------------------------------------------------------------
-
-
-def host_name(host: hostcheck.Host) -> str:
-    """A directory name for the machine, from its board or CPU.
-
-    "Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz" becomes "intel-core-i7-10700k",
-    and "Raspberry Pi 5 Model B Rev 1.0" becomes "raspberry-pi-5-model-b".
-    """
-    name = host.board or host.cpu_model or host.arch
-    name = re.sub(r"\((R|TM)\)", "", name)
-    name = re.sub(r"( CPU)? @ .*$| Rev .*$", "", name)
-    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
 def number(value: float | None) -> str:
@@ -544,7 +436,7 @@ def change_text(change: Change, unit: str) -> str:
     """A change's difference, like "+1.2%" or "-0.30 dB"."""
     if change.difference is None:
         return "—"
-    suffix = f" {unit}" if unit in ("dB", "tests") else "%"
+    suffix = f" {unit}" if unit in ABSOLUTE_UNITS else "%"
     if unit == "%":
         suffix = " points"
     sign = "+" if change.difference >= 0 else "-"
@@ -555,8 +447,9 @@ def grid_cell(row: str, name: str) -> tuple[str, str]:
     """Where a metric goes in its row's grid: its line and its column.
 
     Block cost has a line per block and a column per workload, latency a line
-    per run and a column per percentile, and jitter a line per run and block
-    and a column per measure. The rest have one column.
+    per run and a column per percentile, jitter a line per run and block and
+    a column per measure, and PER on hardware a line per rate and a column
+    for its SNR and its loss. The rest have one column.
     """
     if row == "block-cost":
         block, workload = name.split(" ")
@@ -567,6 +460,9 @@ def grid_cell(row: str, name: str) -> tuple[str, str]:
     if row == "jitter":
         run, block, measure = name.split(" ", 2)
         return f"{run} {block}", measure
+    if row == "per-hardware":
+        rate, measure = name.split(" ", 1)
+        return rate, measure
     return name, "Value"
 
 
@@ -590,27 +486,27 @@ def grid(row: str, metrics: dict[str, Metric]) -> list[str]:
 
 def markdown(
     meta: dict[str, Any],
-    host: hostcheck.Host,
+    sources: Sequence[Source],
     rows: Rows,
     changes: dict[str, dict[str, Change]] | None,
 ) -> str:
-    """The scorecard as Markdown: the machine, then a table per row."""
+    """The scorecard as Markdown: what it's from, then a table per row."""
     lines = [
-        f"# Scorecard: {meta['host']}, {host.configuration}",
+        f"# Scorecard: {meta['name']}",
         "",
         (
-            f"{meta['date']}, fun-ofdm {host.fun_ofdm_version or 'unknown'} "
-            f"at {(host.commit or 'an unknown commit')[:12]}"
-            f"{' (with uncommitted changes)' if host.dirty else ''}, built "
-            f"with {host.compiler or 'an unknown compiler'}. Each repeated "
-            f"metric is the median of {meta['repetitions']} runs, with the "
-            "interquartile range in brackets."
+            "Each repeated metric is the median of its runs, with the "
+            "interquartile range in brackets. It's from these results:"
         ),
         "",
-        "```text",
-        hostcheck.report(host),
-        "```",
     ]
+    lines += [
+        f"- `{source.path}/`: {result.describe(source.provenance)}"
+        for source in sources
+    ]
+    notes = consistency_notes(sources)
+    if notes:
+        lines += ["", "**Check:**", ""] + [f"- {note}" for note in notes]
     if changes is not None:
         lines += [
             "",
@@ -647,216 +543,74 @@ def markdown(
 
 def to_json(
     meta: dict[str, Any],
-    host: hostcheck.Host,
+    sources: Sequence[Source],
     rows: Rows,
     changes: dict[str, dict[str, Change]] | None,
 ) -> dict[str, Any]:
     """The scorecard as JSON, with every repetition's value."""
-    result = {
+    data = {
         **meta,
-        "hostcheck": hostcheck.to_json(host),
+        "sources": [dataclasses.asdict(source) for source in sources],
         "rows": {
             row: {name: metric.to_json() for name, metric in metrics.items()}
             for row, metrics in rows.items()
         },
     }
     if changes is not None:
-        result["changes"] = {
+        data["changes"] = {
             row: {name: dataclasses.asdict(c) for name, c in found.items()}
             for row, found in changes.items()
         }
-    return result
-
-
-def rows_from_json(data: dict[str, Any]) -> Rows:
-    """The rows of a scorecard's JSON."""
-    return in_order(
-        {
-            row: {name: Metric.from_json(m) for name, m in metrics.items()}
-            for row, metrics in data["rows"].items()
-        }
-    )
-
-
-# Preparing the machine -----------------------------------------------------
-
-
-def suggested_cpus(host: hostcheck.Host) -> str:
-    """The CPUs to pin to: the isolated ones, or every one but CPU 0.
-
-    CPU 0 usually handles the most interrupts and housekeeping.
-    """
-    if host.isolated:
-        return host.isolated
-    return hostcheck.format_cpu_list(range(1, host.cpus_online))
-
-
-def prepare(fun_ofdm: pathlib.Path, cpus: str | None) -> str | None:
-    """Walks through preparing the machine, and returns the CPUs to pin to.
-
-    For each warning, says how to fix it and waits, then checks again.
-    """
-    host = hostcheck.collect(fun_ofdm=fun_ofdm)
-    # The warnings come next, one at a time.
-    print(hostcheck.report(dataclasses.replace(host, warnings=[])), "\n")
-    for warning in host.warnings:
-        print(f"- {warning}")
-        if "isn't idle" in warning:
-            print("  The busiest processes:")
-            busiest = hostcheck.run_command(
-                ["ps", "-eo", "pid,pcpu,comm", "--sort=-pcpu"]
-            )
-            for line in (busiest or "").splitlines()[:6]:
-                print(f"    {line}")
-        input("  Fix it, or not, then press Enter. ")
-    if cpus is None:
-        suggestion = suggested_cpus(host)
-        answer = input(
-            f"Pin fun-ofdm to which CPUs? [{suggestion}, or 'none'] "
-        ).strip()
-        cpus = None if answer == "none" else (answer or suggestion)
-    if cpus is not None:
-        os.sched_setaffinity(0, hostcheck.parse_cpu_list(cpus))
-    host = hostcheck.collect(fun_ofdm=fun_ofdm)
-    print("\n" + hostcheck.report(host))
-    if input("\nStart the scorecard? [Y/n] ").strip().lower() == "n":
-        sys.exit(1)
-    return cpus
-
-
-# Main ----------------------------------------------------------------------
+    return data
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Runs the scorecard from the command line."""
-    bin_dir = hostcheck.DEFAULT_FUN_OFDM.parent
+    """Writes the scorecard from the command line."""
     parser = argparse.ArgumentParser(
         description=__doc__.split("\n\n")[0],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--milestone",
-        required=True,
-        help="the results' directory under docs/perf/, like milestone2",
-    )
-    parser.add_argument(
-        "--host",
-        help="the machine's directory (default: from its board or CPU)",
-    )
-    parser.add_argument(
-        "--cpus",
-        help="pin everything to these CPUs, like 1-15 (the Pinned "
-        "configuration needs it)",
-    )
-    parser.add_argument(
-        "--rows",
-        nargs="+",
-        choices=ROWS,
-        default=list(ROWS),
-        help="the rows to measure",
-    )
-    parser.add_argument("--repetitions", type=int, default=DEFAULT_REPETITIONS)
-    parser.add_argument(
-        "--workload-seconds",
-        type=float,
-        help="shorter workloads for a quick try (default: the standard 10 s)",
+        "dir", type=pathlib.Path, help="a directory of result directories"
     )
     parser.add_argument(
         "--compare",
         type=pathlib.Path,
-        help="an earlier scorecard's JSON to compare with",
+        metavar="DIR",
+        help="an earlier directory of results to compare with",
     )
     parser.add_argument(
-        "-i",
-        "--interactive",
-        action="store_true",
-        help="walk through preparing the machine first",
-    )
-    parser.add_argument("--bin-dir", type=pathlib.Path, default=bin_dir)
-    parser.add_argument(
-        "--out-dir", type=pathlib.Path, default=REPO / "docs" / "perf"
+        "--out",
+        type=pathlib.Path,
+        metavar="DIR",
+        help="where to write scorecard.md and scorecard.json (default: dir)",
     )
     args = parser.parse_args(argv)
 
-    fun_ofdm = args.bin_dir / "fun-ofdm"
-    bench = args.bin_dir / "fun-ofdm-bench"
-    for binary in (fun_ofdm, bench):
-        if not binary.exists():
-            parser.error(f"{binary} doesn't exist: bazel run install")
-    if args.repetitions < 1:
-        parser.error("--repetitions must be at least 1")
-    before = (
-        rows_from_json(json.loads(args.compare.read_text()))
-        if args.compare
-        else None
-    )
-
-    cpus = args.cpus
-    if args.interactive:
-        cpus = prepare(fun_ofdm, cpus)
-    elif cpus is not None:
-        # Children inherit it: sim, fun-ofdm-bench and their threads.
-        os.sched_setaffinity(0, hostcheck.parse_cpu_list(cpus))
-    host = hostcheck.collect(fun_ofdm=fun_ofdm)
-    if not args.interactive:
-        print(hostcheck.report(host), "\n", file=sys.stderr)
-
-    def progress(text: str) -> None:
-        print(f"... {text}", file=sys.stderr, flush=True)
-
-    out_dir = args.out_dir / args.milestone / (args.host or host_name(host))
-    out_dir.mkdir(parents=True, exist_ok=True)
-    stem = out_dir / host.configuration.lower()
-
-    rows: Rows = {}
-    if "tests" in args.rows:
-        if shutil.which("bazel") is None:
-            progress("Tests skipped: they need Bazel")
-        else:
-            progress("The tests, with coverage")
-            rows["tests"] = measure_tests()
-    if {"throughput", "block-cost"} & set(args.rows):
-        progress("fun-ofdm-bench, about 35 minutes at 20 repetitions")
-        rows.update(
-            measure_bench(
-                bench,
-                [r for r in args.rows if r in ("throughput", "block-cost")],
-                args.repetitions,
-                args.workload_seconds,
-            )
-        )
-    if {"latency", "jitter"} & set(args.rows):
-        found = measure_sim(fun_ofdm, args.repetitions, progress)
-        rows.update(
-            {r: found[r] for r in ("latency", "jitter") if r in args.rows}
-        )
-    if "per" in args.rows:
-        progress("The PER sweep")
-        rows["per"] = measure_per(
-            fun_ofdm, max(1, len(os.sched_getaffinity(0)) // 2)
-        )
-    rows = {row: rows[row] for row in ROWS if row in rows}
-
+    try:
+        rows, sources = read_results(args.dir)
+        before = read_results(args.compare)[0] if args.compare else None
+    except (OSError, ValueError, KeyError) as error:
+        parser.error(str(error))
+    if not rows:
+        parser.error(f"{args.dir} has no results: */result.json")
+    if before is not None and not before:
+        parser.error(f"{args.compare} has no results: */result.json")
     meta = {
-        "milestone": args.milestone,
-        "host": args.host or host_name(host),
-        "configuration": host.configuration,
-        "date": datetime.datetime.now(datetime.UTC).isoformat(
-            timespec="seconds"
-        ),
-        "repetitions": args.repetitions,
-        "workload_seconds": args.workload_seconds,
-        "cpus": cpus,
-        "compared_with": str(args.compare) if args.compare else None,
+        "name": args.dir.resolve().name,
+        # The newest result's, so the scorecard depends on the results alone
+        "date": max(s.provenance["date"] for s in sources),
+        "compared_with": args.compare.resolve().name if args.compare else None,
     }
     changes = compare(before, rows) if before is not None else None
-    stem.with_suffix(".json").write_text(
-        json.dumps(to_json(meta, host, rows, changes), indent=2) + "\n"
+    out = args.out or args.dir
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "scorecard.json").write_text(
+        result.to_json_text(to_json(meta, sources, rows, changes))
     )
-    table = markdown(meta, host, rows, changes)
-    stem.with_suffix(".md").write_text(table)
-    print(table)
-    progress(f"wrote {stem}.json and {stem}.md")
+    table = markdown(meta, sources, rows, changes)
+    (out / "scorecard.md").write_text(table)
+    print(table, end="")
     return 0
 
 
