@@ -405,3 +405,20 @@ def test_main_dates_the_scorecard_by_its_newest_result(
     scorecard.main([str(results)])
     data = json.loads((results / "scorecard.json").read_text())
     assert data["date"] == "2026-11-22T00:00:00+00:00"
+
+
+def test_markdown_links_the_charts(results: pathlib.Path) -> None:
+    rows, sources = scorecard.read_results(results)
+    text = scorecard.markdown(META, sources, rows, None, ["charts/per.png"])
+    assert text.endswith("## Charts\n\n- [per](charts/per.png)\n")
+
+
+def test_main_links_the_charts_from_where_it_writes(
+    results: pathlib.Path, tmp_path: pathlib.Path
+) -> None:
+    (results / "charts").mkdir()
+    (results / "charts" / "per.png").touch()
+    out = tmp_path / "elsewhere"
+    scorecard.main([str(results), "--out", str(out)])
+    text = (out / "scorecard.md").read_text()
+    assert "- [per](../milestone2/charts/per.png)" in text

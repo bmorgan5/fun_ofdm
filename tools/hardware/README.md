@@ -24,6 +24,12 @@ which only hears noise too. It runs each step 3 times. Each step records the
 USRP's overflows, the frames lost, the latency, each block's processing time,
 and each CPU's use, which it samples from `/proc/stat`.
 
+After the sweep, it runs each configuration once more with `--trace`, for 1
+second of frames, or for idle about as long after opening the USRP, and saves
+the trace, gzipped, with the run's summary, to `traces/`: for
+[charts.py](../scorecard/charts.py)'s timelines, or a closer look in
+[ui.perfetto.dev](https://ui.perfetto.dev).
+
 The headline, for each: the highest bandwidth with no overflows in any run,
 at it and every lower bandwidth. `--out` writes every step, and the tables, as
 `result.json` and `result.md` ([the result contract](../results/result.py)).

@@ -568,3 +568,8 @@ def test_a_run_is_in_a_session_of_its_own(tmp_path: pathlib.Path) -> None:
     run = hardware.run_fun_ofdm(hardware.Commands(), fun_ofdm, "x", [], 10)
     assert run.summary is not None
     assert run.summary["sid"] != os.getsid(0)
+
+
+def test_names_a_realtime_trace() -> None:
+    assert hardware.trace_name("qam64-3/4", 12.5) == "qam64-3-4-12.5MHz"
+    assert hardware.trace_name("idle", 20.0) == "idle-20MHz"

@@ -33,10 +33,13 @@ uv run tools/scorecard/measure.py tests --out results/tests
 uv run tools/scorecard/measure.py bench --out results/bench -i      # About 50 minutes on a Pi 5
 uv run tools/scorecard/measure.py latency --out results/latency -i
 uv run tools/per/sweep.py --snr-min 14 --snr-max 24 --snr-step 0.5 --frames 1000 --out results/per
+uv run tools/scorecard/charts.py results
 uv run tools/scorecard/scorecard.py results
 ```
 
-`-i` walks through preparing the machine, then asks which CPUs to pin to;
+`measure.py latency` also runs each workload once more with a trace, which
+doesn't count towards the latency, for `charts.py`. `-i` walks through
+preparing the machine, then asks which CPUs to pin to;
 `--cpus` pins without asking. `--repetitions` and `--workload-seconds` make a
 quick try, which isn't a result to keep. `--help` lists the rest.
 
@@ -45,6 +48,16 @@ writes `DIR/scorecard.md` and `DIR/scorecard.json`. Only `DIR`'s own
 subdirectories are read, so a second set of results inside it, like a repeat,
 stays apart. It refuses a sweep that was interrupted, and notes results from
 different binaries or commits.
+
+**Charts:** `charts.py DIR` draws them from the same results, to
+`DIR/charts/`: PER vs SNR on hardware and in simulation, each block's
+processing time at each percentile, its start interval and wait, a timeline of
+each block's runs from the realtime sweep's traces, and the realtime sweep's
+overflows, latency and each CPU's use against bandwidth. `DIR/charts/charts.md`
+shows them, and checks that each traced run's histograms agree with its trace,
+where the trace has every run. Run it before `scorecard.py`,
+which links them. It uses Perfetto's trace processor, which downloads its
+binary the first time.
 
 **Comparing:** `--compare OLD` adds each metric's change since an earlier
 directory to the tables. A repeated metric changed only if Mann-Whitney U's p

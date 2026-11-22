@@ -21,6 +21,8 @@ With --out DIR, each writes its results as tools/results/result.py says.
 
 import argparse
 import dataclasses
+import gzip
+import json
 import logging
 import pathlib
 import statistics
@@ -69,6 +71,15 @@ FRAME_LIMIT_GAP_S = 0.005
 #: Opening the USRP usually takes about 3 s, so it receives noise for longer
 #: than the step's seconds, which can only find more overflows.
 IDLE_START_S = 10
+
+#: How long each configuration's trace is, in seconds of frames or noise: a
+#: trace grows by about 2.3 MB a second at 20 MS/s.
+TRACE_SECONDS = 1.0
+
+#: How long a traced idle run gets to open the USRP before its seconds of
+#: noise: less than IDLE_START_S, since it traces all along, and only needs
+#: some of the noise.
+TRACE_IDLE_START_S = 4
 
 #: How often the CPU use is sampled, in seconds.
 CPU_SAMPLE_S = 0.5
@@ -433,6 +444,72 @@ def hardware_runner(
         return run, cpu_summary(sampler.samples)
 
     return run_step
+
+
+def trace_name(step: Step) -> str:
+    """A step's trace's file name, without its suffix (hardware.trace_name())."""
+    return hardware.trace_name(step.workload, step.bandwidth_mhz)
+
+
+#: Records a configuration's trace: the step, fun-ofdm's arguments and the
+#: time limit.
+TraceRunner = Callable[[Step, Sequence[str], float], None]
+
+
+def trace_steps(
+    run_trace: TraceRunner,
+    usrp: hardware.Usrp,
+    radio: dict[str, Any],
+    workloads: Sequence[str],
+    bandwidths: Sequence[float],
+    seconds: float,
+) -> None:
+    """Records a short trace of every configuration, after its runs.
+
+    The traces are for a closer look, and for charts.py's timelines; a trace
+    costs a little time per block, so the runs that count don't record one.
+    """
+    for bandwidth in bandwidths:
+        for workload in workloads:
+            step = Step(workload, bandwidth, 0)
+            args, limit_s = step_args(step, usrp, radio, seconds)
+            if workload == IDLE:
+                limit_s = TRACE_IDLE_START_S + seconds
+            log.info("Tracing %s at %g MHz", workload, bandwidth)
+            run_trace(step, args, limit_s)
+
+
+def hardware_tracer(
+    commands: hardware.Commands, fun_ofdm: pathlib.Path, traces: pathlib.Path
+) -> TraceRunner:
+    """Records traces on the B210: NAME.pftrace.gz, and its --json NAME.json."""
+
+    def run_trace(step: Step, args: Sequence[str], limit_s: float) -> None:
+        traces.mkdir(parents=True, exist_ok=True)
+        trace = traces / f"{trace_name(step)}.pftrace"
+        # Not one an earlier sweep left
+        for old in (trace, trace.with_suffix(".pftrace.gz")):
+            old.unlink(missing_ok=True)
+        run = hardware.run_fun_ofdm(
+            commands,
+            fun_ofdm,
+            f"trace of {step.name}",
+            [*args, "--trace", str(trace)],
+            limit_s,
+            read_threads=False,
+        )
+        if run.summary is not None:
+            (traces / f"{trace_name(step)}.json").write_text(
+                json.dumps(result.without_buckets(run.summary)) + "\n"
+            )
+        if trace.exists():
+            # Written by root if the USRP needs sudo, but readable, and the
+            # directory is ours
+            with gzip.open(trace.with_suffix(".pftrace.gz"), "wb") as packed:
+                packed.write(trace.read_bytes())
+            trace.unlink()
+
+    return run_trace
 
 
 #: The bandwidth per runs at, in MHz: one the receiver keeps up with.
@@ -986,6 +1063,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=STEP_SECONDS,
         help="how long each step sends frames or receives noise",
     )
+    realtime_parser.add_argument(
+        "--trace-seconds",
+        type=float,
+        default=TRACE_SECONDS,
+        help="how long each configuration's trace is, with --out (0 for none)",
+    )
     per_parser = sweeps.add_parser(
         "per",
         help="PER vs SNR at every rate, against the simulated curves",
@@ -1042,6 +1125,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "workloads": args.workloads,
             "repetitions": args.repetitions,
             "seconds": args.seconds,
+            "trace_seconds": args.trace_seconds if args.out else 0,
         }
     else:
         options = {
@@ -1114,7 +1198,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.seconds,
         save,
     )
+    # Saved before the traces, which don't change it
     save(records, partial=False)
+    if args.out and args.trace_seconds > 0:
+        trace_steps(
+            hardware_tracer(commands, args.fun_ofdm, args.out / "traces"),
+            usrp,
+            radio,
+            args.workloads,
+            args.bandwidths,
+            args.trace_seconds,
+        )
     print(realtime_table(records), end="")
     return 0
 

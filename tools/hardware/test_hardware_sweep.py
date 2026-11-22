@@ -601,3 +601,27 @@ def test_needs_a_reliable_calibration() -> None:
 
     with pytest.raises(hardware.HardwareError, match="too few frames"):
         sweep.per(mostly_lost, ["bpsk-1/2"], {"bpsk-1/2": 17.0})
+
+
+def test_names_a_trace_after_its_configuration() -> None:
+    assert sweep.trace_name(sweep.Step("qam64-3/4", 12.5, 0)) == (
+        "qam64-3-4-12.5MHz"
+    )
+
+
+def test_traces_every_configuration_once() -> None:
+    seen: list[str] = []
+    sweep.trace_steps(
+        lambda step, args, limit: seen.append(sweep.trace_name(step)),
+        USRP,
+        RADIO,
+        ["bpsk-1/2", "idle"],
+        [5.0, 20.0],
+        1.0,
+    )
+    assert seen == [
+        "bpsk-1-2-5MHz",
+        "idle-5MHz",
+        "bpsk-1-2-20MHz",
+        "idle-20MHz",
+    ]

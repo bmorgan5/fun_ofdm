@@ -19,6 +19,7 @@ for scorecard.py to read (see README.md):
 import argparse
 import dataclasses
 import datetime
+import gzip
 import json
 import os
 import pathlib
@@ -334,6 +335,34 @@ def run_sims(
     return runs
 
 
+def trace_sims(fun_ofdm: pathlib.Path, traces: pathlib.Path) -> None:
+    """Runs each of SIM_RUNS once more, with a trace, for charts.py.
+
+    It writes NAME.pftrace.gz and its --json summary, NAME.json, without
+    buckets. charts.py checks the histograms against the trace. The trace
+    costs time, so this run isn't one of the measured ones.
+    """
+    traces.mkdir(parents=True, exist_ok=True)
+    for run, (rate, snr_db) in SIM_RUNS.items():
+        trace = traces / f"{run}.pftrace"
+        done = subprocess.run(
+            [*sim_command(fun_ofdm, rate, snr_db), "--trace", str(trace)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if done.returncode not in (0, 1):
+            raise subprocess.CalledProcessError(
+                done.returncode, done.args, done.stdout, done.stderr
+            )
+        (traces / f"{run}.json").write_text(
+            json.dumps(result.without_buckets(json.loads(done.stdout))) + "\n"
+        )
+        with gzip.open(trace.with_suffix(".pftrace.gz"), "wb") as packed:
+            packed.write(trace.read_bytes())
+        trace.unlink()
+
+
 # Preparing the machine -----------------------------------------------------
 
 
@@ -530,6 +559,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     print(body(rows), end="")
     progress(f"wrote {args.out}")
+    if args.measurement == "latency":
+        # After the result, which a failed trace shouldn't lose
+        progress("sim again, with a trace, for the charts")
+        try:
+            trace_sims(fun_ofdm, args.out / "traces")
+        except (OSError, ValueError, subprocess.CalledProcessError) as error:
+            progress(f"no traces, so no check of them in the charts: {error}")
     return 0
 
 

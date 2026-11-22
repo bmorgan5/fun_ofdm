@@ -130,6 +130,18 @@ def source_name(path: pathlib.Path) -> str:
     )
 
 
+def without_buckets(value: Any) -> Any:
+    """A --json summary without its histograms' buckets, which are most of it.
+
+    The percentiles and counts stay.
+    """
+    if isinstance(value, dict):
+        return {
+            k: without_buckets(v) for k, v in value.items() if k != "buckets"
+        }
+    return value
+
+
 def describe(prov: Mapping[str, Any]) -> str:
     """A line of Markdown saying what made a result, for result.md."""
     host = prov["host"]

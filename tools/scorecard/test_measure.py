@@ -203,6 +203,8 @@ import sys
 if sys.argv[1] == "--version":
     print("2.0.0")
     sys.exit(0)
+if "--trace" in sys.argv:
+    open(sys.argv[sys.argv.index("--trace") + 1], "wb").write(b"trace")
 print(open(sys.argv[0] + ".json").read())
 sys.exit(1)
 """
@@ -314,6 +316,15 @@ def test_main_measures_the_latency(
     assert list(data["rows"]) == ["latency", "jitter"]
     assert data["rows"]["latency"]["W-54 p50"]["samples"] == [2000, 2000]
     assert data["histograms"]["W-6"]["latency"] == [[2_000_000, 2]]
+    # A traced run of each, and its summary without the buckets
+    assert sorted(p.name for p in (out / "traces").iterdir()) == [
+        "W-54.json",
+        "W-54.pftrace.gz",
+        "W-6.json",
+        "W-6.pftrace.gz",
+    ]
+    traced = json.loads((out / "traces" / "W-6.json").read_text())
+    assert "buckets" not in traced["metrics"]["latency"]
     # The scorecard reads it
     rows, _ = scorecard.read_results(tmp_path)
     assert list(rows) == ["latency", "jitter"]

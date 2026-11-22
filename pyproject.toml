@@ -5,7 +5,10 @@
 name = "fun-ofdm-tools"
 version = "0.0.0"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "matplotlib>=3.11.2",
+    "perfetto>=0.59.1",
+]
 
 [dependency-groups]
 dev = [

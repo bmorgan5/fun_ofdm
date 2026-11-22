@@ -133,6 +133,15 @@ def frame_seconds(
     return (20e-6 + 4e-6 * symbols) * 20 / bandwidth_mhz
 
 
+def trace_name(workload: str, bandwidth_mhz: float) -> str:
+    """A realtime trace's file name, without its suffix, like "idle-12.5MHz".
+
+    hardware_sweep.py saves them, and tools/scorecard/charts.py finds them,
+    by these names.
+    """
+    return f"{workload.replace('/', '-')}-{bandwidth_mhz:g}MHz"
+
+
 def tuning_args(radio: dict[str, Any]) -> list[str]:
     """fun-ofdm's options for the radio's channel or frequency."""
     if "freq_ghz" in radio:

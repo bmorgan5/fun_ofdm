@@ -86,7 +86,8 @@ frame_decoder            [frame_decoder ]               [frame_decoder      ]
 
 **Into a file:** `--trace FILE` (`rx` and `sim`, or `--trace=FILE` for
 `fun-ofdm-bench`). Open it in [ui.perfetto.dev](https://ui.perfetto.dev), or
-query it with Perfetto's trace processor, which `scorecard.py` will use:
+query it with Perfetto's trace processor, as
+[charts.py](../../tools/scorecard/charts.py) does:
 
 ```bash
 fun-ofdm sim --trace sim.pftrace

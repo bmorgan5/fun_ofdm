@@ -16,6 +16,7 @@ import argparse
 import dataclasses
 import json
 import math
+import os
 import pathlib
 import statistics
 import sys
@@ -489,8 +490,13 @@ def markdown(
     sources: Sequence[Source],
     rows: Rows,
     changes: dict[str, dict[str, Change]] | None,
+    charts: Sequence[str] = (),
 ) -> str:
-    """The scorecard as Markdown: what it's from, then a table per row."""
+    """The scorecard as Markdown.
+
+    What it's from, a table per row, then links to the charts (charts.py), by
+    their paths from the scorecard.
+    """
     lines = [
         f"# Scorecard: {meta['name']}",
         "",
@@ -538,6 +544,9 @@ def markdown(
                     f"{summary(metric)} | {change_text(change, metric.unit)} "
                     f"| {p} | {verdict} |"
                 )
+    if charts:
+        lines += ["", "## Charts", ""]
+        lines += [f"- [{pathlib.Path(c).stem}]({c})" for c in charts]
     return "\n".join(lines) + "\n"
 
 
@@ -608,7 +617,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     (out / "scorecard.json").write_text(
         result.to_json_text(to_json(meta, sources, rows, changes))
     )
-    table = markdown(meta, sources, rows, changes)
+    # By their paths from where scorecard.md goes
+    charts = [
+        os.path.relpath(path, out)
+        for path in sorted((args.dir / "charts").glob("*.png"))
+    ]
+    table = markdown(meta, sources, rows, changes, charts)
     (out / "scorecard.md").write_text(table)
     print(table, end="")
     return 0

@@ -301,3 +301,8 @@ def test_leaves_strings_and_mixed_arrays_alone() -> None:
     assert json.loads(text) == data
     assert '"x [1,   2] y"' in text
     assert '"m": [\n    1,\n    "a"\n  ]' in text
+
+
+def test_drops_a_summarys_buckets() -> None:
+    data = {"metrics": {"latency": {"p50": 1, "buckets": [[1, 2]]}}}
+    assert result.without_buckets(data) == {"metrics": {"latency": {"p50": 1}}}
