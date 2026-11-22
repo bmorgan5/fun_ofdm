@@ -93,6 +93,8 @@ usrp::usrp(usrp_params params) : m_params(params) {
  * to ettus' website</a> for more details.
  */
 void usrp::send_burst(std::vector<std::complex<double>> samples) {
+  samples.resize(samples.size() + BURST_TAIL_ZEROS);
+
   sem_wait(&m_tx_sem);
 
   uhd::tx_metadata_t tx_metadata;
@@ -121,6 +123,7 @@ void usrp::send_burst_sync(std::vector<std::complex<double>> samples) {
   if (m_params.tx_amp != 1.0)
     for (std::size_t x = 0; x < samples.size(); x++)
       samples[x] *= m_params.tx_amp;
+  samples.resize(samples.size() + BURST_TAIL_ZEROS);
 
   // Send the samples
   uhd::tx_metadata_t tx_metadata;
