@@ -1,8 +1,10 @@
 # Turns a pushed v* tag into a draft release, with the release notes from
-# docs/releases/<tag>.md, an archive for each architecture (the binaries, and
-# bootstrap.sh, which installs what they need to run), SHA256SUMS and a build
-# provenance attestation for each archive. Read the draft on GitHub, then
-# publish it.
+# docs/releases/<tag>/README.md, an archive for each architecture (the
+# binaries, and bootstrap.sh, which installs what they need to run), SHA256SUMS
+# and a build provenance attestation for each archive. The notes' relative
+# links and images point at the tag, so they work on the release page. Upload
+# the measurements, read the draft on GitHub, then publish it
+# (docs/releasing.md).
 name: Release
 
 on:
@@ -46,7 +48,7 @@ jobs:
             echo "::error::The tag $GITHUB_REF_NAME doesn't match the version in MODULE.bazel ($version)."
             exit 1
           fi
-          notes="docs/releases/$GITHUB_REF_NAME.md"
+          notes="docs/releases/$GITHUB_REF_NAME/README.md"
           if [[ ! -f "$notes" ]]; then
             echo "::error::There are no release notes: $notes is missing."
             exit 1
@@ -90,14 +92,41 @@ jobs:
           pattern: dist-*
           path: dist
           merge-multiple: true
+      # The notes link their images and the repo's docs by relative paths,
+      # which work in the repo but not on the release page, so point them at
+      # the tag: images at their raw files, and the rest at their pages.
+      - name: Point the notes' links at the tag
+        run: |
+          python3 - "docs/releases/$GITHUB_REF_NAME/README.md" > notes.md <<'PY'
+          import os, posixpath, re, sys
+
+          notes = sys.argv[1]
+          tag, repo = os.environ["GITHUB_REF_NAME"], os.environ["GITHUB_REPOSITORY"]
+
+          def at_tag(match):
+              bang, text, target = match.groups()
+              if re.match(r"[A-Za-z][A-Za-z0-9+.-]*:|#|/", target):
+                  return match.group(0)
+              path, _, fragment = target.partition("#")
+              path = posixpath.normpath(posixpath.join(posixpath.dirname(notes), path))
+              if path.startswith("../"):
+                  sys.exit(f"{notes} links {target}, outside the repo")
+              if bang:
+                  url = f"https://raw.githubusercontent.com/{repo}/{tag}/{path}"
+              else:
+                  url = f"https://github.com/{repo}/blob/{tag}/{path}"
+              return f"{bang}[{text}]({url}{'#' + fragment if fragment else ''})"
+
+          with open(notes) as f:
+              print(re.sub(r"(!?)\[([^\]]*)\]\(([^)\s]+)\)", at_tag, f.read()), end="")
+          PY
       # The title is the notes' first heading, i.e. "v2.0.0 Modernize".
       - name: Create a draft release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          notes="docs/releases/$GITHUB_REF_NAME.md"
           (cd dist && sha256sum *.tar.gz > SHA256SUMS)
           gh release create "$GITHUB_REF_NAME" dist/* \
             --draft --verify-tag \
-            --title "$(sed -n 's/^# *//p' "$notes" | head -1)" \
-            --notes-file "$notes"
+            --title "$(sed -n 's/^# *//p' notes.md | head -1)" \
+            --notes-file notes.md
