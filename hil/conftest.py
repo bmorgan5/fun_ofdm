@@ -49,15 +49,6 @@ RUN_START_S = 30
 FRAME_S = 0.02
 FRAME_S_BANDWIDTH_MHZ = 5
 
-#: The 802.11 channel the runs use without --channel or --freq: 36, at
-#: 5.18 GHz. There, a cable's signal is about 31 dB stronger than what leaks
-#: between the B210's channels inside it, against 19 dB on channel 144
-#: (5.72 GHz).
-DEFAULT_CHANNEL = 36
-
-#: The seed of every run's data, so a run can be repeated.
-SEED = 1
-
 
 def pytest_configure(config: pytest.Config) -> None:
     """Formats pytest's live log, which --log-cli-level=INFO turns on.
@@ -91,7 +82,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     group.addoption(
         "--channel",
         type=int,
-        help=f"802.11 channel number (default: {DEFAULT_CHANNEL})",
+        help=f"802.11 channel number (default: {hardware.DEFAULT_CHANNEL})",
     )
     group.addoption(
         "--freq",
@@ -161,7 +152,7 @@ def radio(
     tuning = (
         {"freq_ghz": freq_ghz}
         if freq_ghz is not None
-        else {"channel": channel or DEFAULT_CHANNEL}
+        else {"channel": channel or hardware.DEFAULT_CHANNEL}
     )
     return {
         **tuning,
@@ -207,13 +198,6 @@ def fun_ofdm_json(fun_ofdm: pathlib.Path, run: hardware.Commands) -> FunOfdm:
     return run_it
 
 
-def tuning_args(radio: dict[str, Any]) -> list[str]:
-    """fun-ofdm's options for the radio's channel or frequency."""
-    if "freq_ghz" in radio:
-        return [f"--freq={radio['freq_ghz']}"]
-    return [f"--channel={radio['channel']}"]
-
-
 @pytest.fixture(scope="session")
 def link(
     radio: dict[str, Any], usrp: hardware.Usrp, fun_ofdm_json: FunOfdm
@@ -225,21 +209,7 @@ def link(
         log.info("%s: sending %d frames at %s", name, packets, rate)
         return fun_ofdm_json(
             name,
-            [
-                "loopback",
-                f"--device=serial={usrp.serial}",
-                *tuning_args(radio),
-                f"--bandwidth={radio['bandwidth_mhz']}",
-                f"--tx-gain={radio['tx_gain']}",
-                f"--rx-gain={radio['rx_gain']}",
-                *hardware.port_args(
-                    hardware.PORTS[radio["tx_port"]],
-                    hardware.PORTS[radio["rx_port"]],
-                ),
-                f"--phy-rate={rate}",
-                f"--packets={packets}",
-                f"--seed={SEED}",
-            ],
+            hardware.loopback_args(usrp, radio, rate, packets),
             RUN_START_S + frame_s * packets,
         )
 

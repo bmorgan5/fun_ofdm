@@ -9,6 +9,7 @@ import contextlib
 import dataclasses
 import json
 import logging
+import math
 import os
 import pathlib
 import platform
@@ -87,6 +88,86 @@ def port_args(tx: Port, rx: Port) -> list[str]:
         f"--tx-antenna={tx.antenna}",
         f"--rx-subdev={rx.subdev}",
         f"--rx-antenna={rx.antenna}",
+    ]
+
+
+#: The 802.11 channel the runs use without --channel or --freq: 36, at
+#: 5.18 GHz. There, a cable's signal is about 31 dB stronger than what leaks
+#: between the B210's channels inside it, against 19 dB on channel 144
+#: (5.72 GHz).
+DEFAULT_CHANNEL = 36
+
+#: The seed of every run's data, so a run can be repeated.
+SEED = 1
+
+#: Each --phy-rate's data bits per OFDM symbol (src/phy/rates.h).
+DATA_BITS_PER_SYMBOL = {
+    "bpsk-1/2": 24,
+    "bpsk-2/3": 32,
+    "bpsk-3/4": 36,
+    "qpsk-1/2": 48,
+    "qpsk-2/3": 64,
+    "qpsk-3/4": 72,
+    "qam16-1/2": 96,
+    "qam16-2/3": 128,
+    "qam16-3/4": 144,
+    "qam64-2/3": 192,
+    "qam64-3/4": 216,
+}
+
+#: fun-ofdm's default --payload-size, with its sequence number.
+PAYLOAD_SIZE = 1500
+
+
+def frame_seconds(
+    rate: str, bandwidth_mhz: float, payload_size: int = PAYLOAD_SIZE
+) -> float:
+    """How long a frame takes on air, without the gap after it.
+
+    The preamble and SIGNAL take 20 µs at 20 MHz, then each data symbol 4 µs,
+    for the 16 SERVICE bits, the payload and its CRC-32, and 6 tail bits.
+    Every time scales with 20 MHz over the bandwidth.
+    """
+    bits = 16 + 8 * (payload_size + 4) + 6
+    symbols = math.ceil(bits / DATA_BITS_PER_SYMBOL[rate])
+    return (20e-6 + 4e-6 * symbols) * 20 / bandwidth_mhz
+
+
+def tuning_args(radio: dict[str, Any]) -> list[str]:
+    """fun-ofdm's options for the radio's channel or frequency."""
+    if "freq_ghz" in radio:
+        return [f"--freq={radio['freq_ghz']}"]
+    return [f"--channel={radio['channel']}"]
+
+
+def loopback_args(
+    usrp: Usrp,
+    radio: dict[str, Any],
+    rate: str,
+    packets: int,
+    seed: int = SEED,
+) -> list[str]:
+    """fun-ofdm's arguments to send frames over the cable, from tx to rx.
+
+    Args:
+        usrp: The USRP.
+        radio: The channel or frequency, bandwidth_mhz, tx_gain, rx_gain,
+            and tx_port and rx_port, by their names in PORTS.
+        rate: The --phy-rate.
+        packets: How many frames.
+        seed: The seed of their data.
+    """
+    return [
+        "loopback",
+        f"--device=serial={usrp.serial}",
+        *tuning_args(radio),
+        f"--bandwidth={radio['bandwidth_mhz']}",
+        f"--tx-gain={radio['tx_gain']}",
+        f"--rx-gain={radio['rx_gain']}",
+        *port_args(PORTS[radio["tx_port"]], PORTS[radio["rx_port"]]),
+        f"--phy-rate={rate}",
+        f"--packets={packets}",
+        f"--seed={seed}",
     ]
 
 
@@ -507,6 +588,7 @@ def wait_for(
     name: str,
     start: float,
     limit_s: float,
+    read_threads: bool = True,
 ) -> tuple[str, str, bool]:
     """Waits for a run to end, and stops it at its time limit.
 
@@ -519,10 +601,12 @@ def wait_for(
         name: What the run is called, for the log.
         start: When it started, on time.monotonic().
         limit_s: Its time limit, in seconds.
+        read_threads: Whether to read where its threads are waiting before
+            stopping it.
 
     Returns:
-        Its output, where each thread was waiting if it was stopped (or ""),
-        and whether it was stopped.
+        Its output, where each thread was waiting if it was stopped and they
+        were read (or ""), and whether it was stopped.
     """
     deadline = start + limit_s
     while True:
@@ -535,12 +619,11 @@ def wait_for(
             elapsed_s = time.monotonic() - start
             if elapsed_s >= limit_s:
                 log.info(
-                    "%s: past its %g s time limit, so reading its threads "
-                    "and stopping it",
+                    "%s: past its %g s time limit, so stopping it",
                     name,
                     limit_s,
                 )
-                threads, output = stop(process, binary, run)
+                threads, output = stop(process, binary, run, read_threads)
                 return output, threads, True
             log.info("%s: %.0f s of %g s", name, elapsed_s, limit_s)
 
@@ -551,6 +634,7 @@ def run_fun_ofdm(
     name: str,
     args: Sequence[str],
     limit_s: float,
+    read_threads: bool = True,
 ) -> Run:
     """Runs fun-ofdm with a time limit, and records how the run ended.
 
@@ -564,6 +648,9 @@ def run_fun_ofdm(
         name: What to call the run, like "bpsk-1/2".
         args: fun-ofdm's arguments, without --json, which this adds.
         limit_s: The time limit, in seconds.
+        read_threads: Whether to read where fun-ofdm's threads are waiting
+            when it passes its limit, to explain a hang. A run that's meant
+            to be stopped, like rx, doesn't need it.
     """
     with tempfile.TemporaryDirectory() as tmp:
         summary = pathlib.Path(tmp) / "summary.json"
@@ -580,7 +667,7 @@ def run_fun_ofdm(
         )
         try:
             output, threads, timed_out = wait_for(
-                process, run, fun_ofdm.name, name, start, limit_s
+                process, run, fun_ofdm.name, name, start, limit_s, read_threads
             )
         except BaseException:
             # Like Ctrl+C: don't leave fun-ofdm holding the USRP, even if
