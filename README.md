@@ -18,7 +18,7 @@ and run the latest release from
 [releases](https://github.com/bmorgan5/fun_ofdm/releases):
 
 ```bash
-RELEASE=2.0.0
+RELEASE=2.1.0
 ARCHIVE=fun-ofdm-v$RELEASE-linux-$(uname -m)
 gh release download "v$RELEASE" --repo bmorgan5/fun_ofdm --pattern "$ARCHIVE.tar.gz"
 gh attestation verify "$ARCHIVE.tar.gz" --repo bmorgan5/fun_ofdm
@@ -43,6 +43,15 @@ By default the channel between them is perfect. `--snr`, `--cfo`,
 `--timing-offset` and `--delay-spread` add noise, a carrier frequency offset, a
 delay and multipath fading ([channel.h](src/channel.h)), for example
 `fun-ofdm sim --snr 20 --cfo 2.5kHz`.
+
+## Results
+
+Each release measures the receiver on a Raspberry Pi 5 with a B210, the same
+way every time ([docs/releasing.md](docs/releasing.md)):
+
+| Release | Headline |
+|---------|----------|
+| [v2.1.0](https://github.com/bmorgan5/fun_ofdm/releases/tag/v2.1.0) | The receiver decodes 16.5 MS/s at BPSK 1/2 and 8.7 MS/s at 64-QAM 3/4, against the 20 MS/s it needs, and keeps up with 5 MHz channels on a B210 |
 
 ## Requirements
 
