@@ -42,6 +42,8 @@ doesn't count towards the latency, for `charts.py`. `-i` walks through
 preparing the machine, then asks which CPUs to pin to;
 `--cpus` pins without asking. `--repetitions` and `--workload-seconds` make a
 quick try, which isn't a result to keep. `--help` lists the rest.
+[docs/releasing.md](../../docs/releasing.md) says what to measure for a
+release.
 
 `scorecard.py DIR` reads `DIR/*/result.json`, each row from one result, and
 writes `DIR/scorecard.md` and `DIR/scorecard.json`. Only `DIR`'s own

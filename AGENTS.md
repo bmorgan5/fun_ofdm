@@ -132,9 +132,10 @@ libraries.
   itself.
 - Make the change, then stop so it can be reviewed. Don't stage, commit or push
   it. Instead, give a commit message for it, following the rules below.
-- A milestone's last PR makes its release: it bumps the version, writes
-  `docs/releases/vX.Y.Z.md`, and sets `RELEASE` in the README's Quick start.
-  After it merges, pushing the `vX.Y.Z` tag makes a draft release
+- A milestone's last PR makes its release, as
+  [docs/releasing.md](docs/releasing.md) says: it bumps the version,
+  measures, and writes `docs/releases/vX.Y.Z/README.md`. After it merges,
+  pushing the `vX.Y.Z` tag makes a draft release
   (`.github/workflows/release.yml`), which is published by hand.
 
 ## Commits
