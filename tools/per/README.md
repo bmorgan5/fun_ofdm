@@ -10,16 +10,17 @@ decode.
 
 ```bash
 bazel run install
-uv run tools/per/sweep.py --out per.json   # Every rate, 0-30 dB, about a minute
+uv run tools/per/sweep.py --out per/   # Every rate, 0-30 dB, about a minute
 ```
 
 [sweep.py](sweep.py) runs `fun-ofdm sim` at each point: `--frames` frames
 (500 by default) of 1000-byte payloads at one SNR, with the noise from
 [src/channel.h](../../src/channel.h). It prints each rate's SNR at 10% PER, and
-`--out` writes every point. `--help` lists the options, like the SNRs and
-rates to run. It runs the binary that `bazel run install` copies to
-`out/linux_<arch>/bin/`, for this machine's architecture, unless `--fun-ofdm`
-names another.
+`--out` writes every point, as `result.json` and `result.md`
+([the result contract](../results/result.py)). `--help` lists the options,
+like the SNRs and rates to run. It runs the binary that `bazel run install`
+copies to `out/linux_<arch>/bin/`, for this machine's architecture, unless
+`--fun-ofdm` names another.
 
 ```text
 PER
@@ -36,7 +37,7 @@ Every point uses the same seed, so it has the same data and the same noise,
 only scaled. A higher SNR is the same run with quieter noise, which keeps each
 curve close to monotonic without many more frames.
 
-Each point in the JSON also has the receiver's counters, from `sim`'s
+Each point in `result.json` also has the receiver's counters, from `sim`'s
 `metrics.frames`, which say where the frames went: `detected`, `sync_lost`,
 `signal_failed` and `crc_failed`.
 

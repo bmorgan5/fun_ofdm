@@ -270,31 +270,28 @@ def find_usrp(run: Commands) -> Usrp:
     return usrp
 
 
-def metadata(
-    fun_ofdm: pathlib.Path,
-    usrps: Sequence[Usrp],
+def provenance(
+    usrp: Usrp,
     settings: dict[str, Any],
     run: Runner = hostcheck.run_command,
 ) -> dict[str, Any]:
-    """What every result.json records besides the results.
+    """The hardware a result depends on, for its provenance's `hardware`.
 
     Args:
-        fun_ofdm: The binary under test.
-        usrps: The USRPs the test used.
-        settings: The radio settings: frequency, gains, ports.
-        run: Runs uhd_config_info, and hostcheck's commands.
+        usrp: The USRP.
+        settings: The radio settings: channel or frequency, bandwidth, gains
+            and ports.
+        run: Runs uhd_config_info.
 
     Returns:
-        The host (hostcheck's report, with the kernel and commit), the UHD
-        version, the USRPs and the settings.
+        The USRP's model and serial, UHD's version, then the settings, which
+        can't replace the first three.
     """
     return {
-        "host": hostcheck.to_json(
-            hostcheck.collect(fun_ofdm=fun_ofdm, run=run)
-        ),
+        **settings,
+        "product": usrp.product,
+        "serial": usrp.serial,
         "uhd_version": uhd_version(run(["uhd_config_info", "--version"])),
-        "usrps": [dataclasses.asdict(usrp) for usrp in usrps],
-        "settings": settings,
     }
 
 
@@ -663,69 +660,3 @@ def loopback_row(summary: dict[str, Any] | None) -> dict[str, str]:
         if bits_per_second is not None
         else "?",
     }
-
-
-def markdown_table(rows: Sequence[dict[str, str]]) -> str:
-    """Rows with the same keys as a Markdown table, the keys as its header.
-
-    Each column is padded to its widest cell, so the table lines up as text
-    too, like in the terminal.
-    """
-    if not rows:
-        return ""
-    header = list(rows[0])
-    widths = [max(len(key), *(len(row[key]) for row in rows)) for key in header]
-
-    def line(cells: Sequence[str]) -> str:
-        padded = (
-            cell.ljust(width) for cell, width in zip(cells, widths, strict=True)
-        )
-        return "| " + " | ".join(padded) + " |"
-
-    lines = [line(header), line(["-" * width for width in widths])]
-    lines += [line([row[key] for key in header]) for row in rows]
-    return "\n".join(lines) + "\n"
-
-
-def results_markdown(
-    title: str, meta: dict[str, Any], rows: Sequence[dict[str, str]]
-) -> str:
-    """result.md: a heading, what the runs ran on, and a table of the runs.
-
-    Args:
-        title: The test, for the heading.
-        meta: What metadata() returns.
-        rows: The table, the rows to paste into the release notes.
-    """
-    settings = ", ".join(f"{k} {v}" for k, v in meta["settings"].items())
-    usrps = ", ".join(f"{u['product']} {u['serial']}" for u in meta["usrps"])
-    commit = (meta["host"].get("commit") or "unknown")[:12]
-    dirty = " (with uncommitted changes)" if meta["host"].get("dirty") else ""
-    return (
-        f"# {title}\n\n"
-        f"{usrps}; {settings}; UHD {meta['uhd_version']}; commit {commit}{dirty}"
-        "\n\n" + markdown_table(rows)
-    )
-
-
-def write_results(
-    out: pathlib.Path,
-    title: str,
-    meta: dict[str, Any],
-    runs: dict[str, Any],
-    rows: Sequence[dict[str, str]],
-) -> None:
-    """Writes result.json (everything) and result.md (the rows) to out.
-
-    Args:
-        out: The directory, which is created if needed.
-        title: The test, for result.md's heading.
-        meta: What metadata() returns.
-        runs: The raw results, by name, like each run's JSON summary.
-        rows: result.md's table, the rows to paste into the release notes.
-    """
-    out.mkdir(parents=True, exist_ok=True)
-    (out / "result.json").write_text(
-        json.dumps({**meta, "runs": runs}, indent=2) + "\n"
-    )
-    (out / "result.md").write_text(results_markdown(title, meta, rows))

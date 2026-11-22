@@ -40,7 +40,12 @@ convention = "google"
 
 [tool.ty.environment]
 # As pytest's pythonpath, below: tests/ and hil/ import the tools they use.
-extra-paths = ["tools/hardware", "tools/per", "tools/scorecard"]
+extra-paths = [
+    "tools/hardware",
+    "tools/per",
+    "tools/results",
+    "tools/scorecard",
+]
 
 [tool.ty.terminal]
 # Warnings fail the check too, so CI catches them.
@@ -53,6 +58,11 @@ error-on-warning = true
 #     minutes. CI runs them in a job of their own.
 #   * `pytest hil`: the hardware tests, which need a USRP.
 testpaths = ["tools"]
-# So tests/ and hil/ can import the tools they use, and tools/hardware can
-# import hostcheck, from tools/scorecard.
-pythonpath = ["tools/hardware", "tools/per", "tools/scorecard"]
+# So tests/ and hil/ can import the tools they use, and the tools each
+# other's modules, like hostcheck, from tools/scorecard.
+pythonpath = [
+    "tools/hardware",
+    "tools/per",
+    "tools/results",
+    "tools/scorecard",
+]

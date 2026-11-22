@@ -12,8 +12,9 @@ USRP without it, like in the dev container, where USB devices are root's.
 Sending frames never fails a test by itself: each run of fun-ofdm is recorded
 however it ends, and the tests check what it did. pytest prints each test
 file's results at the end, whether the tests passed or not. With --out DIR,
-each test file also writes them, with each run's log, to a directory in DIR
-named after it (test_link_smoke.py to link_smoke/).
+each test file also writes them, as tools/results/result.py says, with each
+run's log, to a directory in DIR named after it (test_link_smoke.py to
+link_smoke/).
 """
 
 import logging
@@ -23,6 +24,7 @@ from typing import Any
 
 import hardware
 import pytest
+import result
 
 #: Runs fun-ofdm: a name for the run, the arguments, and a time limit in
 #: seconds.
@@ -312,22 +314,34 @@ def results(
     usrp: hardware.Usrp,
     radio: dict[str, Any],
 ) -> Iterator[Results]:
-    """The test file's results: printed, and with --out, written."""
+    """The test file's results: printed, and with --out, written.
+
+    Its provenance is taken before the tests run. Its options are the tests
+    that were selected, like `-k` selects.
+    """
     name = request.path.stem.removeprefix("test_")
     out: pathlib.Path | None = request.config.getoption("--out")
+    tests = [
+        item.name for item in request.session.items if item.path == request.path
+    ]
+    prov = result.provenance(
+        f"hil/{request.path.name}",
+        {"tests": tests},
+        {"fun-ofdm": fun_ofdm},
+        hardware.provenance(usrp, radio),
+        sources=[
+            request.path,
+            pathlib.Path(__file__),
+            pathlib.Path(hardware.__file__),
+        ],
+    )
     collected = Results(out / name if out else None)
     yield collected
     if not collected.runs:
         return
 
     title = (request.module.__doc__ or name).split("\n")[0].rstrip(".")
-    meta = hardware.metadata(fun_ofdm, [usrp], radio)
+    body = result.markdown_table(collected.rows)
     if collected.out:
-        hardware.write_results(
-            collected.out, title, meta, collected.runs, collected.rows
-        )
-    report(
-        request.config,
-        hardware.results_markdown(title, meta, collected.rows),
-        collected.out,
-    )
+        result.write(collected.out, prov, {"runs": collected.runs}, title, body)
+    report(request.config, result.markdown(prov, title, body), collected.out)

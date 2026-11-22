@@ -4,6 +4,7 @@ import subprocess
 import sys
 import threading
 
+import hostcheck
 import pytest
 import sweep
 
@@ -253,8 +254,8 @@ def test_table_has_a_row_per_rate() -> None:
         "qam64-3/4": [point(10, 100), point(12, 100)],
     }
     assert sweep.table(curves).splitlines()[2:] == [
-        "| bpsk-1/2 | 12.0 dB | yes |",
-        "| qam64-3/4 | not reached | yes |",
+        "| bpsk-1/2  | 12.0 dB        | yes       |",
+        "| qam64-3/4 | not reached    | yes       |",
     ]
 
 
@@ -262,8 +263,12 @@ def test_main_writes_the_sweep(
     fake_fun_ofdm: pathlib.Path,
     tmp_path: pathlib.Path,
     capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    out = tmp_path / "per.json"
+    # The host is whatever runs the test: only its place in the JSON matters
+    host = hostcheck.collect(root=tmp_path, fun_ofdm=fake_fun_ofdm)
+    monkeypatch.setattr(hostcheck, "collect", lambda **_: host)
+    out = tmp_path / "per"
     status = sweep.main(
         [
             "--fun-ofdm",
@@ -282,10 +287,35 @@ def test_main_writes_the_sweep(
     )
     assert status == 0
     assert "| qpsk-1/2 |" in capsys.readouterr().out
-    points = json.loads(out.read_text())["rates"]["qpsk-1/2"]["points"]
+    written = json.loads((out / "result.json").read_text())
+    assert written["provenance"]["tool"] == "tools/per/sweep.py"
+    # Only what changes the measurement: not --out, --jobs or the path
+    assert written["provenance"]["options"] == {
+        "rates": ["qpsk-1/2"],
+        "snr_min": 10.0,
+        "snr_max": 11.0,
+        "snr_step": 1.0,
+        "frames": 100,
+        "seed": 1,
+    }
+    points = written["rates"]["qpsk-1/2"]["points"]
     assert [p["snr_db"] for p in points] == [10, 11]
+    markdown = (out / "result.md").read_text()
+    assert markdown.startswith("# PER vs SNR in simulation\n")
+    assert "| qpsk-1/2 |" in markdown
 
 
 def test_main_needs_the_binary(tmp_path: pathlib.Path) -> None:
     with pytest.raises(SystemExit):
         sweep.main(["--fun-ofdm", str(tmp_path / "missing")])
+
+
+@pytest.mark.parametrize("name", ["per.json", "new.json"])
+def test_main_refuses_a_file_for_out_before_sweeping(
+    fake_fun_ofdm: pathlib.Path, tmp_path: pathlib.Path, name: str
+) -> None:
+    out = tmp_path / name
+    if name == "per.json":
+        out.write_text("{}")
+    with pytest.raises(SystemExit):
+        sweep.main(["--fun-ofdm", str(fake_fun_ofdm), "--out", str(out)])

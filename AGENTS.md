@@ -63,7 +63,8 @@ libraries.
 - `tools/`: `bootstrap/`, the tools that Bazel runs (`coverage/`, `format/`,
   `qemu/`), the Perfetto config for system traces (`trace/`), and the Python
   tools (`pyproject.toml`), like the PER sweep (`per/`) and the scorecard
-  (`scorecard/`), with their own tests.
+  (`scorecard/`), with their own tests. What every measurement tool writes
+  with `--out DIR` is in `results/result.py`.
 - `tests/`: Python tests of `fun-ofdm` itself, which run the binary, like the
   PER guardrails.
 - `hil/`: hardware tests, which need a USRP, and their pytest fixtures. What

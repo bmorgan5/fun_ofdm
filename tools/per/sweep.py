@@ -5,10 +5,11 @@ at one SNR, and counts the frames lost. Every point uses the same seed, so
 every point has the same data and the same noise, only scaled: a higher SNR is
 the same run with quieter noise, which keeps each curve close to monotonic.
 
-    uv run tools/per/sweep.py --out per.json
+    uv run tools/per/sweep.py --out per/
 
-It prints the SNR at which each rate's PER falls to 10%, and with --out writes
-every point, with how the receiver lost each frame (see README.md).
+It prints the SNR at which each rate's PER falls to 10%, and with --out DIR
+writes every point, with how the receiver lost each frame, as
+tools/results/result.py says (see README.md).
 """
 
 import argparse
@@ -27,6 +28,9 @@ from collections.abc import Callable, Iterable, Sequence
 from typing import Any
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "tools" / "results"))
+
+import result
 
 #: The fun-ofdm binary for this machine's architecture, which
 #: `bazel run install` copies there.
@@ -322,17 +326,19 @@ def to_json(
 
 def table(curves: dict[str, list[Point]]) -> str:
     """A Markdown table of each rate's SNR at 10% PER."""
-    lines = [
-        "| Rate | SNR at 10% PER | Monotonic |",
-        "|------|----------------|-----------|",
-    ]
+    rows = []
     for rate, points in curves.items():
         snr = snr_at_per(points, TARGET_PER)
-        text = "not reached" if snr is None else f"{snr:.1f} dB"
-        lines.append(
-            f"| {rate} | {text} | {'yes' if is_monotonic(points) else 'no'} |"
+        rows.append(
+            {
+                "Rate": rate,
+                "SNR at 10% PER": "not reached"
+                if snr is None
+                else f"{snr:.1f} dB",
+                "Monotonic": "yes" if is_monotonic(points) else "no",
+            }
         )
-    return "\n".join(lines)
+    return result.markdown_table(rows)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -361,7 +367,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="points to run at once",
     )
     parser.add_argument(
-        "--out", type=pathlib.Path, help="write every point as JSON"
+        "--out",
+        type=pathlib.Path,
+        metavar="DIR",
+        help="write result.json, with every point, and result.md to DIR",
     )
     args = parser.parse_args(argv)
 
@@ -371,6 +380,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("the SNRs need --snr-step > 0 and --snr-max >= --snr-min")
     if args.frames < 1:
         parser.error("--frames must be at least 1")
+    if args.out and (
+        args.out.suffix == ".json"
+        or (args.out.exists() and not args.out.is_dir())
+    ):
+        parser.error(f"--out {args.out} isn't a directory: it takes one")
+    # Before the sweep, which it describes
+    prov = result.provenance(
+        "tools/per/sweep.py",
+        {
+            key: vars(args)[key]
+            for key in ("rates", "snr_min", "snr_max", "snr_step", "frames")
+        }
+        | {"seed": args.seed},
+        {"fun-ofdm": args.fun_ofdm},
+        sources=[pathlib.Path(__file__)],
+    )
 
     snrs = snr_grid(args.snr_min, args.snr_max, args.snr_step)
     total = len(args.rates) * len(snrs)
@@ -387,10 +412,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.jobs,
         progress_printer(total),
     )
-    print(table(curves))
+    print(table(curves), end="")
     if args.out:
-        args.out.write_text(
-            json.dumps(to_json(curves, args.frames, args.seed), indent=2) + "\n"
+        result.write(
+            args.out,
+            prov,
+            to_json(curves, args.frames, args.seed),
+            "PER vs SNR in simulation",
+            table(curves),
         )
     return 0
 

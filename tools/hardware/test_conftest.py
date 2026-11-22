@@ -17,6 +17,7 @@ def hil_pytester(
     pytester.makeconftest((REPO / "hil" / "conftest.py").read_text())
     paths = [
         str(REPO / "tools" / "hardware"),
+        str(REPO / "tools" / "results"),
         str(REPO / "tools" / "scorecard"),
     ]
     monkeypatch.setenv("PYTHONPATH", os.pathsep.join(paths))

@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import pathlib
@@ -317,23 +316,6 @@ def test_says_when_the_threads_cant_be_read() -> None:
     assert "can't be read" in hardware.thread_states(12, fake_proc({}))
 
 
-def test_writes_a_markdown_table_with_its_columns_lined_up() -> None:
-    rows = [
-        {"Run": "bpsk-1/2", "Lost": "3"},
-        {"Run": "qam16-1/2", "Lost": "12"},
-    ]
-    assert hardware.markdown_table(rows) == (
-        "| Run       | Lost |\n"
-        "| --------- | ---- |\n"
-        "| bpsk-1/2  | 3    |\n"
-        "| qam16-1/2 | 12   |\n"
-    )
-
-
-def test_writes_no_table_without_rows() -> None:
-    assert hardware.markdown_table([]) == ""
-
-
 def fake_run(outputs: dict[str, str]) -> hardware.Runner:
     # Answers each command by its program's name, or fails.
     def run(command: Sequence[str]) -> str | None:
@@ -342,58 +324,19 @@ def fake_run(outputs: dict[str, str]) -> hardware.Runner:
     return run
 
 
-def test_records_the_metadata(tmp_path: pathlib.Path) -> None:
-    run = fake_run(
-        {"uhd_config_info": "UHD 4.9.0.1-1ubuntu1\n", "git": "abc123\n"}
-    )
-    meta = hardware.metadata(
-        tmp_path / "fun-ofdm",
-        [hardware.Usrp(serial="F571FA", product="B210")],
-        {"freq_ghz": 5.18, "bandwidth_mhz": 5},
+def test_records_the_hardware() -> None:
+    run = fake_run({"uhd_config_info": "UHD 4.9.0.1-1ubuntu1\n"})
+    assert hardware.provenance(
+        hardware.Usrp(serial="F571FA", product="B210"),
+        {"channel": 36, "bandwidth_mhz": 5},
         run,
-    )
-    assert meta["uhd_version"] == "4.9.0.1-1ubuntu1"
-    assert meta["usrps"] == [{"serial": "F571FA", "product": "B210"}]
-    assert meta["settings"] == {"freq_ghz": 5.18, "bandwidth_mhz": 5}
-    assert meta["host"]["commit"] == "abc123"
-
-
-META = {
-    "host": {"commit": "0123456789abcdef", "dirty": True},
-    "uhd_version": "4.9.0.1",
-    "usrps": [{"serial": "F571FA", "product": "B210"}],
-    "settings": {"freq_ghz": 5.18, "bandwidth_mhz": 5},
-}
-
-
-def test_makes_result_md() -> None:
-    clean = {**META, "host": {"commit": "0123456789abcdef", "dirty": False}}
-    assert hardware.results_markdown(
-        "Link smoke test", clean, [{"A": "1"}]
-    ) == (
-        "# Link smoke test\n\n"
-        "B210 F571FA; freq_ghz 5.18, bandwidth_mhz 5; UHD 4.9.0.1; "
-        "commit 0123456789ab\n\n"
-        "| A |\n| - |\n| 1 |\n"
-    )
-
-
-def test_writes_the_results(tmp_path: pathlib.Path) -> None:
-    meta = META
-    out = tmp_path / "link_smoke"
-    hardware.write_results(
-        out, "Link smoke test", meta, {"bpsk-1/2": SUMMARY}, [{"A": "1"}]
-    )
-    assert json.loads((out / "result.json").read_text()) == {
-        **meta,
-        "runs": {"bpsk-1/2": SUMMARY},
+    ) == {
+        "product": "B210",
+        "serial": "F571FA",
+        "uhd_version": "4.9.0.1-1ubuntu1",
+        "channel": 36,
+        "bandwidth_mhz": 5,
     }
-    assert (out / "result.md").read_text() == (
-        "# Link smoke test\n\n"
-        "B210 F571FA; freq_ghz 5.18, bandwidth_mhz 5; UHD 4.9.0.1; "
-        "commit 0123456789ab (with uncommitted changes)\n\n"
-        "| A |\n| - |\n| 1 |\n"
-    )
 
 
 # Fake commands. uhd_find_devices finds a B210 only as root, which the fake
