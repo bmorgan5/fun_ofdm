@@ -78,6 +78,8 @@ void frame_decoder::work() {
 
     // Look for a start of frame
     if (input_buffer[x].tag == START_OF_FRAME) {
+      double snr_db = input_buffer[x].snr_db;
+      m_snr_all.record(snr_db);
       // Attempt to decode the header
       ppdu h = ppdu();
       std::vector<std::complex<double>> header_samples(48);
@@ -91,6 +93,7 @@ void frame_decoder::work() {
       // Calculate the frame sample count
       std::size_t length = h.get_length();
       RateParams rate_params = RateParams(h.get_rate());
+      m_snr[rate_params.rate].record(snr_db);
       std::size_t frame_sample_count = h.get_num_symbols() * 48;
 
       // Start a new frame

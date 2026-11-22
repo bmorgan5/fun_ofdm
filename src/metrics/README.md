@@ -38,7 +38,9 @@ Every batch of samples is timestamped at each point of the pipeline:
 And counters: frames `detected` (on noise alone, false alarms), `sync_lost`
 (no long training symbols found), `signal_failed` (the SIGNAL symbol's parity
 or RATE was bad), `crc_ok` and `crc_failed` per rate, and the USRP's
-`overflows` (rx).
+`overflows` (rx). Each frame's SNR, which `channel_est` estimates from its
+long training symbols ([snr.h](../phy/snr.h)), goes in `snr`: the quartiles,
+of every frame and of each rate's.
 
 ## Histograms
 

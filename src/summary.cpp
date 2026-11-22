@@ -88,6 +88,33 @@ static json::object per_rate_json(
 }
 
 /*!
+ * \brief An SNR histogram's count and quartiles, in dB, which are null
+ * without any values.
+ */
+static json::object snr_json(const snr_histogram& h) {
+  auto db = [&](double percentile) -> json::value {
+    if (!h.count()) return nullptr;
+    return h.percentile(percentile);
+  };
+  return {
+      {"count", h.count()},
+      {"p25", db(25)},
+      {"p50", db(50)},
+      {"p75", db(75)},
+  };
+}
+
+/*!
+ * \brief The SNR estimates of every frame, and of each rate's.
+ */
+static json::object snr_json(const chain_metrics& m) {
+  json::object result = {{"all", snr_json(m.snr_all)}};
+  for (std::size_t rate = 0; rate < RATE_COUNT; rate++)
+    result[rate_name(static_cast<Rate>(rate))] = snr_json(m.snr[rate]);
+  return result;
+}
+
+/*!
  * \brief What a receiver chain measured, and the USRP's own metrics if the
  * mode used one.
  * \param result The mode's result: its `metrics`, and its `overflows` and
@@ -116,6 +143,7 @@ static json::object metrics_json(const Result& result) {
            {"crc_ok", per_rate_json(m.crc_ok)},
            {"crc_failed", per_rate_json(m.crc_failed)},
        }},
+      {"snr", snr_json(m)},
   };
   if constexpr (has_usrp) json_result["overflows"] = result.overflows;
   json_result["arrival_interval"] = histogram_json(m.arrival_interval);

@@ -3,9 +3,11 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cmath>
 #include <complex>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 #include "ppdu.h"
@@ -109,6 +111,21 @@ TEST(ChannelEstTest, MeasuresTheChannelAgainForEachFrame) {
       test::run_block(block, input, input.size());
   expect_equalized(output, 0, first);
   expect_equalized(output, first.size(), second);
+}
+
+// Without noise, the two LTS symbols are identical: an infinite SNR, on the
+// START_OF_FRAME symbol only (snr_test.cpp tests the estimate).
+TEST(ChannelEstTest, TagsTheFrameWithItsSnr) {
+  std::vector<tagged_vector<64>> sent = sent_symbols(0);
+  std::vector<tagged_vector<64>> input;
+  receive(input, sent, 0.1);
+  channel_est block;
+  std::vector<tagged_vector<64>> output =
+      test::run_block(block, input, input.size());
+  ASSERT_EQ(output.size(), sent.size());
+  EXPECT_EQ(output[0].snr_db, std::numeric_limits<double>::infinity());
+  for (std::size_t s = 1; s < output.size(); s++)
+    EXPECT_TRUE(std::isnan(output[s].snr_db)) << "symbol " << s;
 }
 
 TEST(ChannelEstTest, OutputsTheSameInAnyBatchSize) {

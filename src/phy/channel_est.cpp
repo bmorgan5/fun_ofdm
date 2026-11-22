@@ -13,6 +13,7 @@
 #include <cstring>
 
 #include "preamble.h"
+#include "snr.h"
 
 namespace fun {
 /*!
@@ -54,9 +55,11 @@ void channel_est::work() {
         m_chan_est[j] += ref_lts_sample / rec_lts_sample / 2.0;
       }
 
+      if (m_lts_flag == 1) m_first_lts = input_buffer[i];
       m_lts_flag++;
       if (m_lts_flag == 3)  // No more LTS symbols
       {
+        m_snr_db = lts_snr_db(m_first_lts.samples, input_buffer[i].samples);
         m_lts_flag = 0;
         m_frame_start = true;  // Next symbol is the start of frame
       }
@@ -65,6 +68,7 @@ void channel_est::work() {
       symbol.last_sample = input_buffer[i].last_sample;
       if (m_frame_start) {
         symbol.tag = START_OF_FRAME;
+        symbol.snr_db = m_snr_db;
         m_frame_start = false;
       }
 

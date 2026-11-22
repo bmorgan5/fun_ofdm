@@ -111,6 +111,13 @@ struct sim_result {
  *     whose histograms are empty.
  *   - `frames`: `detected`, `sync_lost`, `signal_failed`, and `crc_ok` and
  *     `crc_failed`, each an object with a count per `--phy-rate` name.
+ *   - `snr`: each frame's SNR estimate, in dB (src/phy/snr.h): `all`, every
+ *     frame whose SIGNAL symbol reached frame_decoder, then a member per
+ *     `--phy-rate` name, the frames whose SIGNAL field gave that rate. Each
+ *     is `count`, and the quartiles `p25`, `p50` and `p75`, to 0.1 dB, which
+ *     are null without frames. -19.95 and 59.95 mean at or beyond -20 and
+ *     60 dB: 59.95 is a frame without noise. Like the counters, it's
+ *     measured in a build without metrics too.
  *   - `overflows` (rx and loopback): the USRP's.
  *   - Histograms of times in nanoseconds: `arrival_interval`, `recv_delay`
  *     (rx and loopback), `latency`, and `blocks`, an object with a member per

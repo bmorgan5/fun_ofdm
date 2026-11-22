@@ -232,6 +232,8 @@ chain_metrics receiver_chain::metrics() const {
       .signal_failed = m_frame_decoder->signal_failed(),
       .crc_ok = m_frame_decoder->crc_ok(),
       .crc_failed = m_frame_decoder->crc_failed(),
+      .snr = m_frame_decoder->snr(),
+      .snr_all = m_frame_decoder->snr_all(),
   };
   return result;
 }

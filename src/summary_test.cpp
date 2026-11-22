@@ -388,24 +388,45 @@ TEST(SummaryTest, WritesTheReceiverChainsMetrics) {
   result.metrics.crc_ok[RATE_3_4_QAM16] = 3;
   result.metrics.crc_failed[RATE_3_4_QAM16] = 1;
 
-  EXPECT_EQ(summary(to_json("1.2.3", sim_options{}, result))
-                .as_object()
-                .at("metrics"),
-            summary(std::string(R"({
+  json::value parsed = summary(to_json("1.2.3", sim_options{}, result));
+  json::object metrics = parsed.as_object().at("metrics").as_object();
+  metrics.erase("snr");  // SummaryTest.WritesTheSnrEstimates checks it
+  EXPECT_EQ(metrics, summary(std::string(R"({
               "enabled": true,
               "frames": {"detected": 7, "sync_lost": 1, "signal_failed": 2,
                          "crc_ok": )") +
-                    per_rate("qam16-3/4", 3) + R"(, "crc_failed": )" +
-                    per_rate("qam16-3/4", 1) + R"(},
+                             per_rate("qam16-3/4", 3) + R"(, "crc_failed": )" +
+                             per_rate("qam16-3/4", 1) + R"(},
               "arrival_interval": )" +
-                    EMPTY_JSON + R"(,
-              "latency": )" +
-                    HUNDREDS_JSON +
-                    R"(,
+                             EMPTY_JSON + R"(,
+              "latency": )" + HUNDREDS_JSON +
+                             R"(,
               "blocks": {"frame_detector": {"wait": )" +
-                    EMPTY_JSON + R"(, "processing": )" + HUNDREDS_JSON +
-                    R"(, "start_interval": )" + EMPTY_JSON + R"(, "lag": )" +
-                    EMPTY_JSON + "}}}"));
+                             EMPTY_JSON + R"(, "processing": )" +
+                             HUNDREDS_JSON + R"(, "start_interval": )" +
+                             EMPTY_JSON + R"(, "lag": )" + EMPTY_JSON + "}}}")
+                         .as_object());
+}
+
+TEST(SummaryTest, WritesTheSnrEstimates) {
+  sim_result result;
+  for (double db : {10.02, 12.04, 14.06, 16.08})
+    result.metrics.snr_all.record(db);
+  result.metrics.snr[RATE_3_4_QAM16].record(12.04);
+
+  json::value parsed = summary(to_json("1.2.3", sim_options{}, result));
+  const json::object& snr =
+      parsed.as_object().at("metrics").as_object().at("snr").as_object();
+  EXPECT_EQ(snr.size(), 1 + RATE_COUNT) << "all, then each rate";
+  EXPECT_EQ(snr.begin()->key(), "all");
+  const json::object& all = snr.at("all").as_object();
+  EXPECT_EQ(all.at("count"), 4);
+  EXPECT_NEAR(all.at("p25").as_double(), 10.05, 1e-9);
+  EXPECT_NEAR(all.at("p50").as_double(), 12.05, 1e-9);
+  EXPECT_NEAR(all.at("p75").as_double(), 14.05, 1e-9);
+  EXPECT_EQ(snr.at("qam16-3/4").as_object().at("count"), 1);
+  EXPECT_EQ(snr.at("bpsk-1/2"), summary(R"({"count": 0, "p25": null,
+                                            "p50": null, "p75": null})"));
 }
 
 TEST(SummaryTest, AddsRxsOwnMetrics) {
@@ -413,9 +434,10 @@ TEST(SummaryTest, AddsRxsOwnMetrics) {
   rx_result result = {.overflows = 4, .recv_delay = hundreds()};
   json::value parsed = summary(to_json("1.2.3", rx_options{}, result));
   const json::object& m = parsed.as_object().at("metrics").as_object();
-  EXPECT_EQ(keys(m), (std::vector<std::string>{"enabled", "frames", "overflows",
-                                               "arrival_interval", "recv_delay",
-                                               "latency", "blocks"}));
+  EXPECT_EQ(keys(m),
+            (std::vector<std::string>{"enabled", "frames", "snr", "overflows",
+                                      "arrival_interval", "recv_delay",
+                                      "latency", "blocks"}));
   EXPECT_EQ(m.at("overflows"), 4);
   EXPECT_EQ(m.at("recv_delay"), summary(HUNDREDS_JSON));
 }

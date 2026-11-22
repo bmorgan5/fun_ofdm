@@ -124,6 +124,31 @@ TEST_P(FrameDecoderTest, CountsASignalThatFailsItsParityCheck) {
   EXPECT_EQ(block.crc_ok()[GetParam()] + block.crc_failed()[GetParam()], 0u);
 }
 
+TEST_P(FrameDecoderTest, RecordsTheSnrOfAFrameByItsRate) {
+  std::vector<tagged_vector<48>> input =
+      symbols(test::prbs_bytes(100), GetParam());
+  input[0].snr_db = 21.04;
+  frame_decoder block;
+  test::run_block(block, input, input.size());
+  for (Rate rate : test::ALL_RATES) {
+    EXPECT_EQ(block.snr()[rate].count(), rate == GetParam() ? 1u : 0u) << rate;
+  }
+  EXPECT_NEAR(block.snr()[GetParam()].percentile(50), 21.05, 1e-9);
+  EXPECT_EQ(block.snr_all().count(), 1u);
+}
+
+// Without a valid SIGNAL field there's no rate, so only `all` has it.
+TEST_P(FrameDecoderTest, RecordsTheSnrOfAFrameWithABadSignalInAllOnly) {
+  std::vector<tagged_vector<48>> input =
+      symbols(test::prbs_bytes(100), GetParam());
+  input[0].snr_db = 21.04;
+  for (std::complex<double>& point : input[0].samples) point = -point;
+  frame_decoder block;
+  test::run_block(block, input, input.size());
+  EXPECT_EQ(block.snr()[GetParam()].count(), 0u);
+  EXPECT_EQ(block.snr_all().count(), 1u);
+}
+
 INSTANTIATE_TEST_SUITE_P(AllRates, FrameDecoderTest,
                          testing::ValuesIn(test::ALL_RATES), test::rate_name);
 }  // namespace

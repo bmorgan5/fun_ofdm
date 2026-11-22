@@ -68,6 +68,16 @@ TEST(PhaseTrackerTest, OutputsTheSameInAnyBatchSize) {
   }
 }
 
+TEST(PhaseTrackerTest, PassesTheSnrOn) {
+  std::vector<tagged_vector<64>> input = rotated_symbols();
+  input[0].snr_db = 21.0;
+  phase_tracker block;
+  std::vector<tagged_vector<48>> output =
+      test::run_block(block, input, input.size());
+  EXPECT_EQ(output[0].snr_db, 21.0);
+  EXPECT_TRUE(std::isnan(output[1].snr_db));
+}
+
 // START_OF_FRAME starts the pilot polarity sequence again.
 TEST(PhaseTrackerTest, RestartsThePilotPolarityForEachFrame) {
   std::vector<tagged_vector<64>> input = rotated_symbols();

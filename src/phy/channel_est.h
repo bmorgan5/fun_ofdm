@@ -15,14 +15,16 @@
  *  subcarrier by subcarrier. This is called equalization. Thanks to the cyclic
  *  prefix (see frame_builder.h), it's one multiply per subcarrier.
  *
- *  The LTS symbols are dropped, and the next symbol, the SIGNAL, is tagged
- *  START_OF_FRAME.
+ *  The two LTS symbols also give the frame's SNR (snr.h). The LTS symbols
+ *  are dropped, and the next symbol, the SIGNAL, is tagged START_OF_FRAME,
+ *  with the SNR in tagged_vector::snr_db.
  */
 
 #ifndef channel_est_H
 #define channel_est_H
 
 #include <complex>
+#include <limits>
 #include <vector>
 
 #include "block.h"
@@ -68,6 +70,12 @@ class channel_est : public fun::block<tagged_vector<64>, tagged_vector<64>> {
    * the frame, or in other words the first symbol after the second LTS symbol.
    */
   bool m_frame_start;
+
+  //! The frame's first LTS symbol, kept for the SNR estimate
+  tagged_vector<64> m_first_lts;
+
+  //! The frame's SNR in dB, for its START_OF_FRAME symbol
+  double m_snr_db = std::numeric_limits<double>::quiet_NaN();
 };
 }  // namespace fun
 

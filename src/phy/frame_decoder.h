@@ -21,6 +21,7 @@
 
 #include "block.h"
 #include "rates.h"
+#include "snr.h"
 #include "tagged_vector.h"
 
 namespace fun {
@@ -110,12 +111,26 @@ class frame_decoder
     return m_crc_failed;
   }
 
+  /*!
+   * \brief The SNR estimates (tagged_vector::snr_db) of the frames so far
+   * whose SIGNAL field was valid, by its rate, whatever their CRC.
+   */
+  const std::array<snr_histogram, RATE_COUNT>& snr() const { return m_snr; }
+
+  /*!
+   * \brief The SNR estimates of every frame whose SIGNAL symbol has arrived
+   * so far, including those whose SIGNAL field failed.
+   */
+  const snr_histogram& snr_all() const { return m_snr_all; }
+
  private:
   FrameData m_current_frame;  //!< Current frame that is being decoded.
 
   std::uint64_t m_signal_failed = 0;                 //!< See signal_failed()
   std::array<std::uint64_t, RATE_COUNT> m_crc_ok{};  //!< See crc_ok()
   std::array<std::uint64_t, RATE_COUNT> m_crc_failed{};  //!< See crc_failed()
+  std::array<snr_histogram, RATE_COUNT> m_snr;           //!< See snr()
+  snr_histogram m_snr_all;                               //!< See snr_all()
 };
 
 }  // namespace fun

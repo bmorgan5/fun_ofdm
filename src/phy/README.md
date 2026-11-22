@@ -198,6 +198,7 @@ what it does, and on the transmit side, how its inverse undoes it.
 | Timing and frequency offset | [timing_sync.h](timing_sync.h) | [timing_sync_test.cpp](timing_sync_test.cpp) |
 | Cutting symbols, FFT | [fft_symbols.h](fft_symbols.h) | [fft_symbols_test.cpp](fft_symbols_test.cpp) |
 | Equalization | [channel_est.h](channel_est.h) | [channel_est_test.cpp](channel_est_test.cpp) |
+| SNR estimate | [snr.h](snr.h) | [snr_test.cpp](snr_test.cpp) |
 | Pilot phase tracking | [phase_tracker.h](phase_tracker.h) | [phase_tracker_test.cpp](phase_tracker_test.cpp) |
 | Decoding | [frame_decoder.h](frame_decoder.h) | [frame_decoder_test.cpp](frame_decoder_test.cpp) |
 | Whole receiver | [receiver_chain.h](receiver_chain.h), [block.h](block.h), [tagged_vector.h](tagged_vector.h) | [receiver_chain_test.cpp](receiver_chain_test.cpp) |

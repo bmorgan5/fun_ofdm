@@ -82,6 +82,7 @@
 #include "frame_detector.h"
 #include "phase_tracker.h"
 #include "rates.h"
+#include "snr.h"
 #include "src/metrics/histogram.h"
 #include "src/metrics/metrics.h"
 #include "tagged_vector.h"
@@ -115,6 +116,10 @@ struct chain_metrics {
   std::array<std::uint64_t, RATE_COUNT> crc_ok{};
   //! frame_decoder::crc_failed(), by #Rate
   std::array<std::uint64_t, RATE_COUNT> crc_failed{};
+
+  //! frame_decoder::snr(): each frame's SNR estimate, by #Rate
+  std::array<snr_histogram, RATE_COUNT> snr{};
+  snr_histogram snr_all;  //!< frame_decoder::snr_all()
 };
 
 /*! \brief The Receiver Chain class.

@@ -14,6 +14,7 @@
 #include <complex>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <vector>
 
 namespace fun {
@@ -53,6 +54,13 @@ struct tagged_vector {
    * each frame ends, for its latency.
    */
   std::uint64_t last_sample = 0;
+
+  /*!
+   * On a START_OF_FRAME symbol, the frame's SNR in dB, which channel_est
+   * estimates from its long training symbols (snr.h) and the blocks after it
+   * pass on. NaN on every other symbol.
+   */
+  double snr_db = std::numeric_limits<double>::quiet_NaN();
 
   /*!
    * \brief Non-initializing constructor for tagged_vector.
