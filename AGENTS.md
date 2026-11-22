@@ -27,6 +27,7 @@ libraries.
 | Install Python and the Python tools' packages | `uv sync` |
 | Test the Python tools, in `tools/` | `uv run pytest` |
 | Test `fun-ofdm` from Python, in `tests/`, after `bazel run install` (as CI) | `uv run pytest tests` |
+| Hardware tests, with a USRP set up (see `hil/README.md`), after `bazel run install` | `uv run pytest hil` |
 | PER vs SNR at every rate (see `tools/per/README.md`) | `uv run tools/per/sweep.py` |
 | The machine, for benchmarking (see `tools/scorecard/README.md`) | `uv run tools/scorecard/hostcheck.py` |
 | The scorecard, about 40 min, after `bazel run install` | `uv run tools/scorecard/scorecard.py --milestone <name> -i` |
@@ -43,7 +44,8 @@ libraries.
 - Builds target the host's architecture by default. `--config=aarch64` and
   `--config=x86_64` cross compile from either host, and `bazel test` and
   `bazel run` then run the other architecture's binaries under qemu.
-- `rx` and `tx` need a USRP. Use `sim` to check a change end to end.
+- `rx`, `tx` and `loopback` need a USRP. Use `sim` to check a change end to
+  end, and the hardware tests (`hil/README.md`) if you have a USRP.
 - If a change touches `MODULE.bazel`, commit the updated `MODULE.bazel.lock`
   with it. Likewise `pyproject.toml` and `uv.lock`.
 
@@ -64,6 +66,8 @@ libraries.
   (`scorecard/`), with their own tests.
 - `tests/`: Python tests of `fun-ofdm` itself, which run the binary, like the
   PER guardrails.
+- `hil/`: hardware tests, which need a USRP, and their pytest fixtures. What
+  they share, which CI tests, is in `tools/hardware/`.
 
 ## Conventions
 

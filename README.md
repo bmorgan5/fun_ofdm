@@ -77,9 +77,9 @@ sudo fun-ofdm tx --channel 36 --bandwidth 20 --gain 25 --phy-rate qam16-1/2
 
 With a two-channel USRP like the B210, `loopback` transmits on one port and
 receives on another port of the same device, and checks every byte, like
-`sim`. By default it transmits on channel A's TX/RX port and receives
-on channel B's (`fun-ofdm loopback --help`). It is recommended to connect the
-two ports with a cable and **at least 30 dB of attenuation**.
+`sim`. Connect the two ports with a cable and **at least 30 dB of
+attenuation**. By default it transmits on channel A's TX/RX port and receives
+on channel B's (`fun-ofdm loopback --help`):
 
 ```bash
 sudo fun-ofdm loopback --packets 1000
@@ -108,12 +108,8 @@ The dev container shares the host's USB bus, so it can use a USRP B210
 plugged into the host: `sudo uhd_usrp_probe` should find it (root, since
 udev doesn't run in a container).
 
-On Windows, first attach the B210 to WSL with
-[usbipd-win](https://learn.microsoft.com/windows/wsl/connect-usb): `usbipd bind`
-and `usbipd attach --wsl --auto-attach` its BUSID. When UHD loads its firmware,
-the B210 reconnects as a USB 3 device, on another BUSID, so bind and attach that
-one too. If `usbipd list` shows it as "Device Descriptor Request Failed", unplug
-it and plug it back in.
+On Windows, attach the B210 to WSL first: see
+[Using a B210 from Windows](#using-a-b210-from-windows).
 
 Common build commands:
 
@@ -129,6 +125,7 @@ bazel build //docs         # The API docs, in bazel-bin/docs/html/ (x86_64 only)
 
 uv run pytest              # The Python tools' tests
 uv run pytest tests        # Tests fun-ofdm from Python, like PER (after bazel run install)
+uv run pytest hil  # The hardware tests, with a USRP (see hil/README.md)
 uv run tools/per/sweep.py  # PER vs SNR at every rate (see tools/per/README.md)
 uv run tools/scorecard/scorecard.py --milestone <name> -i  # The scorecard (see tools/scorecard/README.md)
 ```
@@ -148,6 +145,55 @@ formatting, and have `git blame` skip the reformat commit:
 git config core.hooksPath tools/githooks
 git config blame.ignoreRevsFile .git-blame-ignore-revs
 ```
+
+### Using a B210 from Windows
+
+WSL can't see USB devices by itself: [usbipd-win](https://learn.microsoft.com/windows/wsl/connect-usb)
+forwards them from Windows, one BUSID (USB port) at a time. A B210 needs two:
+when UHD first opens it, UHD loads its firmware, and the B210 reconnects as a
+USB 3 device on another BUSID.
+
+Install usbipd-win once, in PowerShell:
+
+```powershell
+winget install --exact dorssel.usbipd-win
+```
+
+Then, each time the B210 powers up:
+
+1. In PowerShell, find the B210: `2500:0020`, named "WestBridge" until its
+   firmware is loaded.
+
+   ```powershell
+   usbipd list
+   ```
+
+2. Share it, from an Administrator PowerShell (once per BUSID), and attach
+   it. Leave `attach` running: it attaches the B210 again whenever it
+   reconnects.
+
+   ```powershell
+   usbipd bind --busid <busid>
+   usbipd attach --wsl --auto-attach --busid <busid>
+   ```
+
+3. In the dev container, load the firmware. The B210 then reconnects on its
+   other BUSID, so UHD says "No UHD Devices Found".
+
+   ```bash
+   sudo uhd_find_devices
+   ```
+
+4. Run `usbipd list` again, find the B210 on its new BUSID, now named "USRP
+   B200", and share and attach it as in step 2, from a second window.
+
+5. In the dev container, `sudo uhd_usrp_probe` should now say "Operating over
+   USB 3".
+
+If `usbipd list` shows the B210 as "Device Descriptor Request Failed", unplug
+it and plug it back in. If Ctrl+C doesn't stop `attach`, close its window.
+USB/IP is slower than native USB, so record measurements on a Linux machine
+or a Raspberry Pi.
 
 ## Troubleshooting
 

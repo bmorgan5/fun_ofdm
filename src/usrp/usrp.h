@@ -21,7 +21,9 @@
  *  overflows and drops samples.
  *
  *  Each transmit call sends one burst, marked as both the start and the end
- *  of a burst, so the transmitter is only on while it sends a frame.
+ *  of a burst, so the transmitter is only on while it sends a frame. Each
+ *  burst ends with #BURST_TAIL_ZEROS zeros, because a B210 doesn't send the
+ *  last samples of a burst intact.
  *
  *  \bug The constructor starts the RX stream even when the object is only used
  *  to transmit (by transmitter). Nothing reads it, so the device streams
@@ -44,8 +46,11 @@
 
 #include <semaphore.h>
 
+#include <complex>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <vector>
 
 #include <uhd/convert.hpp>
 #include <uhd/stream.hpp>
@@ -54,6 +59,21 @@
 #include "usrp_params.h"
 
 namespace fun {
+/*!
+ * \brief The zeros sent at the end of every burst.
+ *
+ * A B210 doesn't send the last 10 to 25 samples of a burst intact (measured
+ * at 5 MS/s, through a cable from one of its channels to the other). Without
+ * the zeros, that corrupts the end of each frame's last OFDM symbol: BPSK 1/2
+ * still decodes, but almost every QAM16 and QAM64 frame fails its CRC. 64 is
+ * 25 with a margin.
+ *
+ * \todo Measure how many zeros a B210 needs at each bandwidth, and why, then
+ * send only as many as it needs: they delay the end of every transmission,
+ * which will count against the ACK deadline (src/README.md).
+ */
+const std::size_t BURST_TAIL_ZEROS = 64;
+
 /*!
  * \brief What UHD said about a batch of received samples.
  */
@@ -87,7 +107,7 @@ class usrp {
    * \brief Sends one burst, and blocks until the device reports that it has
    * finished.
    * \param samples The burst's baseband samples. They're scaled by
-   * usrp_params::tx_amp first.
+   * usrp_params::tx_amp first, and followed by #BURST_TAIL_ZEROS zeros.
    *
    *  Blocks until the device acknowledges the end of the burst, or until a
    *  second passes without any message from it.
@@ -96,7 +116,8 @@ class usrp {
 
   /*!
    * \brief Sends one burst, without waiting for it to go out.
-   * \param samples The burst's baseband samples, sent unscaled.
+   * \param samples The burst's baseband samples, sent unscaled, and followed
+   * by #BURST_TAIL_ZEROS zeros.
    *
    *  Returns once UHD has taken the samples, which can be before the device
    *  has transmitted them. Nothing calls this today; transmitter uses

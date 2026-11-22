@@ -14,23 +14,18 @@
 #include <atomic>
 #include <chrono>
 #include <complex>
-#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
 #include <format>
-#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <optional>
 #include <span>
-#include <stdexcept>
 #include <stop_token>
-#include <streambuf>
 #include <string>
 #include <thread>
-#include <type_traits>
 #include <vector>
 
 #include <CLI/CLI.hpp>
@@ -41,6 +36,7 @@
 #include "payload.h"
 #include "realtime.h"
 #include "receiver.h"
+#include "run_mode.h"
 #include "src/metrics/tracing.h"
 #include "src/phy/frame_builder.h"
 #include "src/phy/receiver_chain.h"
@@ -81,13 +77,15 @@ static void print_latency(const metrics::histogram& latency) {
  * \brief Transmits data over the air with a USRP.
  * \param opts The tx options
  * \param stop Stops transmitting after the current packet
+ * \param report Writes the run summary, before the USRP is closed
  * \return What the run did.
  *
  * This function sends random data, split into frames with sequence numbers so
  * that the receiver can tell which frames it lost. It sends the amount of data
  * set by --packets or --bytes, or keeps sending until a stop is requested.
  */
-static tx_result run_tx(const tx_options& opts, std::stop_token stop) {
+static tx_result run_tx(const tx_options& opts, std::stop_token stop,
+                        const reporter<tx_result>& report) {
   if (!opts.radio.no_realtime) set_realtime_priority();
 
   usrp radio(to_usrp_params(opts));
@@ -114,6 +112,7 @@ static tx_result run_tx(const tx_options& opts, std::stop_token stop) {
   result.sent = stats.totals();
   result.sent.print("Sent");
 
+  report(result);
   return result;
 }
 
@@ -159,13 +158,15 @@ static void process_packets_callback(
  * \brief Receives frames over the air with a USRP.
  * \param opts The rx options
  * \param stop Stops receiving
+ * \param report Writes the run summary, before the USRP is closed
  * \return What the run did.
  *
  *  This function creates a receiver object, passing it a pointer to the
  * #process_packets_callback() function which is used to process the received
  * packets. It then runs the receiver until a stop is requested.
  */
-static rx_result run_rx(const rx_options& opts, std::stop_token stop) {
+static rx_result run_rx(const rx_options& opts, std::stop_token stop,
+                        const reporter<rx_result>& report) {
   if (!opts.radio.no_realtime) set_realtime_priority();
 
   usrp radio(to_usrp_params(opts));
@@ -188,6 +189,7 @@ static rx_result run_rx(const rx_options& opts, std::stop_token stop) {
     std::cout << "The USRP overflowed " << result.overflows << " times"
               << std::endl;
 
+  report(result);
   return result;
 }
 
@@ -240,6 +242,8 @@ static void print_channel(const sim_options& opts) {
  * \brief Builds frames and runs them through the receiver chain in software.
  * \param opts The sim options
  * \param stop Stops the simulation after the current chunk of samples
+ * \param report Unused: with no USRP to close, run_mode() writes the summary
+ * when this returns
  * \return What the run did. If it was stopped, it has no check of the
  * received data.
  *
@@ -252,7 +256,8 @@ static void print_channel(const sim_options& opts) {
  * It keeps a copy of every frame's data to check against, so its memory grows
  * with the amount of data sent.
  */
-static sim_result run_sim(const sim_options& opts, std::stop_token stop) {
+static sim_result run_sim(const sim_options& opts, std::stop_token stop,
+                          const reporter<sim_result>& /*report*/) {
   // Samples passed to the receiver chain at a time
   const std::size_t CHUNK_SIZE = 4096;
   // Zeros sent at the end to flush the receiver chain
@@ -349,6 +354,7 @@ static const std::chrono::milliseconds LOOPBACK_DRAIN{500};
  * another, and checks every byte received.
  * \param opts The loopback options
  * \param stop Stops sending after the current frame
+ * \param report Writes the run summary, before the USRP is closed
  * \return What the run did. A stopped run has no check of the data.
  *
  * It's sim with a USRP in place of the simulated channel. The main thread
@@ -360,7 +366,8 @@ static const std::chrono::milliseconds LOOPBACK_DRAIN{500};
  * Like sim, it keeps every frame, so its memory grows with the data sent.
  */
 static loopback_result run_loopback(const loopback_options& opts,
-                                    std::stop_token stop) {
+                                    std::stop_token stop,
+                                    const reporter<loopback_result>& report) {
   if (!opts.radio.no_realtime) set_realtime_priority();
 
   loopback_result result;
@@ -446,6 +453,7 @@ static loopback_result run_loopback(const loopback_options& opts,
   if (stop.stop_requested()) {
     std::cout << "Stopped early, so not checking the received data"
               << std::endl;
+    report(result);
     return result;
   }
 
@@ -461,6 +469,7 @@ static loopback_result run_loopback(const loopback_options& opts,
     std::cout << "FAIL: " << lost << " packets lost, " << mismatches
               << " bytes mismatched" << std::endl;
   }
+  report(result);
   return result;
 }
 
@@ -515,96 +524,6 @@ static std::jthread stop_on_signals(std::stop_source stop) {
   });
 }
 
-/*!
- * \brief The process exit code for a tx run: 0, since it only stops when it
- * has sent everything or is asked to.
- */
-static int exit_code(const tx_result&) { return 0; }
-
-/*!
- * \brief The process exit code for an rx run: 0, since it only stops when it
- * is asked to.
- */
-static int exit_code(const rx_result&) { return 0; }
-
-/*!
- * \brief The process exit code for a sim or loopback run: 0 if all the data
- * was received intact or the run was stopped, otherwise 1.
- */
-template <typename Result>
-  requires std::same_as<Result, sim_result> ||
-           std::same_as<Result, loopback_result>
-static int exit_code(const Result& result) {
-  return !result.check || result.check->passed() ? 0 : 1;
-}
-
-/*!
- * \brief Sends what's written to std::cout to stderr instead, until it's
- * destroyed.
- */
-class stdout_to_stderr {
- public:
-  stdout_to_stderr() : m_stdout(std::cout.rdbuf(std::cerr.rdbuf())) {}
-  ~stdout_to_stderr() { std::cout.rdbuf(m_stdout); }
-  stdout_to_stderr(const stdout_to_stderr&) = delete;
-  stdout_to_stderr& operator=(const stdout_to_stderr&) = delete;
-
- private:
-  std::streambuf* m_stdout;  //!< std::cout's buffer, to put back
-};
-
-/*!
- * \brief Runs a mode, and writes its run summary to its --json file, if it has
- * one.
- * \param run The mode's function, which returns its result
- * \param opts The mode's options
- * \param stop Stops the mode
- * \return The process exit code, from exit_code().
- * \throws std::runtime_error if the --json file can't be written.
- *
- * The file is opened before the mode runs, so a bad path fails at once, not
- * after a long run. It's only written once the mode finishes: if the mode
- * throws, the file is left empty.
- *
- * For "-", the summary goes to stdout, and everything else the mode writes to
- * std::cout goes to stderr, so that stdout is only JSON.
- *
- * It also starts the mode's traces, if it has any, and stops them when it
- * ends.
- */
-template <typename Options, std::invocable<const Options&, std::stop_token> Run>
-static int run_mode(Run run, const Options& opts, std::stop_token stop) {
-  std::optional<stdout_to_stderr> redirect;
-  std::ofstream json_file;
-  if (opts.json_file == "-") {
-    redirect.emplace();
-  } else if (opts.json_file) {
-    json_file.open(*opts.json_file);
-    if (!json_file) throw std::runtime_error("Can't open " + *opts.json_file);
-  }
-
-  // Traces end when the mode does, even if it throws
-  struct trace_stopper {
-    ~trace_stopper() { trace::stop(); }
-  } stopper;
-  if constexpr (requires { opts.trace; }) {
-    if (opts.trace.system) trace::start_system();
-    if (opts.trace.file) trace::start_file(*opts.trace.file);
-  }
-
-  std::invoke_result_t<Run, const Options&, std::stop_token> result =
-      run(opts, stop);
-
-  if (opts.json_file) {
-    redirect.reset();
-    std::ostream& out = json_file.is_open() ? json_file : std::cout;
-    // The version is from src/BUILD.bazel
-    out << to_json(FUN_OFDM_VERSION, opts, result) << std::endl;
-    if (!out) throw std::runtime_error("Can't write " + *opts.json_file);
-  }
-  return exit_code(result);
-}
-
 int main(int argc, char* argv[]) {
   CLI::App app("802.11a OFDM PHY for Ettus USRPs", "fun-ofdm");
   app.set_version_flag("--version", FUN_OFDM_VERSION);  // From src/BUILD.bazel
@@ -639,11 +558,15 @@ int main(int argc, char* argv[]) {
   std::jthread signal_waiter = stop_on_signals(stop);
 
   try {
-    if (tx->parsed()) return run_mode(run_tx, tx_opts, stop.get_token());
-    if (rx->parsed()) return run_mode(run_rx, rx_opts, stop.get_token());
+    if (tx->parsed())
+      return run_mode(run_tx, tx_opts, stop.get_token(), FUN_OFDM_VERSION);
+    if (rx->parsed())
+      return run_mode(run_rx, rx_opts, stop.get_token(), FUN_OFDM_VERSION);
     if (loopback->parsed())
-      return run_mode(run_loopback, loopback_opts, stop.get_token());
-    if (sim->parsed()) return run_mode(run_sim, sim_opts, stop.get_token());
+      return run_mode(run_loopback, loopback_opts, stop.get_token(),
+                      FUN_OFDM_VERSION);
+    if (sim->parsed())
+      return run_mode(run_sim, sim_opts, stop.get_token(), FUN_OFDM_VERSION);
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << std::endl;
   }

@@ -86,3 +86,8 @@ Each is flagged with `\bug` where it is:
   batch of samples again (see [usrp/usrp.h](usrp/usrp.h)).
 - **Clock drift:** `rx`'s `recv_delay` drifts with the USRP's clock against
   the host's, over a long run (see [receiver.h](receiver.h)).
+
+`usrp` ends every burst with 64 zeros, because a B210 doesn't send the last 10
+to 25 samples of a burst intact (`BURST_TAIL_ZEROS` in
+[usrp/usrp.h](usrp/usrp.h)). **TODO:** measure how many it needs at each
+bandwidth, and why, then send only that many.
