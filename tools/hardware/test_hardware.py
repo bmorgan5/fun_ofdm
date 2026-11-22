@@ -1,9 +1,14 @@
 import json
+import logging
+import os
 import pathlib
+import re
+import time
 from collections.abc import Sequence
 from typing import Any
 
 import hardware
+import pytest
 
 # uhd_find_devices with one B210 (UHD 4.9).
 ONE_B210 = """\
@@ -389,3 +394,234 @@ def test_writes_the_results(tmp_path: pathlib.Path) -> None:
         "commit 0123456789ab (with uncommitted changes)\n\n"
         "| A |\n| - |\n| 1 |\n"
     )
+
+
+# Fake commands. uhd_find_devices finds a B210 only as root, which the fake
+# sudo pretends to be. `sudo -n true` exits with $SUDO_EXIT: 1 means sudo
+# needs a password.
+FIND_DEVICES = """\
+#!/bin/sh
+if [ "$FAKE_ROOT" = 1 ]; then
+  printf -- '-- UHD Device 0\\n    serial: F571FA\\n    product: B210\\n'
+else
+  echo "[ERROR] [USB] USB open failed: insufficient permissions." >&2
+fi
+"""
+
+SUDO = """\
+#!/bin/sh
+shift  # -n
+[ "$1" = true ] && exit "$SUDO_EXIT"
+FAKE_ROOT=1 exec "$@"
+"""
+
+PROBE = """\
+#!/bin/sh
+echo "Operating over USB $USB."
+"""
+
+
+def fake_uhd(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    sudo_exit: int,
+    root: bool = False,
+    usb: int = 3,
+) -> None:
+    # UHD's tools and sudo, first on the PATH, and one Ettus device on USB.
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for name, script in (
+        ("uhd_find_devices", FIND_DEVICES),
+        ("uhd_usrp_probe", PROBE),
+        ("sudo", SUDO),
+    ):
+        (bin_dir / name).write_text(script)
+        (bin_dir / name).chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("SUDO_EXIT", str(sudo_exit))
+    monkeypatch.setenv("FAKE_ROOT", "1" if root else "0")
+    monkeypatch.setenv("USB", str(usb))
+    monkeypatch.setattr(hardware, "usrps_on_usb", lambda: 1)
+
+
+def test_runs_as_you_when_uhd_can_open_the_usrp(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_uhd(tmp_path, monkeypatch, sudo_exit=1, root=True)
+    run = hardware.Commands()
+    assert hardware.find_usrp(run) == hardware.Usrp("F571FA", "B210")
+    assert not run.sudo
+
+
+def test_uses_sudo_when_uhd_cant_open_the_usrp_as_you(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_uhd(tmp_path, monkeypatch, sudo_exit=0)
+    run = hardware.Commands()
+    assert hardware.find_usrp(run).serial == "F571FA"
+    assert run.sudo
+
+
+def test_says_to_run_sudo_v_when_sudo_needs_a_password(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_uhd(tmp_path, monkeypatch, sudo_exit=1)
+    with pytest.raises(hardware.HardwareError, match="run `sudo -v` first"):
+        hardware.find_usrp(hardware.Commands())
+
+
+def test_refuses_a_usrp_on_usb_2(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_uhd(tmp_path, monkeypatch, sudo_exit=1, root=True, usb=2)
+    with pytest.raises(hardware.HardwareError, match="on USB 2, not USB 3"):
+        hardware.find_usrp(hardware.Commands())
+
+
+def test_says_when_uhd_hangs(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_uhd(tmp_path, monkeypatch, sudo_exit=1, root=True)
+    (tmp_path / "bin" / "uhd_find_devices").write_text("#!/bin/sh\nsleep 10\n")
+    monkeypatch.setattr(hardware, "UHD_TIMEOUT_S", 0.2)
+    with pytest.raises(
+        hardware.HardwareError, match="uhd_find_devices didn't finish"
+    ):
+        hardware.find_usrp(hardware.Commands())
+
+
+def test_a_command_that_hangs_has_no_stdout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(hardware, "UHD_TIMEOUT_S", 0.2)
+    assert hardware.Commands().stdout(["sleep", "10"]) is None
+
+
+# Fake fun-ofdm binaries. Each writes a line, and the last argument is the
+# --json summary's path.
+FINISHES = """\
+#!/bin/sh
+for last; do :; done
+echo "Looping back"
+echo '{"sent": {"packets": 3}}' > "$last"
+exit 1
+"""
+
+CRASHES = """\
+#!/bin/sh
+echo "Error: no USRP"
+exit 3
+"""
+
+# Ignores Ctrl+C, so it has to be killed.
+HANGS = """\
+#!/bin/sh
+trap '' INT
+echo "Hanging"
+while :; do sleep 0.1; done
+"""
+
+
+def run_fake_fun_ofdm(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    script: str,
+) -> hardware.Run:
+    # One run of a fake fun-ofdm, with a 1 s limit.
+    monkeypatch.setattr(hardware, "KILL_AFTER_S", 0.5)
+    monkeypatch.setattr(hardware, "HEARTBEAT_S", 0.3)
+    fun_ofdm = tmp_path / "fun-ofdm"
+    fun_ofdm.write_text(script)
+    fun_ofdm.chmod(0o755)
+    return hardware.run_fun_ofdm(
+        hardware.Commands(), fun_ofdm, "bpsk-1/2", ["loopback"], 1
+    )
+
+
+def test_records_a_run_that_finishes(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    run = run_fake_fun_ofdm(tmp_path, monkeypatch, FINISHES)
+    # It finished even though it exited with 1, which is a failed check
+    assert run.status == hardware.FINISHED
+    assert run.returncode == 1
+    assert run.summary == {"sent": {"packets": 3}}
+    assert run.output == "Looping back\n"
+    assert run.threads == ""
+    assert "bpsk-1/2: finished after" in caplog.text
+
+
+def test_records_a_run_that_crashes(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    run = run_fake_fun_ofdm(tmp_path, monkeypatch, CRASHES)
+    assert run.status == hardware.CRASHED
+    assert run.returncode == 3
+    assert run.summary is None
+    assert run.output == "Error: no USRP\n"
+    assert "bpsk-1/2: crashed with status 3 after" in caplog.text
+
+
+def test_stops_a_run_that_hangs_and_says_where(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    run = run_fake_fun_ofdm(tmp_path, monkeypatch, HANGS)
+    assert run.status == hardware.TIMED_OUT
+    # Killed, since it ignores Ctrl+C
+    assert run.returncode == -9
+    assert run.output == "Hanging\n"
+    assert "fun-ofdm: sleeping" in run.threads
+    assert re.search(r"bpsk-1/2: \d+ s of 1 s", caplog.text)
+    assert "bpsk-1/2: past its 1 s time limit" in caplog.text
+
+
+def test_passes_on_one_ctrl_c_when_interrupted(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # fun-ofdm counts the Ctrl+Cs it gets, without stopping, so it's killed.
+    # The run is interrupted once fun-ofdm is ready, as if by a Ctrl+C in
+    # the terminal.
+    monkeypatch.setattr(hardware, "KILL_AFTER_S", 0.5)
+    count = tmp_path / "count"
+    ready = tmp_path / "ready"
+    fun_ofdm = tmp_path / "fun-ofdm"
+    fun_ofdm.write_text(
+        f"#!/bin/sh\ntrap 'echo INT >> {count}' INT\ntouch {ready}\n"
+        "while :; do sleep 0.05; done\n"
+    )
+    fun_ofdm.chmod(0o755)
+
+    def interrupted(*_: object) -> tuple[str, str, bool]:
+        while not ready.exists():
+            time.sleep(0.01)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(hardware, "wait_for", interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        hardware.run_fun_ofdm(
+            hardware.Commands(), fun_ofdm, "bpsk-1/2", ["loopback"], 10
+        )
+    assert count.read_text() == "INT\n"
+
+
+def test_a_run_is_in_a_session_of_its_own(tmp_path: pathlib.Path) -> None:
+    # So a Ctrl+C in the terminal doesn't reach it as well.
+    fun_ofdm = tmp_path / "fun-ofdm"
+    fun_ofdm.write_text(
+        "#!/bin/sh\nfor last; do :; done\n"
+        'echo "{\\"sid\\": $(ps -o sid= -p $$)}" > "$last"\n'
+    )
+    fun_ofdm.chmod(0o755)
+    run = hardware.run_fun_ofdm(hardware.Commands(), fun_ofdm, "x", [], 10)
+    assert run.summary is not None
+    assert run.summary["sid"] != os.getsid(0)

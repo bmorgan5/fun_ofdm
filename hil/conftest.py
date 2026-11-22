@@ -16,24 +16,13 @@ each test file also writes them, with each run's log, to a directory in DIR
 named after it (test_link_smoke.py to link_smoke/).
 """
 
-import contextlib
-import dataclasses
-import json
 import logging
-import os
 import pathlib
-import signal
-import subprocess
-import tempfile
-import time
 from collections.abc import Callable, Iterator, Sequence
 from typing import Any
 
 import hardware
 import pytest
-
-#: How long UHD's tools may take: uhd_usrp_probe loads the FPGA image.
-UHD_TIMEOUT_S = 120
 
 #: Runs fun-ofdm: a name for the run, the arguments, and a time limit in
 #: seconds.
@@ -41,13 +30,6 @@ FunOfdm = Callable[[str, Sequence[str], float], hardware.Run]
 
 #: Says what the tests are doing as they do it, since a run takes minutes.
 log = logging.getLogger("hil")
-
-#: How often a run says how long it has been running, in seconds.
-HEARTBEAT_S = 15
-
-#: How long fun-ofdm gets to stop after a Ctrl+C at its time limit, before
-#: it's killed.
-KILL_AFTER_S = 10
 
 #: Sends frames from the transmitter to the receiver: a name for
 #: the run, the rate, and how many frames. The run's summary has what was sent
@@ -147,51 +129,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
-@dataclasses.dataclass
-class Runner:
-    """Runs commands, as root with `sudo -n` once the USRP needs it."""
-
-    #: Whether commands run with `sudo -n`, which the usrp fixture decides.
-    sudo: bool = False
-
-    def __call__(
-        self, command: Sequence[str], timeout: float | None = None
-    ) -> subprocess.CompletedProcess[str]:
-        """Runs a command, capturing its output, without checking its status."""
-        return subprocess.run(
-            [*self.prefix, *command],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=timeout,
-        )
-
-    @property
-    def prefix(self) -> list[str]:
-        """What goes before each command: `sudo -n`, or nothing."""
-        return ["sudo", "-n"] if self.sudo else []
-
-    def stdout(self, command: Sequence[str]) -> str | None:
-        """Runs a command, and returns its stdout, or None if it fails.
-
-        It's a hardware.Runner.
-        """
-        done = self(command, timeout=UHD_TIMEOUT_S)
-        return done.stdout if done.returncode == 0 else None
-
-    def send_signal(self, pid: int, sig: signal.Signals) -> None:
-        """Sends a signal to a process, which is root's with sudo."""
-        if self.sudo:
-            self(["kill", f"-{sig.name.removeprefix('SIG')}", str(pid)])
-        else:
-            with contextlib.suppress(ProcessLookupError):
-                os.kill(pid, sig)
-
-
 @pytest.fixture(scope="session")
-def run() -> Runner:
+def run() -> hardware.Commands:
     """Runs commands, as you until the usrp fixture finds it needs root."""
-    return Runner()
+    return hardware.Commands()
 
 
 @pytest.fixture(scope="session")
@@ -241,155 +182,27 @@ def ports(request: pytest.FixtureRequest) -> tuple[str, str]:
     return tx, rx
 
 
-def find_usrps(run: Runner) -> tuple[list[hardware.Usrp], str]:
-    """The USRPs that uhd_find_devices finds, and what it wrote to stderr."""
-    found = run(["uhd_find_devices"], timeout=UHD_TIMEOUT_S)
-    return hardware.parse_find_devices(found.stdout), found.stderr
-
-
 @pytest.fixture(scope="session")
-def usrp(run: Runner) -> hardware.Usrp:
-    """The USRP, checked to be on USB 3.
+def usrp(run: hardware.Commands) -> hardware.Usrp:
+    """The USRP, checked to be on USB 3 (hardware.find_usrp()).
 
-    If UHD can't open a USRP that's on USB, it tries again as root, and from
-    then on runs every command with `sudo -n`.
+    If UHD needs root to open it, every command from then on runs with
+    `sudo -n`.
     """
-    devices, errors = find_usrps(run)
-    on_usb = hardware.usrps_on_usb()
-    if not devices and on_usb:
-        if run(["sudo", "-n", "true"]).returncode != 0:
-            pytest.fail(
-                f"{on_usb} USRP(s) are on USB, but UHD can't open them as you, "
-                "and sudo needs a password: run `sudo -v` first, or install "
-                "UHD's udev rules (hil/README.md)",
-                pytrace=False,
-            )
-        log.info("UHD can't open the USRP as you, so running it with sudo")
-        run.sudo = True
-        devices, errors = find_usrps(run)
-    if not devices:
-        pytest.fail(
-            "UHD found no USRP: plug one in, and in the dev container, attach "
-            "it with usbipd (README.md).\n" + errors,
-            pytrace=False,
-        )
-    usrp = devices[0]
-    log.info("Probing the %s %s", usrp.product, usrp.serial)
-    probe = run(
-        ["uhd_usrp_probe", "--args", f"serial={usrp.serial}"],
-        timeout=UHD_TIMEOUT_S,
-    )
-    version = hardware.usb_version(probe.stdout + probe.stderr)
-    if version != 3:
-        pytest.fail(
-            f"The {usrp.product} {usrp.serial} is on USB {version or '?'}, "
-            "not USB 3: plug it into a USB 3 port, with a USB 3 cable",
-            pytrace=False,
-        )
-    return usrp
-
-
-def stop(
-    process: subprocess.Popen[str], name: str, run: Runner
-) -> tuple[str, str]:
-    """Stops a run that's past its time limit, and says where it was stuck.
-
-    It reads where each of fun-ofdm's threads is waiting, sends it a Ctrl+C,
-    and kills it if it hasn't stopped KILL_AFTER_S seconds later.
-
-    Args:
-        process: The run, which can be `sudo` running fun-ofdm.
-        name: fun-ofdm's file name.
-        run: Runs commands, with sudo if fun-ofdm runs as root.
-
-    Returns:
-        Where each thread was waiting, and the run's output.
-    """
-    pid = hardware.find_process(process.pid, name, run.stdout)
-    if pid is None:
-        pid = process.pid
-        threads = f"No process named {name} under {pid}.\n"
-    else:
-        threads = hardware.thread_states(pid, run.stdout)
-    run.send_signal(pid, signal.SIGINT)
     try:
-        output, _ = process.communicate(timeout=KILL_AFTER_S)
-    except subprocess.TimeoutExpired:
-        run.send_signal(pid, signal.SIGKILL)
-        output, _ = process.communicate()
-    return threads, output
+        return hardware.find_usrp(run)
+    except hardware.HardwareError as error:
+        pytest.fail(str(error), pytrace=False)
 
 
 @pytest.fixture(scope="session")
-def fun_ofdm_json(fun_ofdm: pathlib.Path, run: Runner) -> Iterator[FunOfdm]:
-    """Runs fun-ofdm with a time limit, and records how the run ended.
+def fun_ofdm_json(fun_ofdm: pathlib.Path, run: hardware.Commands) -> FunOfdm:
+    """Runs fun-ofdm with a time limit (hardware.run_fun_ofdm())."""
 
-    A run that passes its limit is stopped (see stop()), and a run that
-    writes no --json summary crashed or rejected its arguments. Either way,
-    the test that asked for the run decides whether that fails it.
-    """
-    with tempfile.TemporaryDirectory() as tmp:
+    def run_it(name: str, args: Sequence[str], limit_s: float) -> hardware.Run:
+        return hardware.run_fun_ofdm(run, fun_ofdm, name, args, limit_s)
 
-        def run_it(
-            name: str, args: Sequence[str], limit_s: float
-        ) -> hardware.Run:
-            summary = pathlib.Path(tmp) / "summary.json"
-            summary.unlink(missing_ok=True)
-            start = time.monotonic()
-            process = subprocess.Popen(
-                [*run.prefix, str(fun_ofdm), *args, "--json", str(summary)],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
-            threads = ""
-            deadline = start + limit_s
-            while True:
-                wait_s = min(HEARTBEAT_S, deadline - time.monotonic())
-                try:
-                    # Calling it again after a timeout loses no output
-                    output, _ = process.communicate(timeout=max(wait_s, 0))
-                    timed_out = False
-                    break
-                except subprocess.TimeoutExpired:
-                    elapsed_s = time.monotonic() - start
-                    if elapsed_s >= limit_s:
-                        log.info(
-                            "%s: past its %g s time limit, so reading its "
-                            "threads and stopping it",
-                            name,
-                            limit_s,
-                        )
-                        threads, output = stop(process, fun_ofdm.name, run)
-                        timed_out = True
-                        break
-                    log.info("%s: %.0f s of %g s", name, elapsed_s, limit_s)
-            seconds = time.monotonic() - start
-            data = None
-            with contextlib.suppress(OSError, ValueError):
-                data = json.loads(summary.read_text())
-            if timed_out:
-                status = hardware.TIMED_OUT
-            elif data is None:
-                status = hardware.CRASHED
-            else:
-                status = hardware.FINISHED
-            ended = status
-            if status == hardware.CRASHED:
-                ended += f" with status {process.returncode}"
-            log.info("%s: %s after %.0f s", name, ended, seconds)
-            return hardware.Run(
-                name=name,
-                status=status,
-                seconds=seconds,
-                limit_s=limit_s,
-                returncode=process.returncode,
-                output=output,
-                summary=data,
-                threads=threads,
-            )
-
-        yield run_it
+    return run_it
 
 
 def tuning_args(radio: dict[str, Any]) -> list[str]:
