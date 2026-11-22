@@ -1,16 +1,22 @@
 """Sweeps on hardware, over the B210 loopback in hil/README.md.
 
     uv run tools/hardware/hardware_sweep.py realtime --out realtime/
+    uv run tools/hardware/hardware_sweep.py per --sim per/ --out per-hardware/
 
 - `realtime`: the highest sample rate the receiver keeps up with. At each of
   802.11a's bandwidths, 5, 10 and 20 MHz, which are also the sample rates, it
   sends frames at BPSK 1/2, the lightest rate to decode, and at QAM64 3/4, the
   heaviest, and receives nothing but noise (`idle`), the receiver's floor,
-  several times each.
+  several times each. Each step records the USRP's overflows, the frames lost,
+  the latency, each block's processing time, and the CPU use of each core,
+  from /proc/stat.
+- `per`: packet error rate against SNR at every rate, against the simulated
+  curves from tools/per/sweep.py. It steps the TX gain 1 dB at a time across
+  each rate's waterfall, and records the PER and the receiver's SNR estimate.
+  SNR follows TX gain one for one, so it fits SNR to TX gain where the
+  estimate is reliable, and uses the fit at every step.
 
-Each step records the USRP's overflows, the frames lost, the latency, each
-block's processing time, and the CPU use of each core, sampled from
-/proc/stat. With --out DIR, it writes them as tools/results/result.py says.
+With --out DIR, each writes its results as tools/results/result.py says.
 """
 
 import argparse
@@ -26,9 +32,11 @@ from typing import Any, Self
 REPO = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "tools" / "results"))
 sys.path.insert(0, str(REPO / "tools" / "scorecard"))
+sys.path.insert(0, str(REPO / "tools" / "per"))
 
 import hardware
 import result
+import sweep as per_sweep
 
 log = logging.getLogger("sweep")
 
@@ -427,8 +435,478 @@ def hardware_runner(
     return run_step
 
 
-def add_radio_options(parser: argparse.ArgumentParser) -> None:
-    """The options every sweep shares: the binary, the radio and the ports."""
+#: The bandwidth per runs at, in MHz: one the receiver keeps up with.
+PER_BANDWIDTH_MHZ = 5.0
+
+#: Frames at each per step, with the simulated curves' payload size.
+PER_FRAMES = 500
+PER_PAYLOAD_SIZE = per_sweep.PAYLOAD_SIZE
+
+#: The TX gain of the calibration step, which finds roughly where each
+#: rate's waterfall is, and its frames.
+CALIBRATION_GAIN = 75.0
+CALIBRATION_FRAMES = 100
+
+#: Each rate starts this many dB either side of its simulated 10% PER point.
+PER_HALF_WIDTH_DB = 5
+
+#: It then adds steps, up to this many at each end, until the PER is at
+#: least PER_TOP at the bottom, and at most PER_BOTTOM at the top.
+PER_MAX_EXTRA = 6
+PER_TOP = 0.9
+PER_BOTTOM = 0.01
+
+#: The B210's TX gain range, in dB.
+TX_GAIN_RANGE = (0.0, 89.0)
+
+#: A step's SNR estimate is reliable enough to fit if at least this
+#: fraction of its frames reached it, and its PER is below FIT_MAX_PER: at
+#: lower SNRs, only the frames that happened to be louder get through, so
+#: the estimate reads high.
+FIT_MIN_ESTIMATED = 0.5
+FIT_MAX_PER = 0.5
+
+#: A fit whose slope is further than this from 1 is flagged in result.md:
+#: SNR should follow TX gain one for one.
+FIT_MAX_SLOPE_ERROR = 0.1
+
+#: The SNR a rate the simulated sweep doesn't have is centred on, if the
+#: sweep has no rate at all: about where every rate up to 16-QAM is.
+FALLBACK_SIM_SNR_DB = 18.0
+
+
+@dataclasses.dataclass(frozen=True)
+class PerStep:
+    """One per step: a rate at a TX gain, and what it measured."""
+
+    rate: str
+    tx_gain: float
+    status: str
+    sent: int
+    lost: int
+    #: The receiver's median SNR estimate for the rate, and how many frames
+    #: it's from (metrics.snr in the --json summary), or None for none.
+    snr_estimate: float | None
+    estimates: int
+    #: How the receiver lost frames (metrics.frames).
+    detected: int
+    sync_lost: int
+    signal_failed: int
+    crc_failed: int
+
+    @property
+    def per(self) -> float:
+        """The packet error rate."""
+        return self.lost / self.sent if self.sent else 1.0
+
+    @property
+    def finished(self) -> bool:
+        """Whether its run finished, so its PER counts: not one that failed."""
+        return self.status == hardware.FINISHED
+
+
+def per_step(
+    rate: str, tx_gain: float, frames: int, run: hardware.Run
+) -> PerStep:
+    """A per step's result, from its run of frames.
+
+    A run without a summary lost every frame, and counts as failed.
+    """
+    summary = run.summary
+    if summary is None:
+        return PerStep(
+            rate,
+            tx_gain,
+            run.status,
+            frames,
+            frames,
+            None,
+            0,
+            0,
+            0,
+            0,
+            0,
+        )
+    sent = summary["sent"]["packets"]
+    received = summary["received"]["packets"]
+    metrics = summary["metrics"]
+    snr = metrics.get("snr", {}).get(rate, {})
+    counters = metrics["frames"]
+    return PerStep(
+        rate=rate,
+        tx_gain=tx_gain,
+        status=run.status,
+        sent=sent,
+        lost=summary.get("lost", sent - received),
+        snr_estimate=snr.get("p50"),
+        estimates=snr.get("count", 0),
+        detected=counters["detected"],
+        sync_lost=counters["sync_lost"],
+        signal_failed=counters["signal_failed"],
+        crc_failed=counters["crc_failed"][rate],
+    )
+
+
+@dataclasses.dataclass(frozen=True)
+class Fit:
+    """SNR against TX gain: SNR = TX gain + offset_db."""
+
+    offset_db: float
+    #: The least-squares slope, which should be about 1, or None with fewer
+    #: than two points.
+    slope: float | None
+    #: The TX gains of the steps it was fitted to.
+    gains: tuple[float, ...]
+
+
+def fit_snr(steps: Sequence[PerStep]) -> Fit | None:
+    """Fits SNR = TX gain + offset to the steps with reliable estimates.
+
+    The offset is the median of their estimates minus their gains, which a
+    single bad step barely moves. The slope is reported, as a check on the
+    assumption that SNR follows TX gain one for one.
+
+    Returns:
+        The fit, or None if no step's estimate is reliable.
+    """
+    reliable = [
+        s
+        for s in steps
+        if s.snr_estimate is not None
+        and s.sent
+        and s.finished
+        and s.per < FIT_MAX_PER
+        and s.estimates >= FIT_MIN_ESTIMATED * s.sent
+    ]
+    if not reliable:
+        return None
+    offset = statistics.median(
+        s.snr_estimate - s.tx_gain
+        for s in reliable
+        if s.snr_estimate is not None
+    )
+    slope = None
+    if len({s.tx_gain for s in reliable}) > 1:
+        slope = statistics.linear_regression(
+            [s.tx_gain for s in reliable],
+            [s.snr_estimate for s in reliable if s.snr_estimate is not None],
+        ).slope
+    return Fit(offset, slope, tuple(s.tx_gain for s in reliable))
+
+
+def points(steps: Sequence[PerStep], fit: Fit) -> list[Any]:
+    """The steps as tools/per/sweep.py's points, at the fitted SNRs.
+
+    A step whose run failed is left out: its PER says nothing about the SNR.
+    """
+    return [
+        per_sweep.Point(
+            snr_db=s.tx_gain + fit.offset_db,
+            sent=s.sent,
+            lost=s.lost,
+            detected=s.detected,
+            sync_lost=s.sync_lost,
+            signal_failed=s.signal_failed,
+            crc_failed=s.crc_failed,
+        )
+        for s in sorted(steps, key=lambda s: s.tx_gain)
+        if s.finished and s.sent
+    ]
+
+
+#: Runs one per step: the rate, the TX gain and the frames → the step.
+PerRunner = Callable[[str, float, int], PerStep]
+
+
+def clamp_gain(gain: float) -> float:
+    """A TX gain within the B210's range."""
+    return min(max(gain, TX_GAIN_RANGE[0]), TX_GAIN_RANGE[1])
+
+
+def per_rate(
+    run_step: PerRunner,
+    rate: str,
+    center: float,
+    on_step: Callable[[list[PerStep]], None] | None = None,
+) -> list[PerStep]:
+    """One rate's steps, across its waterfall, in increasing TX gain.
+
+    It extends the range by the steps at its ends that finished: a failed
+    step's PER says nothing.
+
+    Args:
+        run_step: Runs a step.
+        rate: The --phy-rate.
+        center: The TX gain where its PER should be about 10%.
+        on_step: Gets the steps so far after each one, to save them.
+    """
+    low, high = PER_HALF_WIDTH_DB, PER_HALF_WIDTH_DB
+    gains = sorted(
+        {clamp_gain(round(center) + d) for d in range(-low, high + 1)}
+    )
+    steps: dict[float, PerStep] = {}
+
+    def run(gain: float) -> None:
+        steps[gain] = run_step(rate, gain, PER_FRAMES)
+        if on_step:
+            on_step([steps[g] for g in sorted(steps)])
+
+    for gain in gains:
+        run(gain)
+    if not any(step.finished for step in steps.values()):
+        # Like the USRP gone: more steps would fail too, each at its limit
+        return [steps[g] for g in sorted(steps)]
+    for _ in range(PER_MAX_EXTRA):
+        lowest = min(steps)
+        finished = [steps[g] for g in sorted(steps) if steps[g].finished]
+        if lowest <= TX_GAIN_RANGE[0] or (
+            finished and finished[0].per >= PER_TOP
+        ):
+            break
+        run(lowest - 1)
+    for _ in range(PER_MAX_EXTRA):
+        highest = max(steps)
+        finished = [steps[g] for g in sorted(steps) if steps[g].finished]
+        if highest >= TX_GAIN_RANGE[1] or (
+            finished and finished[-1].per <= PER_BOTTOM
+        ):
+            break
+        run(highest + 1)
+    return [steps[g] for g in sorted(steps)]
+
+
+def simulated_snrs(sim: dict[str, Any]) -> dict[str, float | None]:
+    """Each rate's SNR at 10% PER from a tools/per/sweep.py result.json."""
+    return {
+        rate: curve["snr_at_target_per"] for rate, curve in sim["rates"].items()
+    }
+
+
+def per(
+    run_step: PerRunner,
+    rates: Sequence[str],
+    sim_snrs: dict[str, float | None],
+    on_rate: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
+    """Runs every rate's steps, and works out its curve.
+
+    A calibration step at CALIBRATION_GAIN finds the offset from TX gain to
+    SNR, roughly, so each rate starts around its simulated 10% PER point.
+    on_rate, if given, gets the results so far after each step, to save
+    them: the rate in progress has its steps so far, and no fit yet.
+
+    Returns:
+        The calibration step, and for each rate: its steps, the fit, its SNR
+        at 10% PER, the simulation's, and the difference, its implementation
+        loss.
+    """
+    calibration = run_step(rates[0], CALIBRATION_GAIN, CALIBRATION_FRAMES)
+    if fit_snr([calibration]) is None or calibration.snr_estimate is None:
+        raise hardware.HardwareError(
+            f"At TX gain {CALIBRATION_GAIN:g}, too few frames reached the "
+            f"receiver ({calibration.lost} of {calibration.sent} lost, "
+            f"{calibration.estimates} SNR estimates) to find the SNR: check "
+            "the cable and the gains (hil/README.md)"
+        )
+    curves: dict[str, Any] = {}
+
+    def save(
+        rate: str | None = None, steps: list[PerStep] | None = None
+    ) -> None:
+        if on_rate is None:
+            return
+        found = dict(curves)
+        if rate is not None:
+            found[rate] = curve(steps or [], None, None, sim_snrs.get(rate))
+        on_rate({"calibration": calibration, "rates": found})
+
+    save()
+    offset = calibration.snr_estimate - CALIBRATION_GAIN
+    log.info(
+        "TX gain %g: SNR %.1f dB", CALIBRATION_GAIN, calibration.snr_estimate
+    )
+    for rate in rates:
+        sim_snr = sim_snrs.get(rate)
+        target = (
+            sim_snr
+            if sim_snr is not None
+            else max(
+                (v for v in sim_snrs.values() if v is not None),
+                default=FALLBACK_SIM_SNR_DB,
+            )
+        )
+        steps = per_rate(
+            run_step,
+            rate,
+            target - offset,
+            lambda so_far, rate=rate: save(rate, so_far),
+        )
+        fit = fit_snr(steps)
+        snr = None
+        if fit is not None:
+            snr = per_sweep.snr_at_per(points(steps, fit), per_sweep.TARGET_PER)
+        curves[rate] = curve(steps, fit, snr, sim_snr)
+        save()
+    return {"calibration": calibration, "rates": curves}
+
+
+def curve(
+    steps: list[PerStep],
+    fit: Fit | None,
+    snr: float | None,
+    sim_snr: float | None,
+) -> dict[str, Any]:
+    """One rate's results, as per() returns them."""
+    return {
+        "steps": steps,
+        "fit": fit,
+        "snr_at_target_per": snr,
+        "simulated_snr_at_target_per": sim_snr,
+        "implementation_loss_db": None
+        if snr is None or sim_snr is None
+        else snr - sim_snr,
+    }
+
+
+def sim_problem(sim: dict[str, Any]) -> str | None:
+    """Why a result can't be the simulated curves per compares with, or None.
+
+    It must be a whole tools/per/sweep.py result, with the same payload size
+    and target PER.
+    """
+    if not str(sim.get("provenance", {}).get("tool", "")).startswith(
+        "tools/per/sweep.py"
+    ):
+        return "it isn't a tools/per/sweep.py result"
+    if sim.get("payload_size") != PER_PAYLOAD_SIZE:
+        return f"its payload size isn't {PER_PAYLOAD_SIZE} bytes"
+    if sim.get("target_per") != per_sweep.TARGET_PER:
+        return f"its target PER isn't {per_sweep.TARGET_PER}"
+    return None
+
+
+def per_json(found: dict[str, Any]) -> dict[str, Any]:
+    """per()'s results as JSON, with each step's PER and fitted SNR."""
+
+    def step_json(step: PerStep, fit: Fit | None) -> dict[str, Any]:
+        low, high = per_sweep.wilson_interval(step.lost, step.sent or 1)
+        return {
+            **dataclasses.asdict(step),
+            "per": step.per,
+            "per_low": low,
+            "per_high": high,
+            "snr_db": None if fit is None else step.tx_gain + fit.offset_db,
+        }
+
+    return {
+        "bandwidth_mhz": PER_BANDWIDTH_MHZ,
+        "payload_size": PER_PAYLOAD_SIZE,
+        "frames": PER_FRAMES,
+        "target_per": per_sweep.TARGET_PER,
+        "calibration": dataclasses.asdict(found["calibration"]),
+        "rates": {
+            rate: {
+                "snr_at_target_per": curve["snr_at_target_per"],
+                "simulated_snr_at_target_per": curve[
+                    "simulated_snr_at_target_per"
+                ],
+                "implementation_loss_db": curve["implementation_loss_db"],
+                "fit": None
+                if curve["fit"] is None
+                else dataclasses.asdict(curve["fit"]),
+                "steps": [step_json(s, curve["fit"]) for s in curve["steps"]],
+            }
+            for rate, curve in found["rates"].items()
+        },
+    }
+
+
+def per_table(found: dict[str, Any]) -> str:
+    """result.md's table: each rate's SNR at 10% PER, and its loss."""
+
+    def db(value: float | None, sign: bool = False) -> str:
+        if value is None:
+            return "not reached"
+        return f"{value:+.1f} dB" if sign else f"{value:.1f} dB"
+
+    rows = []
+    for rate, curve in found["rates"].items():
+        fit = curve["fit"]
+        rows.append(
+            {
+                "Rate": rate,
+                "SNR at 10% PER": db(curve["snr_at_target_per"]),
+                "In simulation": db(curve["simulated_snr_at_target_per"]),
+                "Implementation loss": db(
+                    curve["implementation_loss_db"], True
+                ),
+                "TX gain to SNR": "no fit"
+                if fit is None
+                else f"{fit.offset_db:+.1f} dB, slope "
+                + ("?" if fit.slope is None else f"{fit.slope:.2f}")
+                + (
+                    " (not 1: check the fit)"
+                    if fit.slope is not None
+                    and abs(fit.slope - 1) > FIT_MAX_SLOPE_ERROR
+                    else ""
+                ),
+            }
+        )
+    return (
+        f"At {PER_BANDWIDTH_MHZ:g} MHz, {PER_FRAMES} frames of"
+        f" {PER_PAYLOAD_SIZE} bytes a step. Each step's SNR is its TX gain"
+        " plus the rate's offset, fitted to its receiver's estimates.\n\n"
+        + result.markdown_table(rows)
+    )
+
+
+def hardware_per_runner(
+    commands: hardware.Commands,
+    fun_ofdm: pathlib.Path,
+    usrp: hardware.Usrp,
+    radio: dict[str, Any],
+) -> PerRunner:
+    """Runs per steps on the B210, over loopback."""
+    radio = {**radio, "bandwidth_mhz": PER_BANDWIDTH_MHZ}
+
+    def run_step(rate: str, tx_gain: float, frames: int) -> PerStep:
+        frame_s = hardware.frame_seconds(
+            rate, PER_BANDWIDTH_MHZ, PER_PAYLOAD_SIZE
+        )
+        run = hardware.run_fun_ofdm(
+            commands,
+            fun_ofdm,
+            f"{rate} at TX gain {tx_gain:g}",
+            hardware.loopback_args(
+                usrp,
+                {**radio, "tx_gain": tx_gain},
+                rate,
+                frames,
+                payload_size=PER_PAYLOAD_SIZE,
+            ),
+            RUN_START_S + 4 * frame_s * frames,
+        )
+        step = per_step(rate, tx_gain, frames, run)
+        log.info(
+            "%s at TX gain %g: %d of %d lost, SNR %s",
+            rate,
+            tx_gain,
+            step.lost,
+            step.sent,
+            "?" if step.snr_estimate is None else f"{step.snr_estimate:.1f} dB",
+        )
+        return step
+
+    return run_step
+
+
+def add_radio_options(
+    parser: argparse.ArgumentParser, tx_gain: bool = True
+) -> None:
+    """The options every sweep shares: the binary, the radio and the ports.
+
+    per sets the TX gain itself, so it has no --tx-gain.
+    """
     parser.add_argument(
         "--fun-ofdm", type=pathlib.Path, default=hardware.DEFAULT_FUN_OFDM
     )
@@ -445,7 +923,8 @@ def add_radio_options(parser: argparse.ArgumentParser) -> None:
     tuning.add_argument(
         "--freq", type=float, help="in GHz, instead of --channel"
     )
-    parser.add_argument("--tx-gain", type=float, default=80)
+    if tx_gain:
+        parser.add_argument("--tx-gain", type=float, default=80)
     parser.add_argument("--rx-gain", type=float, default=60)
     parser.add_argument(
         "--tx-port",
@@ -462,20 +941,23 @@ def add_radio_options(parser: argparse.ArgumentParser) -> None:
 def radio_settings(args: argparse.Namespace) -> dict[str, Any]:
     """The radio settings from the options, as the hardware tests have them.
 
-    There's no bandwidth: each step sets its own.
+    realtime's have no bandwidth, since each step sets its own, and per's
+    have its bandwidth and no TX gain, which it sweeps.
     """
     tuning = (
         {"freq_ghz": args.freq}
         if args.freq is not None
         else {"channel": args.channel or hardware.DEFAULT_CHANNEL}
     )
-    return {
+    settings = {
         **tuning,
-        "tx_gain": args.tx_gain,
         "rx_gain": args.rx_gain,
         "tx_port": args.tx_port,
         "rx_port": args.rx_port,
     }
+    if args.sweep == "per":
+        return {**settings, "bandwidth_mhz": PER_BANDWIDTH_MHZ}
+    return {**settings, "tx_gain": args.tx_gain}
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -504,6 +986,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=STEP_SECONDS,
         help="how long each step sends frames or receives noise",
     )
+    per_parser = sweeps.add_parser(
+        "per",
+        help="PER vs SNR at every rate, against the simulated curves",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    add_radio_options(per_parser, tx_gain=False)
+    per_parser.add_argument(
+        "--sim",
+        type=pathlib.Path,
+        required=True,
+        metavar="DIR",
+        help="a tools/per/sweep.py --out DIR to compare with",
+    )
+    per_parser.add_argument(
+        "--rates",
+        nargs="+",
+        choices=per_sweep.RATES,
+        default=list(per_sweep.RATES),
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -516,8 +1017,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     if problem:
         parser.error(problem)
-    if args.repetitions < 1 or args.seconds <= 0:
+    if args.sweep == "realtime" and (args.repetitions < 1 or args.seconds <= 0):
         parser.error("--repetitions and --seconds must be positive")
+    sim = None
+    if args.sweep == "per":
+        try:
+            sim = result.read(args.sim)
+        except (OSError, ValueError) as error:
+            parser.error(f"--sim {args.sim}: {error}")
+        problem = sim_problem(sim)
+        if problem:
+            parser.error(f"--sim {args.sim}: {problem}")
 
     commands = hardware.Commands()
     try:
@@ -526,19 +1036,57 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"error: {error}", file=sys.stderr)
         return 2
     radio = radio_settings(args)
-    # Before the sweep, which it describes
-    prov = result.provenance(
-        f"tools/hardware/hardware_sweep.py {args.sweep}",
-        {
+    if args.sweep == "realtime":
+        options = {
             "bandwidths": args.bandwidths,
             "workloads": args.workloads,
             "repetitions": args.repetitions,
             "seconds": args.seconds,
-        },
+        }
+    else:
+        options = {
+            "rates": args.rates,
+            "sim_sha256": result.sha256(args.sim / "result.json"),
+        }
+    # Before the sweep, which it describes
+    prov = result.provenance(
+        f"tools/hardware/hardware_sweep.py {args.sweep}",
+        options,
         {"fun-ofdm": args.fun_ofdm},
         hardware.provenance(usrp, radio),
-        sources=[pathlib.Path(__file__), pathlib.Path(hardware.__file__)],
+        sources=[
+            pathlib.Path(__file__),
+            pathlib.Path(hardware.__file__),
+            REPO / "tools" / "per" / "sweep.py",
+        ],
     )
+    if args.sweep == "per":
+        assert sim is not None
+
+        def save_per(found: dict[str, Any], partial: bool = True) -> None:
+            if args.out:
+                result.write(
+                    args.out,
+                    prov,
+                    {"complete": not partial, **per_json(found)},
+                    "PER vs SNR on hardware"
+                    + (" (partial)" if partial else ""),
+                    per_table(found),
+                )
+
+        try:
+            found = per(
+                hardware_per_runner(commands, args.fun_ofdm, usrp, radio),
+                args.rates,
+                simulated_snrs(sim),
+                save_per,
+            )
+        except hardware.HardwareError as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 2
+        save_per(found, partial=False)
+        print(per_table(found), end="")
+        return 0
 
     def save(records: list[dict[str, Any]], partial: bool = True) -> None:
         if args.out:

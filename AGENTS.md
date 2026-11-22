@@ -30,6 +30,7 @@ libraries.
 | Hardware tests, with a USRP set up (see `hil/README.md`), after `bazel run install` | `uv run pytest hil` |
 | PER vs SNR at every rate (see `tools/per/README.md`) | `uv run tools/per/sweep.py` |
 | The highest sample rate it keeps up with on a B210 (see `tools/hardware/README.md`) | `uv run tools/hardware/hardware_sweep.py realtime` |
+| PER vs SNR on a B210, against simulation (see `tools/hardware/README.md`) | `uv run tools/hardware/hardware_sweep.py per --sim <dir>` |
 | The machine, for benchmarking (see `tools/scorecard/README.md`) | `uv run tools/scorecard/hostcheck.py` |
 | The scorecard, about 40 min, after `bazel run install` | `uv run tools/scorecard/scorecard.py --milestone <name> -i` |
 | Format and lint the Python tools | `uv run ruff format` and `uv run ruff check` |

@@ -146,6 +146,7 @@ def loopback_args(
     rate: str,
     packets: int,
     seed: int = SEED,
+    payload_size: int = PAYLOAD_SIZE,
 ) -> list[str]:
     """fun-ofdm's arguments to send frames over the cable, from tx to rx.
 
@@ -156,6 +157,7 @@ def loopback_args(
         rate: The --phy-rate.
         packets: How many frames.
         seed: The seed of their data.
+        payload_size: Each frame's payload, with its sequence number.
     """
     return [
         "loopback",
@@ -167,6 +169,7 @@ def loopback_args(
         *port_args(PORTS[radio["tx_port"]], PORTS[radio["rx_port"]]),
         f"--phy-rate={rate}",
         f"--packets={packets}",
+        f"--payload-size={payload_size}",
         f"--seed={seed}",
     ]
 

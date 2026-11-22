@@ -1,3 +1,4 @@
+import dataclasses
 import pathlib
 import time
 from collections.abc import Sequence
@@ -292,3 +293,311 @@ def test_main_refuses_impossible_ports(tmp_path: pathlib.Path) -> None:
         sweep.main(
             ["realtime", "--fun-ofdm", str(binary), "--tx-port", "A:RX2"]
         )
+
+
+def loopback_summary(
+    rate: str, sent: int, lost: int, snr: float | None, count: int
+) -> dict[str, Any]:
+    return {
+        "sent": {"packets": sent},
+        "received": {"packets": sent - lost},
+        "lost": lost,
+        "metrics": {
+            "frames": {
+                "detected": sent,
+                "sync_lost": lost,
+                "signal_failed": 0,
+                "crc_failed": {rate: 0},
+            },
+            "snr": {rate: {"count": count, "p50": snr}},
+        },
+    }
+
+
+def test_records_a_per_step() -> None:
+    step = sweep.per_step(
+        "bpsk-1/2",
+        70.0,
+        500,
+        run(
+            hardware.FINISHED, loopback_summary("bpsk-1/2", 500, 50, 22.0, 450)
+        ),
+    )
+    assert step.per == 0.1
+    assert step.snr_estimate == 22.0
+    assert step.estimates == 450
+    assert step.sync_lost == 50
+
+
+def test_a_per_step_without_a_summary_lost_every_frame() -> None:
+    step = sweep.per_step("bpsk-1/2", 70.0, 100, run(hardware.CRASHED, None))
+    assert step.per == 1.0
+    assert (step.sent, step.lost) == (100, 100)
+    assert step.snr_estimate is None
+    assert not step.finished
+
+
+def step(
+    gain: float,
+    lost: int,
+    snr: float | None,
+    estimates: int = 500,
+    status: str = hardware.FINISHED,
+) -> Any:
+    return sweep.PerStep(
+        rate="bpsk-1/2",
+        tx_gain=gain,
+        status=status,
+        sent=500,
+        lost=lost,
+        snr_estimate=snr,
+        estimates=estimates,
+        detected=500,
+        sync_lost=lost,
+        signal_failed=0,
+        crc_failed=0,
+    )
+
+
+def test_fits_snr_to_tx_gain_where_the_estimate_is_reliable() -> None:
+    steps = [
+        # Only a few frames got through, the louder ones: it reads high
+        step(55, 480, 12.0, estimates=20),
+        # Most frames got through, but most were lost
+        step(58, 300, 11.0),
+        step(60, 200, 12.0),
+        step(61, 100, 13.0),
+        step(62, 10, 14.0),
+        step(63, 0, 30.0, status=hardware.CRASHED),
+    ]
+    fit = sweep.fit_snr(steps)
+    assert fit is not None
+    assert fit.offset_db == -48.0
+    assert fit.slope == pytest.approx(1.0)
+    assert fit.gains == (60, 61, 62)
+
+
+def test_cant_fit_without_a_reliable_estimate() -> None:
+    assert sweep.fit_snr([step(55, 500, None, estimates=0)]) is None
+
+
+def test_makes_points_at_the_fitted_snrs() -> None:
+    fit = sweep.Fit(offset_db=-48.0, slope=1.0, gains=(60.0,))
+    points = sweep.points([step(61, 10, 13.0), step(60, 100, 12.0)], fit)
+    assert [p.snr_db for p in points] == [12.0, 13.0]
+    assert [p.lost for p in points] == [100, 10]
+
+
+def test_a_failed_step_doesnt_move_the_crossing() -> None:
+    fit = sweep.Fit(offset_db=-48.0, slope=1.0, gains=(60.0,))
+    steps = [
+        step(60, 150, None),
+        step(61, 60, None),
+        step(62, 500, None, status=hardware.CRASHED),
+        step(63, 25, None),
+    ]
+    points = sweep.points(steps, fit)
+    assert [p.snr_db for p in points] == [12.0, 13.0, 15.0]
+    snr = sweep.per_sweep.snr_at_per(points, 0.1)
+    # Between 13 dB (12%) and 15 dB (5%). With the failed step's 100%, it
+    # would be past 14 dB.
+    assert snr is not None
+    assert 13 < snr < 14
+
+
+def waterfall(rate: str, tx_gain: float, frames: int) -> Any:
+    # A waterfall with 10% PER at TX gain 66, and SNR = TX gain - 48.
+    per = min(1.0, max(0.0, 0.1 * 3 ** (66 - tx_gain)))
+    lost = round(per * frames)
+    return dataclasses.replace(
+        step(tx_gain, lost, tx_gain - 48, estimates=frames - lost),
+        rate=rate,
+        sent=frames,
+    )
+
+
+def test_steps_across_the_waterfall_and_extends_it() -> None:
+    gains: list[float] = []
+
+    def run_step(rate: str, tx_gain: float, frames: int) -> Any:
+        gains.append(tx_gain)
+        return waterfall(rate, tx_gain, frames)
+
+    saved: list[int] = []
+    steps = sweep.per_rate(
+        run_step, "bpsk-1/2", 70, lambda so_far: saved.append(len(so_far))
+    )
+    assert gains[:11] == list(range(65, 76))
+    # Then down until the PER is at least 90%: 64 is 90%
+    assert gains[11:] == [64]
+    assert [s.tx_gain for s in steps] == list(range(64, 76))
+    assert saved == list(range(1, 13))
+
+
+def test_extends_the_waterfall_up_until_the_per_is_about_0() -> None:
+    gains: list[float] = []
+
+    def run_step(rate: str, tx_gain: float, frames: int) -> Any:
+        gains.append(tx_gain)
+        return waterfall(rate, tx_gain, frames)
+
+    sweep.per_rate(run_step, "bpsk-1/2", 62)
+    # 57 to 67, then up until the PER is at most 1%: at 69, 0.1 / 3³
+    assert gains[11:] == [68, 69]
+
+
+def test_stops_at_the_tx_gain_limit() -> None:
+    gains: list[float] = []
+
+    def run_step(rate: str, tx_gain: float, frames: int) -> Any:
+        gains.append(tx_gain)
+        return step(tx_gain, frames, None)  # Nothing gets through
+
+    sweep.per_rate(run_step, "bpsk-1/2", 87)
+    assert max(gains) == sweep.TX_GAIN_RANGE[1]
+    assert gains == sorted(set(gains), key=gains.index)  # No step twice
+
+
+def test_extends_past_a_failed_step_at_the_end() -> None:
+    def run_step(rate: str, tx_gain: float, frames: int) -> Any:
+        if tx_gain == 65:
+            return step(65, frames, None, status=hardware.CRASHED)
+        return waterfall(rate, tx_gain, frames)
+
+    steps = sweep.per_rate(run_step, "bpsk-1/2", 70)
+    # 65 failed, so its PER of 100% doesn't stop it: 64 is 90%
+    assert steps[0].tx_gain == 64
+
+
+def test_measures_each_rates_curve_and_implementation_loss() -> None:
+    found = sweep.per(waterfall, ["bpsk-1/2"], {"bpsk-1/2": 17.0})
+    curve = found["rates"]["bpsk-1/2"]
+    assert curve["fit"].offset_db == -48.0
+    assert curve["snr_at_target_per"] == pytest.approx(18.0)
+    assert curve["implementation_loss_db"] == pytest.approx(1.0)
+    assert found["calibration"].tx_gain == sweep.CALIBRATION_GAIN
+
+
+def test_says_when_no_frame_gets_through() -> None:
+    def nothing(rate: str, tx_gain: float, frames: int) -> Any:
+        return step(tx_gain, frames, None, estimates=0)
+
+    with pytest.raises(hardware.HardwareError, match="too few frames"):
+        sweep.per(nothing, ["bpsk-1/2"], {"bpsk-1/2": 17.0})
+
+
+def test_saves_after_each_step() -> None:
+    saved: list[tuple[list[str], int]] = []
+    found = sweep.per(
+        waterfall,
+        ["bpsk-1/2", "qpsk-1/2"],
+        {"bpsk-1/2": 17.0, "qpsk-1/2": 17.0},
+        lambda found: saved.append(
+            (
+                list(found["rates"]),
+                sum(len(c["steps"]) for c in found["rates"].values()),
+            )
+        ),
+    )
+    steps = sum(len(c["steps"]) for c in found["rates"].values())
+    # The calibration, each step, then each rate when it's done
+    assert saved[0] == ([], 0)
+    assert saved[1] == (["bpsk-1/2"], 1)
+    assert saved[-1] == (["bpsk-1/2", "qpsk-1/2"], steps)
+    assert len(saved) == 1 + steps + 2
+
+
+def test_writes_the_curves_and_a_table() -> None:
+    found = sweep.per(waterfall, ["bpsk-1/2"], {"bpsk-1/2": 17.0})
+    data = sweep.per_json(found)
+    steps = data["rates"]["bpsk-1/2"]["steps"]
+    assert steps[0]["snr_db"] == steps[0]["tx_gain"] - 48
+    assert steps[0]["per_low"] <= steps[0]["per"] <= steps[0]["per_high"]
+    assert data["rates"]["bpsk-1/2"]["fit"]["offset_db"] == -48.0
+    table = sweep.per_table(found)
+    assert "| bpsk-1/2 | 18.0 dB" in table
+    assert "+1.0 dB" in table
+
+
+def test_reads_the_simulated_snrs() -> None:
+    sim = {"rates": {"bpsk-1/2": {"snr_at_target_per": 18.1}}}
+    assert sweep.simulated_snrs(sim) == {"bpsk-1/2": 18.1}
+
+
+def test_per_needs_the_simulated_curves(tmp_path: pathlib.Path) -> None:
+    binary = tmp_path / "fun-ofdm"
+    binary.touch()
+    with pytest.raises(SystemExit):
+        sweep.main(["per", "--fun-ofdm", str(binary)])
+
+
+def test_flags_a_fit_whose_slope_isnt_1() -> None:
+    found = sweep.per(waterfall, ["bpsk-1/2"], {"bpsk-1/2": 17.0})
+    assert "check the fit" not in sweep.per_table(found)
+    fit = found["rates"]["bpsk-1/2"]["fit"]
+    found["rates"]["bpsk-1/2"]["fit"] = dataclasses.replace(fit, slope=0.8)
+    assert "slope 0.80 (not 1: check the fit)" in sweep.per_table(found)
+
+
+SIM = {
+    "provenance": {"tool": "tools/per/sweep.py"},
+    "payload_size": 1000,
+    "target_per": 0.1,
+    "rates": {},
+}
+
+
+def test_takes_a_simulated_sweep_with_the_same_frames() -> None:
+    assert sweep.sim_problem(SIM) is None
+    assert "isn't a tools/per/sweep.py" in str(
+        sweep.sim_problem({**SIM, "provenance": {"tool": "other"}})
+    )
+    assert "payload size" in str(
+        sweep.sim_problem({**SIM, "payload_size": 1500})
+    )
+    assert "target PER" in str(sweep.sim_problem({**SIM, "target_per": 0.01}))
+
+
+def test_pers_radio_settings_have_its_bandwidth_and_no_tx_gain() -> None:
+    namespace = sweep.argparse.Namespace(
+        sweep="per",
+        freq=None,
+        channel=40,
+        rx_gain=50.0,
+        tx_port="B:TX/RX",
+        rx_port="B:RX2",
+    )
+    assert sweep.radio_settings(namespace) == {
+        "channel": 40,
+        "rx_gain": 50.0,
+        "tx_port": "B:TX/RX",
+        "rx_port": "B:RX2",
+        "bandwidth_mhz": sweep.PER_BANDWIDTH_MHZ,
+    }
+
+
+def test_stops_a_rate_whose_steps_all_fail() -> None:
+    gains: list[float] = []
+
+    def failing(rate: str, tx_gain: float, frames: int) -> Any:
+        gains.append(tx_gain)
+        return step(tx_gain, frames, None, status=hardware.CRASHED)
+
+    sweep.per_rate(failing, "bpsk-1/2", 70)
+    assert len(gains) == 2 * sweep.PER_HALF_WIDTH_DB + 1
+
+
+def test_leaves_a_step_that_sent_nothing_out_of_the_curve() -> None:
+    fit = sweep.Fit(offset_db=-48.0, slope=1.0, gains=(60.0,))
+    empty = dataclasses.replace(step(62, 0, None), sent=0)
+    assert [
+        p.snr_db for p in sweep.points([step(61, 10, 13.0), empty], fit)
+    ] == [13.0]
+
+
+def test_needs_a_reliable_calibration() -> None:
+    def mostly_lost(rate: str, tx_gain: float, frames: int) -> Any:
+        return step(tx_gain, frames - 1, 30.0, estimates=1)
+
+    with pytest.raises(hardware.HardwareError, match="too few frames"):
+        sweep.per(mostly_lost, ["bpsk-1/2"], {"bpsk-1/2": 17.0})
